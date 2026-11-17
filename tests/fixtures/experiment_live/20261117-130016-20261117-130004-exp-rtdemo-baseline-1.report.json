@@ -1,0 +1,158 @@
+{
+ "task": "A-control",
+ "period_us": 10000.0,
+ "deadline_us": 10000.0,
+ "cycles": 999,
+ "misses": 310,
+ "miss_rate": 0.3103103103103103,
+ "miss_chains": 99,
+ "longest_chain": 4,
+ "response_us": {
+  "count": 999,
+  "min": 1067.4,
+  "max": 37055.0,
+  "mean": 10026.473673673672,
+  "stddev": 12193.559600075698,
+  "p50": 2032.5,
+  "p99": 36942.6
+ },
+ "parts_us": {
+  "backlog": {
+   "count": 999,
+   "min": 0.0,
+   "max": 27055.0,
+   "mean": 5161.604804804805,
+   "stddev": 8880.279661475925,
+   "p50": 0.0,
+   "p99": 26942.6
+  },
+  "latency": {
+   "count": 999,
+   "min": 7.4,
+   "max": 3401.9,
+   "mean": 154.34854854854856,
+   "stddev": 291.4443297659917,
+   "p50": 72.5,
+   "p99": 1043.9
+  },
+  "lock_wait": {
+   "count": 999,
+   "min": 0.1,
+   "max": 35983.3,
+   "mean": 3697.3303303303305,
+   "stddev": 10479.766019469796,
+   "p50": 1.4,
+   "p99": 35863.6
+  },
+  "exec": {
+   "count": 999,
+   "min": 1007.3,
+   "max": 1532.8,
+   "mean": 1012.2721721721722,
+   "stddev": 19.519277870735415,
+   "p50": 1009.2,
+   "p99": 1052.8
+  },
+  "preempted": {
+   "count": 999,
+   "min": 0.0,
+   "max": 71.0,
+   "mean": 2.065065065065083,
+   "stddev": 4.495341907979914,
+   "p50": 1.8999999999998636,
+   "p99": 26.399999999999864
+  }
+ },
+ "exec_budget_us": 1009.2,
+ "chain_root_causes": {
+  "lock_wait": 99
+ },
+ "per_miss_primary_cause": {
+  "lock_wait": 99,
+  "backlog": 211
+ },
+ "worst_chains": [
+  {
+   "first_release_us": 7010000.0,
+   "misses": 4,
+   "root_cause": "lock_wait",
+   "root": {
+    "response_us": 37055.0,
+    "backlog_us": 0.0,
+    "latency_us": 62.1,
+    "lock_wait_us": 35983.3,
+    "exec_us": 1015.7,
+    "preempted_us": 0.0
+   },
+   "worst_response_us": 37055.0
+  },
+  {
+   "first_release_us": 7310000.0,
+   "misses": 4,
+   "root_cause": "lock_wait",
+   "root": {
+    "response_us": 36994.3,
+    "backlog_us": 0.0,
+    "latency_us": 69.4,
+    "lock_wait_us": 35914.7,
+    "exec_us": 1015.6,
+    "preempted_us": 0.0
+   },
+   "worst_response_us": 36994.3
+  },
+  {
+   "first_release_us": 3910000.0,
+   "misses": 4,
+   "root_cause": "lock_wait",
+   "root": {
+    "response_us": 36993.9,
+    "backlog_us": 0.0,
+    "latency_us": 70.1,
+    "lock_wait_us": 35914.3,
+    "exec_us": 1015.6,
+    "preempted_us": 0.0
+   },
+   "worst_response_us": 36993.9
+  },
+  {
+   "first_release_us": 6010000.0,
+   "misses": 4,
+   "root_cause": "lock_wait",
+   "root": {
+    "response_us": 36987.7,
+    "backlog_us": 0.0,
+    "latency_us": 62.0,
+    "lock_wait_us": 35915.1,
+    "exec_us": 1016.8,
+    "preempted_us": 0.0
+   },
+   "worst_response_us": 36987.7
+  },
+  {
+   "first_release_us": 4710000.0,
+   "misses": 4,
+   "root_cause": "lock_wait",
+   "root": {
+    "response_us": 36978.6,
+    "backlog_us": 0.0,
+    "latency_us": 70.0,
+    "lock_wait_us": 35898.0,
+    "exec_us": 1016.3,
+    "preempted_us": 0.0
+   },
+   "worst_response_us": 36978.6
+  }
+ ],
+ "summary": "A-control: 310 of 999 cycles missed the 10 ms deadline (31.0%); worst response 37.1 ms, 99th percentile 36.9 ms, mean 10.03 ms. The misses form 99 run(s) of consecutive misses (longest 4); what started each run: waiting for a lock (99).",
+ "cross_check": {
+  "checked": true,
+  "agrees": true,
+  "problems": []
+ },
+ "qbridged_check": {
+  "checked": true,
+  "slot": 1,
+  "agrees": true,
+  "problems": []
+ }
+}

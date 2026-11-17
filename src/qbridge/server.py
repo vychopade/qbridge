@@ -12,7 +12,7 @@ import sys
 import traceback
 from typing import Any, Callable
 
-from . import __version__, tools
+from . import __version__, experiments, tools
 from .policy import Policy, PolicyError
 from .qnxenv import QnxEnvError
 from .target import Target, TargetError
@@ -159,6 +159,65 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
             tools.diagnose(s, program, seconds, snapshots, run_id),
         False,
     ),
+    "qnx_experiment_start": (
+        "Start a measured fix experiment: build the project's current source (the baseline), "
+        "deploy it, and measure the workload `repeats` times with a fixed length. Keeps the "
+        "baseline binary and source for rollback. Needs write access.",
+        _schema({
+            "program": {"type": "string", "description": "Workload name on the target, e.g. rtdemo"},
+            "project_dir": {"type": "string", "description": "Host folder with its Makefile"},
+            "binary": {"type": "string", "description": "Built binary relative to project_dir"},
+            "seconds": {"type": "integer"}, "repeats": {"type": "integer"},
+            "args": {"type": "array", "items": {"type": "string"}},
+        }, ["program", "project_dir"]),
+        lambda s, program, project_dir, binary=None, seconds=10, repeats=3, args=None:
+            experiments.start(s, program, project_dir, binary, seconds, repeats, args),
+        True,
+    ),
+    "qnx_experiment_propose": (
+        "Propose one change for an experiment: an exact text replacement in one source file "
+        "of the project (the 'find' text must occur exactly once). Returns the diff. The change "
+        "is NOT applied: a person must approve it by running 'qbridge experiment approve <id>' "
+        "in a terminal. There is no tool to approve; ask the user.",
+        _schema({
+            "experiment_id": {"type": "string"}, "file": {"type": "string"},
+            "find": {"type": "string"}, "replace": {"type": "string"},
+            "description": {"type": "string", "description": "What the change does and why"},
+            "diagnosis_id": {"type": "string", "description": "Diagnosis this change addresses"},
+        }, ["experiment_id", "file", "find", "replace", "description"]),
+        lambda s, experiment_id, file, find, replace, description, diagnosis_id=None:
+            experiments.propose(s, experiment_id, file, find, replace, description, diagnosis_id),
+        False,
+    ),
+    "qnx_experiment_run": (
+        "After a person approved the change: apply it, rebuild, redeploy under the same name, "
+        "rerun the identical workload, and compare with the baseline (misses and worst-case "
+        "response first). Says 'inconclusive' when the runs overlap. Needs write access.",
+        _schema({"experiment_id": {"type": "string"}}, ["experiment_id"]),
+        lambda s, experiment_id: experiments.run(s, experiment_id),
+        True,
+    ),
+    "qnx_experiment_rollback": (
+        "Undo an experiment: restore the source files and redeploy the saved baseline binary, "
+        "then check the target's binary sha256 matches the baseline. Needs write access.",
+        _schema({"experiment_id": {"type": "string"}}, ["experiment_id"]),
+        lambda s, experiment_id: experiments.rollback(s, experiment_id),
+        True,
+    ),
+    "qnx_experiment_keep": (
+        "Keep a measured experiment's change applied.",
+        _schema({"experiment_id": {"type": "string"}}, ["experiment_id"]),
+        lambda s, experiment_id: experiments.keep(s, experiment_id),
+        False,
+    ),
+    "qnx_experiment_show": (
+        "Show an experiment (or list all when no id is given): state, baseline and candidate "
+        "runs, the diff, who approved it and when, the comparison and its history.",
+        _schema({"experiment_id": {"type": "string"}}),
+        lambda s, experiment_id=None: (experiments.show(experiment_id) if experiment_id
+                                       else {"experiments": experiments.list_all()}),
+        False,
+    ),
     "qnx_runs": (
         "List saved measurement runs, newest first: label, misses, worst response.",
         _schema({"limit": {"type": "integer"}}),
@@ -207,7 +266,8 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
     ),
 }
 
-_EXPECTED_ERRORS = (TargetError, PolicyError, QnxEnvError, FileNotFoundError, ValueError, TypeError)
+_EXPECTED_ERRORS = (TargetError, PolicyError, QnxEnvError, FileNotFoundError, ValueError, TypeError,
+                    experiments.ExperimentError)
 
 
 class Server:

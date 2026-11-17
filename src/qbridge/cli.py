@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-from . import tools
+from . import experiments, tools
 from .policy import Policy, PolicyError
 from .qnxenv import QnxEnvError
 from .target import Target, TargetError
@@ -88,6 +88,30 @@ def build_parser() -> argparse.ArgumentParser:
     ii = im_sub.add_parser("install", help="add qbridged to the image so it starts at boot")
     ii.add_argument("--binary", help="qbridged binary (default: target/qbridged/build/qbridged)")
 
+    ex = sub.add_parser("experiment", help="measured fix experiments (baseline, change, compare)")
+    ex_sub = ex.add_subparsers(dest="exp_command", required=True)
+    es = ex_sub.add_parser("start", help="build and measure the baseline (needs --allow-write)")
+    es.add_argument("program")
+    es.add_argument("--project", required=True, help="source folder with the Makefile")
+    es.add_argument("--binary", help="built binary, relative to the project (default build/<program>)")
+    es.add_argument("--seconds", type=int, default=10)
+    es.add_argument("--repeats", type=int, default=3)
+    es.add_argument("args", nargs="*", help="extra workload arguments, after --")
+    ep = ex_sub.add_parser("propose", help="propose one exact text replacement")
+    ep.add_argument("experiment_id")
+    ep.add_argument("--file", required=True)
+    ep.add_argument("--find", required=True)
+    ep.add_argument("--replace", required=True)
+    ep.add_argument("--description", required=True)
+    ea = ex_sub.add_parser("approve", help="a person approves the proposed change (interactive)")
+    ea.add_argument("experiment_id")
+    for name, text in (("run", "apply the approved change, rebuild, rerun, compare"),
+                       ("rollback", "restore the source and redeploy the baseline binary"),
+                       ("keep", "keep the measured change"), ("show", "show an experiment")):
+        x = ex_sub.add_parser(name, help=text)
+        x.add_argument("experiment_id")
+    ex_sub.add_parser("list", help="list experiments")
+
     sv = sub.add_parser("serve", help="run as an MCP server on stdio")
     # Also accepted after 'serve', which is how MCP client configs usually read.
     sv.add_argument("--allow-write", dest="serve_allow_write", action="store_true",
@@ -127,10 +151,58 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return tools.crashes(s)
         case "crash":
             return tools.crash_report(s, a.core, a.binary)
+        case "experiment":
+            return experiment_command(s, a)
         case "image":
             from . import image
             return image.install_qbridged(s.target.image_dir, a.binary)
     raise ValueError(f"unknown command {a.command}")
+
+
+def approve_interactively(exp_id: str, stdin=None, stdout=None) -> dict:
+    """Show the proposed diff and ask a person to type 'yes'.
+
+    This is the only way to approve a change. It refuses to run without an
+    interactive terminal, so a script or an AI assistant driving qbridge
+    cannot approve its own proposal.
+    """
+    stdin = stdin or sys.stdin
+    stdout = stdout or sys.stderr
+    if not stdin.isatty():
+        raise PolicyError("approval must be typed by a person in an interactive terminal")
+    e = experiments.load(exp_id)
+    p = e.get("proposal")
+    if not p:
+        raise experiments.ExperimentError("this experiment has no proposed change")
+    print(f"Experiment {exp_id}: {e['program']} in {e['project_dir']}", file=stdout)
+    print(f"Proposed change: {p['description']}\n", file=stdout)
+    print(p["diff"], file=stdout)
+    print("This will edit the file above, rebuild, redeploy and rerun the workload "
+          f"({e['workload']['repeats']} x {e['workload']['seconds']} s).", file=stdout)
+    print("Type yes to approve, anything else to decline: ", end="", file=stdout, flush=True)
+    answer = stdin.readline()
+    return experiments.approve(exp_id, answer, "qbridge CLI prompt")
+
+
+def experiment_command(s: tools.Session, a: argparse.Namespace) -> dict:
+    match a.exp_command:
+        case "start":
+            return experiments.start(s, a.program, a.project, a.binary, a.seconds, a.repeats, a.args)
+        case "propose":
+            return experiments.propose(s, a.experiment_id, a.file, a.find, a.replace, a.description)
+        case "approve":
+            return approve_interactively(a.experiment_id)
+        case "run":
+            return experiments.run(s, a.experiment_id)
+        case "rollback":
+            return experiments.rollback(s, a.experiment_id)
+        case "keep":
+            return experiments.keep(s, a.experiment_id)
+        case "show":
+            return experiments.show(a.experiment_id)
+        case "list":
+            return {"experiments": experiments.list_all()}
+    raise ValueError(a.exp_command)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -142,7 +214,8 @@ def main(argv: list[str] | None = None) -> int:
     s = tools.Session(Target.from_env(), Policy.from_env(a.allow_write))
     try:
         out = dispatch(s, a)
-    except (TargetError, PolicyError, QnxEnvError, FileNotFoundError, ValueError) as e:
+    except (TargetError, PolicyError, QnxEnvError, FileNotFoundError, ValueError,
+            experiments.ExperimentError) as e:
         print(json.dumps({"error": str(e), "type": type(e).__name__}), file=sys.stderr)
         return 1
     print(json.dumps(out, indent=2))

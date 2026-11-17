@@ -82,10 +82,43 @@ For the fixed build it reports no inversion ("this does not prove there is none;
 
 Confidence is high when at least three independent pieces of evidence agree: holder below the waiter, a middle-priority thread running, the PRIO_NONE flag, and lock-rooted deadline misses. With fewer it is medium or low, and the fix suggestion becomes more cautious. Diagnoses are saved under `~/.qbridge/diagnoses/` with the snapshots that support them.
 
+## Experiments: test a fix and measure it
+
+```
+qbridge --allow-write experiment start rtdemo --project examples\rtdemo --repeats 3
+qbridge experiment propose <id> --file rtdemo.c --find "<old line>" --replace "<new line>" --description "<why>"
+qbridge experiment approve <id>          # a person, at an interactive prompt
+qbridge --allow-write experiment run <id>
+qbridge --allow-write experiment rollback <id>    # or: experiment keep <id>
+```
+
+The same steps are MCP tools (`qnx_experiment_start`, `_propose`, `_run`, `_rollback`, `_keep`, `_show`). The flow:
+
+- **Start** builds the current source as the baseline, deploys it, measures the workload N times, and keeps the baseline binary and source files for rollback.
+- **Propose** a single exact text replacement in one file of the project. It is shown as a diff and not applied.
+- **Approve** has no MCP tool. `qbridge experiment approve` shows the diff and accepts only `yes` typed at an interactive terminal, so an assistant cannot approve its own change. The approval is tied to the diff's sha256; changing the proposal needs a new approval.
+- **Run** applies the change, rebuilds (reverting the edit if the build fails), redeploys under the same name, and reruns the identical workload.
+- **Compare** puts misses and worst-case response first. "improved" or "worse" means *every* run on one side beat every run on the other; overlapping results are reported as **inconclusive**.
+- **Rollback** restores the source and redeploys the saved baseline binary, then checks the target's binary sha256 matches the baseline.
+
+Live on the reference target (Nov 17, 2026), with the change approved by a person at the prompt:
+
+| | Baseline (`PTHREAD_PRIO_NONE`) | Candidate (`PTHREAD_PRIO_INHERIT`) |
+|---|---|---|
+| Misses (3 runs, 999 cycles each) | 310, 304, 302 | 0, 0, 0 |
+| Worst response | 37.0–37.1 ms | 4.1–5.4 ms |
+| 99th percentile | 36.3–36.9 ms | 3.7–3.9 ms |
+| Worst lock wait | 35.9–36.0 ms | 2.9 ms |
+
+> Verdict: improved. Every run after the change beat every run before it. ... No deadline was missed after the change. Based on 3 + 3 finite runs on this target; this does not prove a worst case, and virtual-machine timing adds noise.
+
+The experiment was then rolled back (the target's binary matched the baseline sha256 again), so the demo keeps its planted fault. The full record is in `tests/fixtures/experiment_live/`.
+
 ## Guard rails
 
 - **Read-only by default.** `deploy` and `run` are refused unless qbridge was started with `--allow-write` (or `QBRIDGE_ALLOW_WRITE=1`). The assistant cannot switch this on itself.
 - **One deploy folder.** Files can only be copied to, and programs only run from, `/data/qbridge` on the target. Paths like `../../proc/boot/ksh` are rejected.
+- **A person approves every source change.** Experiments apply a change only after `qbridge experiment approve`, which needs `yes` typed at an interactive terminal and has no MCP equivalent. Changes are limited to files inside the experiment's project folder, and rollback restores both source and binary.
 - **Only its own processes.** `kill` checks each process's program path and refuses anything outside the deploy folder, so the assistant cannot signal system services.
 - **Time limits.** Programs run under QNX's `timeout`, background ones included, so a hung program cannot hang the assistant or outlive the session.
 

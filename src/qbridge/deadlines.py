@@ -220,6 +220,64 @@ def compare(before: dict, after: dict) -> dict:
     return out
 
 
+def compare_sets(before: list[dict], after: list[dict]) -> dict:
+    """Compare repeated runs before and after a change.
+
+    Worst case and misses come first. "improved" or "worse" is claimed only
+    when every run on one side beats every run on the other on both misses
+    and worst response; anything else is "inconclusive". Never a proof.
+    """
+    def col(reps, f):
+        return [f(r) for r in reps]
+
+    bm, am = col(before, lambda r: r["misses"]), col(after, lambda r: r["misses"])
+    bw, aw = col(before, lambda r: r["response_us"]["max"]), col(after, lambda r: r["response_us"]["max"])
+    bp, ap = col(before, lambda r: r["response_us"]["p99"]), col(after, lambda r: r["response_us"]["p99"])
+    bl, al = (col(before, lambda r: r["parts_us"]["lock_wait"]["max"]),
+              col(after, lambda r: r["parts_us"]["lock_wait"]["max"]))
+    deadline = after[0]["deadline_us"] if after else before[0]["deadline_us"]
+
+    def rng(v):
+        return {"runs": v, "min": min(v), "max": max(v)}
+
+    out = {
+        "runs_before": len(before), "runs_after": len(after),
+        "misses": {"before": rng(bm), "after": rng(am)},
+        "worst_response_us": {"before": rng(bw), "after": rng(aw)},
+        "p99_response_us": {"before": rng(bp), "after": rng(ap)},
+        "worst_lock_wait_us": {"before": rng(bl), "after": rng(al)},
+        "deadline_us": deadline,
+    }
+    better = max(am) < min(bm) and max(aw) < min(bw)
+    worse = min(am) > max(bm) and min(aw) > max(bw)
+    no_change_in_misses = max(am) == min(bm) == max(bm) == min(am)
+    if better:
+        verdict = "improved"
+        text = (f"Every run after the change beat every run before it. Misses: "
+                f"{min(bm)}-{max(bm)} before, {min(am)}-{max(am)} after; worst response "
+                f"{min(bw) / 1000:.1f}-{max(bw) / 1000:.1f} ms before, "
+                f"{min(aw) / 1000:.1f}-{max(aw) / 1000:.1f} ms after.")
+        if max(am) == 0 and max(aw) < deadline:
+            text += " No deadline was missed after the change."
+    elif worse:
+        verdict = "worse"
+        text = (f"Every run after the change was worse: misses {min(bm)}-{max(bm)} before, "
+                f"{min(am)}-{max(am)} after.")
+    else:
+        verdict = "inconclusive"
+        text = ("The before and after runs overlap"
+                + (" (no misses either way)" if no_change_in_misses and max(am) == 0 else "")
+                + f": misses {min(bm)}-{max(bm)} before vs {min(am)}-{max(am)} after, worst "
+                  f"response {min(bw) / 1000:.1f}-{max(bw) / 1000:.1f} ms vs "
+                  f"{min(aw) / 1000:.1f}-{max(aw) / 1000:.1f} ms. These measurements do not "
+                  "show a clear difference.")
+    text += (f" Based on {len(before)} + {len(after)} finite runs on this target; this does not "
+             "prove a worst case, and virtual-machine timing adds noise.")
+    out["verdict"] = verdict
+    out["explanation"] = text
+    return out
+
+
 def cross_check(report: dict, summary: dict | None) -> dict:
     """Compare qbridge's statistics with the program's own summary line."""
     if not summary:
