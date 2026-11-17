@@ -1,0 +1,3 @@
+C:\Users\dev\qnx800\host\win64\x86_64\usr\bin\x86_64-pc-nto-qnx8.0.0-ld: C:\Users\dev\AppData\Local\Temp\2qccjvKTai\linkfail.o: in function `main':
+linkfail.c:(.text+0x5): undefined reference to `not_defined_anywhere'
+cc: C:/Users/dev/qnx800/host/win64/x86_64/usr/bin/x86_64-pc-nto-qnx8.0.0-ld caught signal 1

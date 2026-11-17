@@ -7,9 +7,18 @@ def test_ssh_args_force_mac_and_batch_mode():
     t = Target(host="192.0.2.10", key=Path("k"))
     args = t.ssh_args("pidin")
     assert args[0] == "ssh"
-    assert args[args.index("-m") + 1] == SSH_MAC == "hmac-sha2-256"
+    assert "MACs=hmac-sha2-256" in args and SSH_MAC == "hmac-sha2-256"
     assert "BatchMode=yes" in args
     assert args[-2:] == ["root@192.0.2.10", "pidin"]
+
+
+def test_scp_args_use_same_options():
+    t = Target(host="192.0.2.10", key=Path("k"), port=2222)
+    args = t.scp_args("build/hello", "/data/qbridge/hello")
+    assert args[0] == "scp"
+    assert "MACs=hmac-sha2-256" in args
+    assert args[args.index("-P") + 1] == "2222"
+    assert args[-2:] == ["build/hello", "root@192.0.2.10:/data/qbridge/hello"]
 
 
 def test_from_env(monkeypatch):

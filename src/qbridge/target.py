@@ -80,18 +80,40 @@ class Target:
 
     # -- ssh ---------------------------------------------------------------
 
-    def ssh_args(self, remote_command: str) -> list[str]:
+    def _common_opts(self) -> list[str]:
+        # Shared by ssh and scp. MACs is set with -o so scp accepts it too.
         return [
-            "ssh",
             "-i", str(self.key),
-            "-p", str(self.port),
-            "-m", SSH_MAC,
+            "-o", f"MACs={SSH_MAC}",
             "-o", "BatchMode=yes",
             "-o", f"ConnectTimeout={self.connect_timeout}",
             "-o", "StrictHostKeyChecking=accept-new",
+        ]
+
+    def ssh_args(self, remote_command: str) -> list[str]:
+        return [
+            "ssh", *self._common_opts(), "-p", str(self.port),
             f"{self.user}@{self.resolve_host()}",
             remote_command,
         ]
+
+    def scp_args(self, local: str, remote: str) -> list[str]:
+        return [
+            "scp", *self._common_opts(), "-P", str(self.port),
+            local, f"{self.user}@{self.resolve_host()}:{remote}",
+        ]
+
+    def put(self, local: Path, remote: str, timeout: float = 120) -> None:
+        """Copy one file to the target."""
+        try:
+            p = subprocess.run(self.scp_args(str(local), remote), capture_output=True,
+                               text=True, errors="replace", timeout=timeout)
+        except FileNotFoundError as e:
+            raise TargetError("scp was not found on PATH") from e
+        except subprocess.TimeoutExpired as e:
+            raise TargetError(f"copying {local} timed out after {timeout}s") from e
+        if p.returncode != 0:
+            raise TargetError(f"scp {local} -> {remote} failed: {p.stderr.strip()}")
 
     def run(self, argv: list[str], timeout: float = 60) -> Result:
         """Run a command on the target. argv is quoted for the target shell."""

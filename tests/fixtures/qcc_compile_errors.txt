@@ -1,0 +1,15 @@
+broken.c: In function 'main':
+broken.c:9:5: error: expected ',' or ';' before 'printf'
+    9 |     printf("%d\n", undefined_name);
+      |     ^~~~~~
+broken.c:10:12: warning: returning 'char *' from a function with return type 'int' makes integer from pointer without a cast [-Wint-conversion]
+   10 |     return "no";
+      |            ^~~~
+broken.c:8:9: warning: unused variable 'chid' [-Wunused-variable]
+    8 |     int chid = ChannelCreate(0)
+      |         ^~~~
+broken.c: At top level:
+broken.c:4:12: warning: 'unused_helper' defined but not used [-Wunused-function]
+    4 | static int unused_helper(void) { return 1; }
+      |            ^~~~~~~~~~~~~
+cc: C:/Users/dev/qnx800/host/win64/x86_64/usr/lib/gcc/x86_64-pc-nto-qnx8.0.0/12.2.0/cc1 caught signal 1

@@ -4,7 +4,34 @@ AI assistants can write QNX code but can't see the target. qbridge gives them ey
 
 qbridge lets any MCP client (or you, from the command line) build, deploy, inspect and debug software on a QNX 8.0 target.
 
-> Status: early work for the QNX Global Hackathon. The host CLI can list threads (`ps`) and read logs (`logs`) today. The MCP server, build/deploy/crash tools and the `qbridged` resource manager are in progress.
+> Status: early work for the QNX Global Hackathon. Working today: MCP server and CLI with `info`, `ps`, `logs`, `build`, `deploy` and `run`. In progress: crash analysis, image control, and the `qbridged` resource manager on the target.
+
+## Tools
+
+| MCP tool | CLI | Changes the target? | What it does |
+|---|---|---|---|
+| `qnx_info` | `qbridge info` | no | Address, QNX version, CPUs, memory |
+| `qnx_ps` | `qbridge ps` | no | Processes and threads, priorities, states, and a blocked-on graph with deadlock cycles |
+| `qnx_logs` | `qbridge logs` | no | slog2 entries filtered by process, pid, time, severity, text |
+| `qnx_build` | `qbridge build` | no (host only) | `make` in a folder or `qcc` on one file; errors and warnings with file/line/column |
+| `qnx_deploy` | `qbridge --allow-write deploy` | yes | Copy a file into `/data/qbridge` on the target |
+| `qnx_run` | `qbridge --allow-write run` | yes | Run a program from `/data/qbridge` with a timeout |
+
+## Guard rails
+
+- **Read-only by default.** `deploy` and `run` are refused unless qbridge was started with `--allow-write` (or `QBRIDGE_ALLOW_WRITE=1`). The assistant cannot switch this on itself.
+- **One deploy folder.** Files can only be copied to, and programs only run from, `/data/qbridge` on the target. Paths like `../../proc/boot/ksh` are rejected.
+- **Time limits.** Programs run under QNX's `timeout`, so a hung program cannot hang the assistant.
+
+## Use it from an MCP client
+
+qbridge's MCP server has no dependencies beyond Python. For Claude Code:
+
+```
+claude mcp add qbridge -- C:\path\to\qbridge\.venv\Scripts\qbridge.exe serve
+```
+
+Add `--allow-write` after `serve` to let the assistant deploy and run programs. Any MCP client that can start a stdio server works the same way: the command is `qbridge serve [--allow-write]`.
 
 ## Requirements
 
@@ -29,7 +56,12 @@ qbridge lets any MCP client (or you, from the command line) build, deploy, inspe
    set QBRIDGE_HOST=192.168.56.103
    qbridge ps
    qbridge logs --process io_sock --severity warning
+   qbridge build examples\hello
+   qbridge --allow-write deploy examples\hello\build\hello
+   qbridge --allow-write run --timeout 10 hello first "second arg"
    ```
+
+   Options for `run` go before the program name; everything after it is passed to the program.
 
    Without `QBRIDGE_HOST`, qbridge asks `mkqnximage --getip` in `QBRIDGE_IMAGE_DIR` (default `%USERPROFILE%\qnx-target`).
 
