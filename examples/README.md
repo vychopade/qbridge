@@ -1,6 +1,8 @@
 # Demo apps
 
-Three small QNX programs, each with one planted bug. They are what the qbridge demo uses: the assistant has to find each bug from what qbridge shows it about the running target, not by reading the code first.
+**[rtdemo](rtdemo/README.md)** is the main demo for qbridge RT: a simulated 10 ms control task that misses its deadline because of priority inversion on a mutex, with measurements of each cause and a fix that can be tested.
+
+The three programs below each have one planted bug and are used by qbridge's debugging tools. They are what the qbridge demo uses: the assistant has to find each bug from what qbridge shows it about the running target, not by reading the code first.
 
 Build, deploy and run any of them with qbridge (`--allow-write` is needed to deploy and run):
 

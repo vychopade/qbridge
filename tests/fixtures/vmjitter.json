@@ -1,0 +1,82 @@
+[
+ {
+  "mode": "timer",
+  "cpu": 0,
+  "priority": 50,
+  "seconds": 10,
+  "period_us": 1000,
+  "wakeups": 540,
+  "max_late_us": 54798.6,
+  "mean_late_us": 17937.2,
+  "late_over_1ms": 315,
+  "late": {
+   "lt_0.1ms": 12,
+   "0.1-1ms": 213,
+   "1-2ms": 8,
+   "2-5ms": 18,
+   "5-10ms": 22,
+   "10-20ms": 71,
+   "20-50ms": 122,
+   "ge_50ms": 74
+  }
+ },
+ {
+  "mode": "timer",
+  "cpu": 1,
+  "priority": 50,
+  "seconds": 10,
+  "period_us": 1000,
+  "wakeups": 9497,
+  "max_late_us": 4925.9,
+  "mean_late_us": 333.7,
+  "late_over_1ms": 494,
+  "late": {
+   "lt_0.1ms": 16,
+   "0.1-1ms": 8987,
+   "1-2ms": 493,
+   "2-5ms": 1,
+   "5-10ms": 0,
+   "10-20ms": 0,
+   "20-50ms": 0,
+   "ge_50ms": 0
+  }
+ },
+ {
+  "mode": "spin",
+  "cpu": 0,
+  "priority": 50,
+  "seconds": 10,
+  "reads": 7821363,
+  "max_gap_us": 4148.2,
+  "time_in_gaps_over_1ms_us": 14277,
+  "gaps": {
+   "lt_0.1ms": 7820809,
+   "0.1-1ms": 548,
+   "1-2ms": 4,
+   "2-5ms": 2,
+   "5-10ms": 0,
+   "10-20ms": 0,
+   "20-50ms": 0,
+   "ge_50ms": 0
+  }
+ },
+ {
+  "mode": "spin",
+  "cpu": 1,
+  "priority": 50,
+  "seconds": 10,
+  "reads": 7618017,
+  "max_gap_us": 4573.4,
+  "time_in_gaps_over_1ms_us": 10575,
+  "gaps": {
+   "lt_0.1ms": 7617292,
+   "0.1-1ms": 721,
+   "1-2ms": 2,
+   "2-5ms": 2,
+   "5-10ms": 0,
+   "10-20ms": 0,
+   "20-50ms": 0,
+   "ge_50ms": 0
+  }
+ }
+]

@@ -1,4 +1,10 @@
-# qbridge
+# qbridge RT
+
+Debugging tools tell you what happened. qbridge RT lets an AI assistant find out why a real-time task missed its deadline, test a fix, and measure whether it worked.
+
+> Direction: qbridge started as general remote debugging for QNX (the tools below still work). It is now focused on real-time deadline analysis: detect, diagnose, propose, approve, test, measure, verify. The demo workload is [examples/rtdemo](examples/rtdemo/README.md). Deadline monitoring, the experiment loop and the report are in progress.
+>
+> **Timing limitation:** all measurements so far come from a QNX 8.0 VirtualBox VM, where timers on virtual CPU 0 fire tens of milliseconds late (see [rtdemo's notes](examples/rtdemo/README.md#timing-on-a-virtual-machine-read-this) and `target/tools/vmjitter`). Finite runs show effects; they do not prove worst-case timing.
 
 AI assistants can write QNX code but can't see the target. qbridge gives them eyes and hands on QNX, with guard rails.
 

@@ -1,0 +1,125 @@
+[
+ {
+  "task": "A-control",
+  "cpu": 1,
+  "lock_protocol": "PTHREAD_PRIO_INHERIT",
+  "period_us": 10000,
+  "deadline_us": 10000,
+  "seconds": 10,
+  "cycles": 999,
+  "misses": 0,
+  "response": {
+   "max_us": 4115,
+   "mean_us": 1825.3,
+   "stddev_us": 878.9,
+   "p99_us": 3821
+  },
+  "backlog": {
+   "max_us": 0,
+   "mean_us": 0.0,
+   "stddev_us": 0.0,
+   "p99_us": 0
+  },
+  "latency": {
+   "max_us": 3003,
+   "mean_us": 381.4,
+   "stddev_us": 312.4,
+   "p99_us": 1317
+  },
+  "lock_wait": {
+   "max_us": 2841,
+   "mean_us": 429.9,
+   "stddev_us": 878.5,
+   "p99_us": 2501
+  },
+  "exec": {
+   "max_us": 1487,
+   "mean_us": 1012.9,
+   "stddev_us": 20.5,
+   "p99_us": 1068
+  },
+  "samples_csv": "/data/qbridge/rtdemo_fixed_samples.csv"
+ },
+ {
+  "task": "A-control",
+  "cpu": 1,
+  "lock_protocol": "PTHREAD_PRIO_INHERIT",
+  "period_us": 10000,
+  "deadline_us": 10000,
+  "seconds": 10,
+  "cycles": 999,
+  "misses": 0,
+  "response": {
+   "max_us": 4336,
+   "mean_us": 1843.6,
+   "stddev_us": 898.8,
+   "p99_us": 3983
+  },
+  "backlog": {
+   "max_us": 0,
+   "mean_us": 0.0,
+   "stddev_us": 0.0,
+   "p99_us": 0
+  },
+  "latency": {
+   "max_us": 2298,
+   "mean_us": 395.5,
+   "stddev_us": 322.2,
+   "p99_us": 1332
+  },
+  "lock_wait": {
+   "max_us": 2890,
+   "mean_us": 429.8,
+   "stddev_us": 891.0,
+   "p99_us": 2589
+  },
+  "exec": {
+   "max_us": 1449,
+   "mean_us": 1015.8,
+   "stddev_us": 28.3,
+   "p99_us": 1128
+  },
+  "samples_csv": "/data/qbridge/rtdemo_fixed_samples.csv"
+ },
+ {
+  "task": "A-control",
+  "cpu": 1,
+  "lock_protocol": "PTHREAD_PRIO_INHERIT",
+  "period_us": 10000,
+  "deadline_us": 10000,
+  "seconds": 10,
+  "cycles": 999,
+  "misses": 0,
+  "response": {
+   "max_us": 5462,
+   "mean_us": 1865.9,
+   "stddev_us": 918.9,
+   "p99_us": 4070
+  },
+  "backlog": {
+   "max_us": 0,
+   "mean_us": 0.0,
+   "stddev_us": 0.0,
+   "p99_us": 0
+  },
+  "latency": {
+   "max_us": 4410,
+   "mean_us": 411.8,
+   "stddev_us": 370.4,
+   "p99_us": 1366
+  },
+  "lock_wait": {
+   "max_us": 2924,
+   "mean_us": 437.7,
+   "stddev_us": 899.5,
+   "p99_us": 2614
+  },
+  "exec": {
+   "max_us": 1270,
+   "mean_us": 1014.7,
+   "stddev_us": 16.0,
+   "p99_us": 1083
+  },
+  "samples_csv": "/data/qbridge/rtdemo_fixed_samples.csv"
+ }
+]
