@@ -4,7 +4,12 @@ AI assistants can write QNX code but can't see the target. qbridge gives them ey
 
 qbridge lets any MCP client (or you, from the command line) build, deploy, inspect and debug software on a QNX 8.0 target.
 
-> Status: early work for the QNX Global Hackathon. Working today: MCP server and CLI with `info`, `ps`, `logs`, `build`, `deploy`, `run` and crash analysis. In progress: image control and the `qbridged` resource manager on the target.
+> Status: early work for the QNX Global Hackathon. Working today: MCP server and CLI with `info`, `ps`, `logs`, `build`, `deploy`, `run` and crash analysis, plus the `qbridged` resource manager on the target. In progress: push events from qbridged, and image control.
+
+## Two halves
+
+- **Host side** (`src/qbridge`, Python): the MCP server and CLI. Talks to the target over ssh.
+- **Target side** ([target/qbridged](target/qbridged/README.md), C): a QNX resource manager that serves processes, threads, the blocked-on graph and crashes as JSON under `/dev/qbridge`, read straight from procfs. When it is running, `qnx_ps` uses it (and says `"source": "qbridged"`); otherwise it falls back to parsing `pidin`.
 
 ## Tools
 

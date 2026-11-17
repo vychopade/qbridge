@@ -41,9 +41,15 @@ class Thread:
     blocked: str
     blocked_on_pid: int | None
     thread_name: str
+    # Only available from qbridged (/dev/qbridge/threads), not from pidin.
+    blocked_ms: int | None = None
+    chid: int | None = None
+    real_priority: int | None = None
+    last_cpu: int | None = None
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        extras = ("blocked_ms", "chid", "real_priority", "last_cpu")
+        return {k: v for k, v in asdict(self).items() if not (k in extras and v is None)}
 
 
 def _split_prio(text: str) -> tuple[int | None, str | None]:
@@ -99,14 +105,20 @@ def blocked_graph(threads: list[Thread]) -> list[dict]:
     for t in threads:
         if t.blocked_on_pid is None:
             continue
-        edges.append({
+        edge = {
             "from_pid": t.pid,
             "from_tid": t.tid,
             "from_name": t.name,
+            "from_priority": t.priority,
             "state": t.state,
             "to_pid": t.blocked_on_pid,
             "to_name": names.get(t.blocked_on_pid),
-        })
+        }
+        if t.chid is not None:
+            edge["chid"] = t.chid
+        if t.blocked_ms is not None:
+            edge["blocked_ms"] = t.blocked_ms
+        edges.append(edge)
     return edges
 
 

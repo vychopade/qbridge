@@ -12,7 +12,7 @@ from pathlib import Path
 
 from . import build as build_mod
 from . import crash
-from .parsers import pidin, slog2
+from .parsers import pidin, qbridged, slog2
 from .policy import Policy
 from .target import Target, TargetError
 
@@ -43,11 +43,22 @@ def info(s: Session) -> dict:
     }
 
 
-def ps(s: Session, process: str | None = None) -> dict:
+def _read_threads(s: Session) -> tuple[list[pidin.Thread], str]:
+    """Threads from qbridged if it is running on the target, else from pidin."""
+    r = s.target.run(["cat", qbridged.THREADS_PATH])
+    if r.ok and r.stdout.strip():
+        try:
+            return qbridged.parse_threads(r.stdout), "qbridged"
+        except (ValueError, KeyError):
+            pass  # fall back to pidin below
     r = s.target.run(pidin.PIDIN_ARGS)
     if not r.ok:
         raise TargetError(f"pidin failed: {r.stderr.strip()}")
-    threads = pidin.parse_threads(r.stdout)
+    return pidin.parse_threads(r.stdout), "pidin"
+
+
+def ps(s: Session, process: str | None = None) -> dict:
+    threads, source = _read_threads(s)
     # Build the graph from every thread so edges keep the server's name.
     edges = pidin.blocked_graph(threads)
     cycles = pidin.find_cycles(edges)
@@ -57,7 +68,8 @@ def ps(s: Session, process: str | None = None) -> dict:
         pids = {t.pid for t in threads}
         edges = [e for e in edges if e["from_pid"] in pids or e["to_pid"] in pids]
         cycles = [c for c in cycles if pids & set(c)]
-    return {"processes": pidin.processes(threads), "blocked_on": edges, "cycles": cycles}
+    return {"source": source, "processes": pidin.processes(threads), "blocked_on": edges,
+            "cycles": cycles}
 
 
 def logs(s: Session, process: str | None = None, pid: int | None = None,
