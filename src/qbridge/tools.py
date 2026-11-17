@@ -273,16 +273,46 @@ def measure(s: Session, program: str, seconds: int = 10, args: list[str] | None 
     task = (summary or {}).get("task") or posixpath.basename(remote)
     report = deadlines.analyse(samples, float(deadline), float(period) if period else None, task)
     check = deadlines.cross_check(report, summary)
+    qcheck = _qbridged_check(s, report, summary)
 
     run_id = runs.new_run_id(label or posixpath.basename(remote))
     meta = {"run_id": run_id, "label": label, "program": remote, "binary_sha256": sha,
             "args": ["-d", str(seconds), "-o", csv_remote, *(args or [])], "seconds": seconds,
             "started": started, "target": s.target.resolve_host(),
             "program_summary_fields": sorted((summary or {}).keys())}
-    path = runs.save(run_id, meta, summary, csv_text, {**report, "cross_check": check})
+    path = runs.save(run_id, meta, summary, csv_text,
+                     {**report, "cross_check": check, "qbridged_check": qcheck})
     return {"run_id": run_id, "saved_to": str(path), "binary_sha256": sha,
-            "summary": report["summary"], "cross_check": check,
+            "summary": report["summary"], "cross_check": check, "qbridged_check": qcheck,
             "report": {k: v for k, v in report.items() if k != "summary"}}
+
+
+def _qbridged_check(s: Session, report: dict, summary: dict | None) -> dict:
+    """If the workload reported to qbridged, compare qbridged's numbers with ours."""
+    info = (summary or {}).get("qbridged") or {}
+    if info.get("status") != "registered":
+        return {"checked": False,
+                "reason": f"the workload did not report to qbridged ({info.get('status', 'unknown')})"}
+    r = s.target.run(["cat", qbridged.DEADLINES_PATH])
+    if not r.ok:
+        return {"checked": False, "reason": f"cannot read {qbridged.DEADLINES_PATH}"}
+    tasks = qbridged.parse_deadlines(r.stdout).get("tasks", [])
+    task = next((t for t in tasks if t["slot"] == info.get("slot")), None)
+    if task is None:
+        return {"checked": False, "reason": f"slot {info.get('slot')} not found in qbridged"}
+    return qbridged.cross_check(report, task)
+
+
+def deadline_stats(s: Session) -> dict:
+    """Live deadline statistics of every task registered with qbridged (read-only)."""
+    r = s.target.run(["cat", qbridged.DEADLINES_PATH])
+    if not r.ok or not r.stdout.strip():
+        raise TargetError(f"cannot read {qbridged.DEADLINES_PATH}: is qbridged (with deadline "
+                          f"support) running? {r.stderr.strip()}")
+    d = qbridged.parse_deadlines(r.stdout)
+    for t in d["tasks"]:
+        t["summary"] = qbridged.summarise_task(t)
+    return d
 
 
 def list_runs(s: Session, limit: int = 20) -> dict:

@@ -11,9 +11,32 @@ A QNX resource manager that serves live system state as JSON files under `/dev/q
 | `/dev/qbridge/threads` | Every thread: state, priority (current and real), policy, full thread name, last CPU, how long it has been blocked (`blocked_ms`), and what it is blocked on |
 | `/dev/qbridge/blocked` | The blocked-on graph: one edge per SEND/REPLY-blocked thread, with the server pid, channel id and duration |
 | `/dev/qbridge/crashes` | Core files written by `dumper` |
+| `/dev/qbridge/deadlines` | Deadline statistics for every task that registered: period, deadline, cycles, misses, and max / mean / stddev / p50 / p99 of response, backlog, scheduling latency, lock wait and CPU time |
+| `/dev/qbridge/samples` | The most recent cycles of each registered task (up to 4096), as CSV |
 | `/dev/qbridge/events` | Process deaths and new core dumps as JSON lines. A read returns what this reader has not seen yet, starting with the recent history; when there is nothing new it **blocks** until something happens |
 
 Each `open()` of the first five takes one consistent snapshot, and reads return slices of it, so `cat` and partial reads both work.
+
+## Tasks report their deadlines by message passing
+
+A periodic task includes [qbridge_task.h](qbridge_task.h) (header only):
+
+```c
+struct qbt_task qbt;
+qbt_register(&qbt, "A-control", 10000 /* period us */, 10000 /* deadline us */);  /* once */
+for (;;) {
+    /* ... one cycle, timed by the task itself ... */
+    qbt_report(&qbt, backlog_ns, latency_ns, lock_wait_ns, exec_ns, response_ns);  /* never blocks */
+}
+```
+
+- **Register once, before the real-time loop.** `qbt_register()` opens `/dev/qbridge/deadlines` and sends `devctl(DCMD_QBT_REGISTER)`, a `MsgSend()` underneath. qbridged's `qbd_devctl()` ([qb_deadlines.c](qb_deadlines.c)) takes a slot, records the kernel-supplied `ctp->info.pid` and `ctp->info.scoid`, and replies with the slot and a pulse code allocated with `pulse_attach()`.
+- **Report every cycle with pulses.** `qbt_report()` sends five `MsgSendPulse()`s on the same file descriptor (on QNX a file descriptor is a connection id), each carrying slot, field and microseconds. The response field is last and completes the cycle. Pulses are queued by the kernel, so the task never waits for qbridged, and they are sent at qbridged's own low priority so delivering them never runs qbridged above the task.
+- **Trust.** `qbd_on_pulse()` accepts a pulse only if its `scoid` is the connection that registered that slot.
+- **Memory.** All statistics live in a static array (16 tasks, 4096 recent cycles each), so nothing is allocated when a sample arrives. Memory is allocated only when someone reads a file.
+- **Close ordering.** A task's `close()` is a message at the task's high priority, so it overtakes the task's last low-priority pulses in qbridged's receive queue. Without handling this, the last cycle was lost (seen on the target: 998 of 999 cycles, 4 rejected pulses). qbridged now keeps accepting pulses from that connection for 2 s after the close, and 999 of 999 arrive.
+
+**Verified on the target:** with rtdemo reporting, `/dev/qbridge/deadlines` and rtdemo's own measurements agreed for both the faulty and the fixed build. Cycles and misses matched exactly (999/296 and 999/0), and worst and 99th-percentile figures matched to the microsecond for all five measures. Means were within 0.2 µs, from rounding to whole microseconds. The per-cycle samples in `/dev/qbridge/samples` match rtdemo's CSV row by row. `qbridge measure` repeats this cross-check on every run.
 
 ## Events are pushed, not polled
 
@@ -34,7 +57,7 @@ Known limit: a program started with fork+exec that lives only a few milliseconds
 
 ## What it uses (QNX-specific code to look at)
 
-All in [qbridged.c](qbridged.c):
+In [qbridged.c](qbridged.c) (deadline reporting is in [qb_deadlines.c](qb_deadlines.c) and [qbridge_task.h](qbridge_task.h), described below):
 
 - **Resource manager framework.** `main()` attaches one pathname per file with `resmgr_attach()`, using the `iofunc` layer with a custom OCB (`struct qb_ocb`, `qb_ocb_calloc`, `qb_ocb_free`) that holds the per-open snapshot. `qb_read()` is the `_IO_READ` handler, replying with `_RESMGR_NPARTS` and `SETIOV`.
 - **procfs devctls.** `walk_threads()` opens `/proc/<pid>/ctl` and uses `DCMD_PROC_INFO` for process data and `DCMD_PROC_TIDSTATUS` to walk threads. The kernel's `debug_thread_t` gives `blocked.connect.pid/chid/coid/scoid` for SEND/REPLY, which is how the blocked-on graph is exact rather than parsed.

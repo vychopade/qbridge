@@ -30,8 +30,12 @@ The workload is fixed, with the same phases every run, so before and after runs 
 Execution time, scheduling latency and lock wait are kept separate so a miss can be attributed to the right cause. Samples are stored in memory allocated before the run and written to a CSV afterwards. One JSON summary line goes to stdout.
 
 ```
-rtdemo [-d seconds] [-o samples.csv] [-c cpu]
+rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n]
 ```
+
+If qbridged is running, A also registers with it and reports every cycle by message passing ([qbridge_task.h](../../target/qbridged/qbridge_task.h)). This happens after the cycle's own timestamps, so it isn't counted in A's response, and it never blocks. `-n` turns it off. The summary line says whether A registered, its slot, and how many pulses the kernel refused (0 in every run so far).
+
+Absolute numbers vary between VM boots. After one image rebuild, the faulty build missed 384 of 999 instead of about 300, and the fixed build's mean response rose from 1.7 to 2.6 ms. Compare runs taken in the same session.
 
 ## Measured on the reference target
 

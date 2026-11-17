@@ -22,8 +22,10 @@
  * comparable. Timing on a virtual machine is noisy; finite runs show the
  * effect, they do not prove a worst case.
  *
- * Usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu]
+ * Usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n]
  *   Prints one JSON summary line on stdout when done.
+ *   If qbridged is running, A registers with it and reports every cycle by
+ *   message passing (see target/qbridged/qbridge_task.h); -n turns that off.
  *
  * Why CPU 1 by default: on the reference VirtualBox target, timers on
  * virtual CPU 0 fire 10-55 ms late even when idle, while CPU 1 is within
@@ -42,6 +44,8 @@
 #include <sys/neutrino.h>
 #include <sys/syspage.h>
 #include <time.h>
+
+#include "qbridge_task.h"   /* report each cycle to qbridged (target/qbridged) */
 #include <unistd.h>
 
 /* ---- The fault, in one place ------------------------------------------- */
@@ -66,6 +70,10 @@
 
 static pthread_mutex_t shared_lock;
 static int run_cpu = 1;         /* all three threads run on this CPU */
+static int report_to_qbridged = 1;
+static int qbt_status = -1;     /* qbt_register() result; -1 = not tried */
+static int qbt_slot = -1;
+static long qbt_failures;       /* pulses the kernel refused */
 static int64_t t0;              /* common start time, CLOCK_MONOTONIC ns */
 static int64_t t_end;           /* run ends here */
 
@@ -132,6 +140,13 @@ static void *task_a(void *arg)
 {
     (void)arg;
     setup_thread(A_PRIO, "A-control");
+    /* Register with qbridged before the real-time loop (this one call may
+     * block briefly; the per-cycle reports below never do). */
+    struct qbt_task qbt = { .fd = -1 };
+    if (report_to_qbridged) {
+        qbt_status = qbt_register(&qbt, "A-control", A_PERIOD_NS / 1000, A_DEADLINE_NS / 1000);
+        qbt_slot = qbt_status == EOK ? qbt.slot : -1;
+    }
     int64_t prev_done = 0;
     for (int64_t k = 1;; k++) {
         int64_t release = t0 + k * A_PERIOD_NS;
@@ -160,7 +175,12 @@ static void *task_a(void *arg)
         s->lock_wait = l1 - l0;
         s->exec = c1 - c0;
         s->response = done - release;
+        /* After the cycle's own timestamps, so reporting is not counted in
+         * this cycle's response. MsgSendPulse never blocks. */
+        qbt_failures += qbt_report(&qbt, s->backlog, s->latency, s->lock_wait, s->exec,
+                                   s->response);
     }
+    qbt_close(&qbt);
     return NULL;
 }
 
@@ -243,13 +263,14 @@ int main(int argc, char **argv)
     int seconds = 10;
     const char *csv = "/data/qbridge/rtdemo_samples.csv";
     int c;
-    while ((c = getopt(argc, argv, "d:o:c:")) != -1) {
+    while ((c = getopt(argc, argv, "d:o:c:n")) != -1) {
         switch (c) {
         case 'd': seconds = atoi(optarg); break;
         case 'o': csv = optarg; break;
         case 'c': run_cpu = atoi(optarg); break;
+        case 'n': report_to_qbridged = 0; break;
         default:
-            fprintf(stderr, "usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu]\n");
+            fprintf(stderr, "usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n]\n");
             return EXIT_FAILURE;
         }
     }
@@ -327,6 +348,9 @@ int main(int argc, char **argv)
     print_stats("latency", stats_of(offsetof(struct sample, latency)), 0);
     print_stats("lock_wait", stats_of(offsetof(struct sample, lock_wait)), 0);
     print_stats("exec", stats_of(offsetof(struct sample, exec)), 1);
-    printf(", \"samples_csv\": \"%s\"}\n", csv);
+    printf(", \"samples_csv\": \"%s\", \"qbridged\": {\"status\": \"%s\", \"slot\": %d, "
+           "\"refused_pulses\": %ld}}\n", csv,
+           qbt_status == -1 ? "off" : qbt_status == EOK ? "registered" : strerror(qbt_status),
+           qbt_slot, qbt_failures);
     return EXIT_SUCCESS;
 }

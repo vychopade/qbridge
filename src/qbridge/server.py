@@ -134,6 +134,15 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
             tools.measure(s, program, seconds, args, label, deadline_us),
         True,
     ),
+    "qnx_deadlines": (
+        "Live deadline statistics kept by qbridged on the target for every task that registered "
+        "with it (tasks report each cycle by QNX message passing). Read-only: works for tasks "
+        "you started yourself. Per task: cycles, misses, and max/mean/p99 of response, backlog, "
+        "scheduling latency, lock wait and CPU time.",
+        _schema({}),
+        lambda s: tools.deadline_stats(s),
+        False,
+    ),
     "qnx_runs": (
         "List saved measurement runs, newest first: label, misses, worst response.",
         _schema({"limit": {"type": "integer"}}),

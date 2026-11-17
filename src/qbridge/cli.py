@@ -60,6 +60,8 @@ def build_parser() -> argparse.ArgumentParser:
     me.add_argument("args", nargs="*",
                     help="extra program arguments, after --  (e.g. measure rtdemo -- -c 1)")
 
+    sub.add_parser("deadlines", help="live deadline statistics from qbridged")
+
     ru = sub.add_parser("runs", help="list saved measurement runs")
     ru.add_argument("--limit", type=int, default=20)
     rs = sub.add_parser("run-report", help="show one saved measurement run")
@@ -105,6 +107,8 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return tools.kill(s, a.pid, a.name, a.signal)
         case "measure":
             return tools.measure(s, a.program, a.seconds, a.args, a.label, a.deadline_us)
+        case "deadlines":
+            return tools.deadline_stats(s)
         case "runs":
             return tools.list_runs(s, a.limit)
         case "run-report":

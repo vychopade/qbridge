@@ -29,6 +29,7 @@ qbridge lets any MCP client (or you, from the command line) build, deploy, inspe
 | `qnx_run` | `qbridge --allow-write run` | yes | Run a program from `/data/qbridge` with a timeout; reports the signal if it dies. `background` starts it and returns at once (output to `<program>.log`) |
 | `qnx_kill` | `qbridge --allow-write kill` | yes | Signal programs qbridge deployed (never system processes) and return their log; `ABRT` makes dumper write a core of a hung program |
 | `qnx_measure` | `qbridge --allow-write measure` | yes (runs a program) | Run a periodic workload for a fixed time; deadline statistics with each cycle split into backlog, scheduling latency, lock wait, CPU time and preempted time; runs of consecutive misses attributed to what started them; saved as a run |
+| `qnx_deadlines` | `qbridge deadlines` | no | Live deadline statistics that qbridged keeps for tasks registered with it by message passing (also tasks you start yourself) |
 | `qnx_runs` / `qnx_run_report` | `qbridge runs` / `qbridge run-report` | no | List saved runs; show one (including the measured binary's sha256) |
 | `qnx_events` | `qbridge events` | no | Wait for process deaths and core dumps, pushed by `qbridged` (needs qbridged running) |
 | `qnx_crashes` | `qbridge crashes` | no | Core files written by QNX's `dumper` |
@@ -56,7 +57,7 @@ returns, among the frames and locals:
 qbridge --allow-write measure rtdemo --seconds 10 --label baseline
 ```
 
-runs the workload, fetches its per-cycle samples and computes the statistics on the host (they are cross-checked against the program's own summary). Measured on the reference target:
+runs the workload, fetches its per-cycle samples and computes the statistics on the host. They are cross-checked against the program's own summary and, when the workload reports to qbridged, against qbridged's statistics gathered by QNX message passing. All three agreed on every run so far. Measured on the reference target:
 
 > A-control: 299 of 999 cycles missed the 10 ms deadline (29.9%); worst response 37.4 ms, 99th percentile 36.5 ms, mean 10.10 ms. The misses form 99 run(s) of consecutive misses (longest 4); what started each run: waiting for a lock (98), late wake-up (scheduling latency) (1).
 

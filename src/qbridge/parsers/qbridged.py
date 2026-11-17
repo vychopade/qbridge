@@ -57,6 +57,49 @@ def parse_procs(text: str) -> dict[int, dict]:
     return {p["pid"]: p for p in json.loads(text)["procs"]}
 
 
+DEADLINES_PATH = "/dev/qbridge/deadlines"
+SAMPLES_PATH = "/dev/qbridge/samples"
+
+DEADLINE_FIELDS = ("response", "backlog", "latency", "lock_wait", "exec")
+
+
+def parse_deadlines(text: str) -> dict:
+    """/dev/qbridge/deadlines: per-task statistics kept by qbridged.
+
+    Tasks report each cycle to qbridged with MsgSendPulse (see
+    target/qbridged/qbridge_task.h). Percentiles cover the most recent
+    `window` cycles; max and mean cover every cycle since registration.
+    """
+    d = json.loads(text)
+    for t in d.get("tasks", []):
+        t["miss_rate"] = (t["misses"] / t["cycles"]) if t.get("cycles") else 0.0
+    return d
+
+
+def summarise_task(t: dict) -> str:
+    r = t["response"]
+    state = "running" if t["active"] else "finished"
+    return (f"{t['name']} (pid {t['pid']}, {state}): {t['misses']} of {t['cycles']} cycles missed "
+            f"the {t['deadline_us'] / 1000:g} ms deadline ({t['miss_rate']:.1%}); worst response "
+            f"{r['max_us'] / 1000:.1f} ms, 99th percentile {r['p99_us'] / 1000:.1f} ms, worst lock "
+            f"wait {t['lock_wait']['max_us'] / 1000:.1f} ms, worst scheduling latency "
+            f"{t['latency']['max_us'] / 1000:.1f} ms.")
+
+
+def cross_check(report: dict, task: dict, tol_us: float = 1.5) -> dict:
+    """Compare qbridge's statistics from the workload's CSV with qbridged's."""
+    problems = []
+    if report["cycles"] != task["cycles"]:
+        problems.append(f"cycles: samples {report['cycles']}, qbridged {task['cycles']}")
+    if report["misses"] != task["misses"]:
+        problems.append(f"misses: samples {report['misses']}, qbridged {task['misses']}")
+    for f in DEADLINE_FIELDS:
+        mine = report["response_us"] if f == "response" else report["parts_us"][f]
+        if abs(mine["max"] - task[f]["max_us"]) > tol_us:
+            problems.append(f"{f} max: samples {mine['max']:.1f} us, qbridged {task[f]['max_us']} us")
+    return {"checked": True, "slot": task["slot"], "agrees": not problems, "problems": problems}
+
+
 EVENTS_PATH = "/dev/qbridge/events"
 
 # Short-lived helpers that qbridge's own ssh commands start. Their deaths are

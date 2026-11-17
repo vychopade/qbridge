@@ -27,6 +27,8 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <pthread.h>
+#include <sched.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -54,68 +56,8 @@ struct qb_ocb;
 
 #define QBRIDGED_VERSION "0.1.0"
 
-/* ------------------------------------------------------------------------ */
-/* Growable string buffer with JSON helpers                                  */
-
-typedef struct {
-    char  *data;
-    size_t len;
-    size_t cap;
-    int    failed;
-} sbuf_t;
-
-static void sb_reserve(sbuf_t *b, size_t extra)
-{
-    if (b->failed || b->len + extra + 1 <= b->cap) {
-        return;
-    }
-    size_t cap = b->cap ? b->cap : 4096;
-    while (cap < b->len + extra + 1) {
-        cap *= 2;
-    }
-    char *p = realloc(b->data, cap);
-    if (p == NULL) {
-        b->failed = 1;
-        return;
-    }
-    b->data = p;
-    b->cap = cap;
-}
-
-static void sb_printf(sbuf_t *b, const char *fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-    int n = vsnprintf(NULL, 0, fmt, ap);
-    va_end(ap);
-    if (n < 0) {
-        return;
-    }
-    sb_reserve(b, (size_t)n);
-    if (b->failed) {
-        return;
-    }
-    va_start(ap, fmt);
-    vsnprintf(b->data + b->len, (size_t)n + 1, fmt, ap);
-    va_end(ap);
-    b->len += (size_t)n;
-}
-
-static void sb_json_str(sbuf_t *b, const char *s)
-{
-    sb_printf(b, "\"");
-    for (; s && *s; s++) {
-        unsigned char c = (unsigned char)*s;
-        if (c == '"' || c == '\\') {
-            sb_printf(b, "\\%c", c);
-        } else if (c < 0x20) {
-            sb_printf(b, "\\u%04x", c);
-        } else {
-            sb_printf(b, "%c", c);
-        }
-    }
-    sb_printf(b, "\"");
-}
+#include "qb_sbuf.h"
+#include "qb_deadlines.h"
 
 /* ------------------------------------------------------------------------ */
 /* Reading system state through procfs                                        */
@@ -471,10 +413,11 @@ static void format_event(sbuf_t *b, const struct qb_event *e)
 /* ------------------------------------------------------------------------ */
 /* Resource manager                                                          */
 
-enum qb_file { QB_VERSION, QB_PROCS, QB_THREADS, QB_BLOCKED, QB_CRASHES, QB_EVENTS, QB_NFILES };
+enum qb_file { QB_VERSION, QB_PROCS, QB_THREADS, QB_BLOCKED, QB_CRASHES, QB_EVENTS,
+               QB_DEADLINES, QB_SAMPLES, QB_NFILES };
 
 static const char *file_names[QB_NFILES] = {
-    "version", "procs", "threads", "blocked", "crashes", "events",
+    "version", "procs", "threads", "blocked", "crashes", "events", "deadlines", "samples",
 };
 
 struct qb_attr {
@@ -530,6 +473,12 @@ static void build_snapshot(enum qb_file which, sbuf_t *b)
     case QB_CRASHES:
         emit_crashes(b);
         break;
+    case QB_DEADLINES:
+        qbd_emit_deadlines(b);
+        break;
+    case QB_SAMPLES:
+        qbd_emit_samples(b);
+        break;
     default:
         break;
     }
@@ -548,6 +497,7 @@ static struct qb_ocb *qb_ocb_calloc(resmgr_context_t *ctp, struct qb_attr *attr)
 
 static void qb_ocb_free(struct qb_ocb *ocb)
 {
+    qbd_close(ocb);   /* a task's registration ends when it closes the file */
     for (int i = 0; i < MAX_WAITERS; i++) {
         if (waiters[i].ocb == ocb) {
             waiters[i].ocb = NULL;
@@ -774,6 +724,20 @@ static int qb_read(resmgr_context_t *ctp, io_read_t *msg, struct qb_ocb *ocb)
     return _RESMGR_NPARTS(1);
 }
 
+/* devctl() on our files: generic commands via the iofunc layer; task
+ * registration (DCMD_QBT_REGISTER) on /dev/qbridge/deadlines only. */
+static int qb_devctl(resmgr_context_t *ctp, io_devctl_t *msg, struct qb_ocb *ocb)
+{
+    int status = iofunc_devctl_default(ctp, msg, &ocb->hdr);
+    if (status != _RESMGR_DEFAULT) {
+        return status;
+    }
+    if (ocb->hdr.attr->which != QB_DEADLINES) {
+        return ENOTTY;
+    }
+    return qbd_devctl(ctp, msg, ocb);
+}
+
 static void usage(void)
 {
     fprintf(stderr, "usage: qbridged [-f] [-d core_dir] [-m mount_prefix]\n");
@@ -805,6 +769,7 @@ int main(int argc, char **argv)
     iofunc_func_init(_RESMGR_CONNECT_NFUNCS, &connect_funcs, _RESMGR_IO_NFUNCS, &io_funcs);
     io_funcs.read = qb_read;
     io_funcs.unblock = qb_unblock;
+    io_funcs.devctl = qb_devctl;
 
     static iofunc_funcs_t ocb_funcs = {
         .nfuncs = _IOFUNC_NFUNCS,
@@ -845,6 +810,14 @@ int main(int argc, char **argv)
     /* After procmgr_daemon(), which closes extra file descriptors. */
     walk_threads(NULL, NULL, NULL, cache_proc);
     setup_events(dpp);
+    /* Timing pulses from registered tasks are sent at qbridged's own (low)
+     * priority, so delivering them never runs qbridged above the tasks. */
+    struct sched_param sp;
+    int policy;
+    pthread_getschedparam(pthread_self(), &policy, &sp);
+    if (qbd_init(dpp, sp.sched_priority) != 0) {
+        fprintf(stderr, "qbridged: deadline pulses: %s\n", strerror(errno));
+    }
 
     dispatch_context_t *ctp = dispatch_context_alloc(dpp);
     if (ctp == NULL) {

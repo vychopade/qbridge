@@ -1,0 +1,203 @@
+{
+ "rtdemo_summary": {
+  "task": "A-control",
+  "cpu": 1,
+  "lock_protocol": "PTHREAD_PRIO_NONE",
+  "period_us": 10000,
+  "deadline_us": 10000,
+  "seconds": 10,
+  "cycles": 999,
+  "misses": 296,
+  "response": {
+   "max_us": 37491,
+   "mean_us": 9897.0,
+   "stddev_us": 12096.1,
+   "p99_us": 36394
+  },
+  "backlog": {
+   "max_us": 27491,
+   "mean_us": 5054.8,
+   "stddev_us": 8816.6,
+   "p99_us": 26394
+  },
+  "latency": {
+   "max_us": 4744,
+   "mean_us": 191.5,
+   "stddev_us": 327.5,
+   "p99_us": 1120
+  },
+  "lock_wait": {
+   "max_us": 36238,
+   "mean_us": 3637.0,
+   "stddev_us": 10362.9,
+   "p99_us": 35264
+  },
+  "exec": {
+   "max_us": 1430,
+   "mean_us": 1012.8,
+   "stddev_us": 18.4,
+   "p99_us": 1086
+  },
+  "samples_csv": "/tmp/rt_check.csv",
+  "qbridged": {
+   "status": "registered",
+   "slot": 2,
+   "refused_pulses": 0
+  }
+ },
+ "deadlines": {
+  "time": 1794896598,
+  "pulse_code": 3,
+  "window": 4096,
+  "rejected_pulses": 0,
+  "tasks": [
+   {
+    "slot": 0,
+    "name": "A-control",
+    "pid": 14524441,
+    "tid": 4,
+    "active": false,
+    "registered": 1794896536,
+    "ended": 1794896546,
+    "period_us": 10000,
+    "deadline_us": 10000,
+    "cycles": 999,
+    "misses": 305,
+    "clamped": 0,
+    "backlog": {
+     "max_us": 27066,
+     "mean_us": 5128.8,
+     "stddev_us": 8875.5,
+     "p50_us": 0,
+     "p99_us": 26946
+    },
+    "latency": {
+     "max_us": 5068,
+     "mean_us": 211.2,
+     "stddev_us": 340.3,
+     "p50_us": 138,
+     "p99_us": 1093
+    },
+    "lock_wait": {
+     "max_us": 35913,
+     "mean_us": 3666.8,
+     "stddev_us": 10429.9,
+     "p50_us": 1,
+     "p99_us": 35803
+    },
+    "exec": {
+     "max_us": 1740,
+     "mean_us": 1014.4,
+     "stddev_us": 33.2,
+     "p50_us": 1009,
+     "p99_us": 1083
+    },
+    "response": {
+     "max_us": 37066,
+     "mean_us": 10022.4,
+     "stddev_us": 12151.2,
+     "p50_us": 2077,
+     "p99_us": 36946
+    }
+   },
+   {
+    "slot": 1,
+    "name": "A-control",
+    "pid": 14540825,
+    "tid": 4,
+    "active": false,
+    "registered": 1794896546,
+    "ended": 1794896556,
+    "period_us": 10000,
+    "deadline_us": 10000,
+    "cycles": 999,
+    "misses": 296,
+    "clamped": 0,
+    "backlog": {
+     "max_us": 27038,
+     "mean_us": 5018.1,
+     "stddev_us": 8806.8,
+     "p50_us": 0,
+     "p99_us": 26533
+    },
+    "latency": {
+     "max_us": 5108,
+     "mean_us": 211.8,
+     "stddev_us": 337.7,
+     "p50_us": 137,
+     "p99_us": 1208
+    },
+    "lock_wait": {
+     "max_us": 35893,
+     "mean_us": 3591.9,
+     "stddev_us": 10320.1,
+     "p50_us": 1,
+     "p99_us": 35322
+    },
+    "exec": {
+     "max_us": 1728,
+     "mean_us": 1015.1,
+     "stddev_us": 36.2,
+     "p50_us": 1009,
+     "p99_us": 1142
+    },
+    "response": {
+     "max_us": 37038,
+     "mean_us": 9838.1,
+     "stddev_us": 12080.3,
+     "p50_us": 2080,
+     "p99_us": 36533
+    }
+   },
+   {
+    "slot": 2,
+    "name": "A-control",
+    "pid": 14766105,
+    "tid": 4,
+    "active": false,
+    "registered": 1794896588,
+    "ended": 1794896598,
+    "period_us": 10000,
+    "deadline_us": 10000,
+    "cycles": 999,
+    "misses": 296,
+    "clamped": 0,
+    "backlog": {
+     "max_us": 27491,
+     "mean_us": 5054.8,
+     "stddev_us": 8816.6,
+     "p50_us": 0,
+     "p99_us": 26394
+    },
+    "latency": {
+     "max_us": 4744,
+     "mean_us": 191.5,
+     "stddev_us": 327.5,
+     "p50_us": 132,
+     "p99_us": 1120
+    },
+    "lock_wait": {
+     "max_us": 36238,
+     "mean_us": 3636.8,
+     "stddev_us": 10363.0,
+     "p50_us": 1,
+     "p99_us": 35264
+    },
+    "exec": {
+     "max_us": 1430,
+     "mean_us": 1012.8,
+     "stddev_us": 18.4,
+     "p50_us": 1009,
+     "p99_us": 1086
+    },
+    "response": {
+     "max_us": 37491,
+     "mean_us": 9897.0,
+     "stddev_us": 12096.1,
+     "p50_us": 2096,
+     "p99_us": 36394
+    }
+   }
+  ]
+ }
+}
