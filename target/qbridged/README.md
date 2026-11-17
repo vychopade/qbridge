@@ -17,6 +17,21 @@ A QNX resource manager that serves live system state as JSON files under `/dev/q
 
 Each `open()` of the first five takes one consistent snapshot, and reads return slices of it, so `cat` and partial reads both work.
 
+## Who holds a mutex
+
+For every `MUTEX`-blocked thread, `/dev/qbridge/threads` also reads the mutex itself (`read_sync()` in [qbridged.c](qbridged.c): `pread64()` on `/proc/<pid>/as` at the sync address the kernel reports in `debug_thread_t.blocked.sync.sync`). QNX keeps a mutex's state in the `sync_t` in the process's memory ([sys/target_nto.h](https://www.qnx.com/developers/docs/8.0/)):
+
+| Field | Meaning | Source |
+|---|---|---|
+| `mutex_count` | raw `__u.__count`: `_NTO_SYNC_*` flags | documented in `target_nto.h` |
+| `mutex_protocol` | `PTHREAD_PRIO_NONE` if `_NTO_SYNC_PRIONONE`, `PTHREAD_PRIO_PROTECT` if `_NTO_SYNC_PRIOCEILING`, else `PTHREAD_PRIO_INHERIT` | documented flags |
+| `mutex_owner` | raw `__owner` | documented: "Thread id for mutex" |
+| `mutex_waiting` | `_NTO_SYNC_WAITING` bit | documented |
+| `mutex_owner_tid` | `__owner & 0xffff` | **observed**, not documented |
+| `mutex_owner_pid_bits_match` | `(__owner >> 16) & 0x7fff` equals the pid's low 15 bits | **observed**, not documented |
+
+The owner layout (`WAITING | (pid & 0x7fff) << 16 | tid`) was worked out on the target from three rtdemo runs. In each, the low 16 bits were the tid of the thread that held the lock (C-logger, tid 2), and the next 15 bits were the low bits of that run's pid (0x3015, 0x7002 and 0x2017 for pids ending ...3015 and 0x1d7002, 0x48a017). The analysis only names a holder when the pid bits match, and its findings say the layout is observed rather than documented.
+
 ## Tasks report their deadlines by message passing
 
 A periodic task includes [qbridge_task.h](qbridge_task.h) (header only):

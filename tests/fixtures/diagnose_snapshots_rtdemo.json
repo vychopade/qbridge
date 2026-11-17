@@ -1,0 +1,654 @@
+{
+ "snapshots_taken": 25,
+ "deadline_summary": "A-control: 304 of 799 cycles missed the 10 ms deadline (38.0%); worst response 39.8 ms, 99th percentile 38.4 ms, mean 10.65 ms. The misses form 76 run(s) of consecutive misses (longest 4); what started each run: waiting for a lock (76).",
+ "snapshots_kept": [
+  [
+   {
+    "pid": 5087253,
+    "tid": 1,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "",
+    "state": "JOIN",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "RR",
+    "last_cpu": 1,
+    "blocked_ms": 1461,
+    "cpu_ns": 904192,
+    "blocked_on": {
+     "tid": 4
+    }
+   },
+   {
+    "pid": 5087253,
+    "tid": 2,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "C-logger",
+    "state": "READY",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 212824661
+   },
+   {
+    "pid": 5087253,
+    "tid": 3,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "B-worker",
+    "state": "RUNNING",
+    "priority": 20,
+    "real_priority": 20,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 568279998
+   },
+   {
+    "pid": 5087253,
+    "tid": 4,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "A-control",
+    "state": "MUTEX",
+    "priority": 30,
+    "real_priority": 30,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 148826571,
+    "blocked_on": {
+     "sync": "0x323b1fd050",
+     "id": 215740305492,
+     "mutex_count": "0x90000000",
+     "mutex_owner": "0xa0150002",
+     "mutex_protocol": "PTHREAD_PRIO_NONE",
+     "mutex_shared": false,
+     "mutex_waiting": true,
+     "mutex_owner_tid": 2,
+     "mutex_owner_pid_bits_match": true
+    }
+   }
+  ],
+  [
+   {
+    "pid": 5087253,
+    "tid": 1,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "",
+    "state": "JOIN",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "RR",
+    "last_cpu": 1,
+    "blocked_ms": 1689,
+    "cpu_ns": 904192,
+    "blocked_on": {
+     "tid": 4
+    }
+   },
+   {
+    "pid": 5087253,
+    "tid": 2,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "C-logger",
+    "state": "READY",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 242958638
+   },
+   {
+    "pid": 5087253,
+    "tid": 3,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "B-worker",
+    "state": "RUNNING",
+    "priority": 20,
+    "real_priority": 20,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 676566887
+   },
+   {
+    "pid": 5087253,
+    "tid": 4,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "A-control",
+    "state": "MUTEX",
+    "priority": 30,
+    "real_priority": 30,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 29,
+    "cpu_ns": 169973381,
+    "blocked_on": {
+     "sync": "0x323b1fd050",
+     "id": 215740305492,
+     "mutex_count": "0x90000000",
+     "mutex_owner": "0xa0150002",
+     "mutex_protocol": "PTHREAD_PRIO_NONE",
+     "mutex_shared": false,
+     "mutex_waiting": true,
+     "mutex_owner_tid": 2,
+     "mutex_owner_pid_bits_match": true
+    }
+   }
+  ],
+  [
+   {
+    "pid": 5087253,
+    "tid": 1,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "",
+    "state": "JOIN",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "RR",
+    "last_cpu": 1,
+    "blocked_ms": 2380,
+    "cpu_ns": 904192,
+    "blocked_on": {
+     "tid": 4
+    }
+   },
+   {
+    "pid": 5087253,
+    "tid": 2,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "C-logger",
+    "state": "READY",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 349028292
+   },
+   {
+    "pid": 5087253,
+    "tid": 3,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "B-worker",
+    "state": "RUNNING",
+    "priority": 20,
+    "real_priority": 20,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 947610651
+   },
+   {
+    "pid": 5087253,
+    "tid": 4,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "A-control",
+    "state": "MUTEX",
+    "priority": 30,
+    "real_priority": 30,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 20,
+    "cpu_ns": 245327586,
+    "blocked_on": {
+     "sync": "0x323b1fd050",
+     "id": 215740305492,
+     "mutex_count": "0x90000000",
+     "mutex_owner": "0xa0150002",
+     "mutex_protocol": "PTHREAD_PRIO_NONE",
+     "mutex_shared": false,
+     "mutex_waiting": true,
+     "mutex_owner_tid": 2,
+     "mutex_owner_pid_bits_match": true
+    }
+   }
+  ],
+  [
+   {
+    "pid": 5087253,
+    "tid": 1,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "",
+    "state": "JOIN",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "RR",
+    "last_cpu": 1,
+    "blocked_ms": 2892,
+    "cpu_ns": 904192,
+    "blocked_on": {
+     "tid": 4
+    }
+   },
+   {
+    "pid": 5087253,
+    "tid": 2,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "C-logger",
+    "state": "READY",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 426612534
+   },
+   {
+    "pid": 5087253,
+    "tid": 3,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "B-worker",
+    "state": "RUNNING",
+    "priority": 20,
+    "real_priority": 20,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 1159424634
+   },
+   {
+    "pid": 5087253,
+    "tid": 4,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "A-control",
+    "state": "MUTEX",
+    "priority": 30,
+    "real_priority": 30,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 32,
+    "cpu_ns": 300586423,
+    "blocked_on": {
+     "sync": "0x323b1fd050",
+     "id": 215740305492,
+     "mutex_count": "0x90000000",
+     "mutex_owner": "0xa0150002",
+     "mutex_protocol": "PTHREAD_PRIO_NONE",
+     "mutex_shared": false,
+     "mutex_waiting": true,
+     "mutex_owner_tid": 2,
+     "mutex_owner_pid_bits_match": true
+    }
+   }
+  ],
+  [
+   {
+    "pid": 5087253,
+    "tid": 1,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "",
+    "state": "JOIN",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "RR",
+    "last_cpu": 1,
+    "blocked_ms": 3383,
+    "cpu_ns": 904192,
+    "blocked_on": {
+     "tid": 4
+    }
+   },
+   {
+    "pid": 5087253,
+    "tid": 2,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "C-logger",
+    "state": "READY",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 501195646
+   },
+   {
+    "pid": 5087253,
+    "tid": 3,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "B-worker",
+    "state": "RUNNING",
+    "priority": 20,
+    "real_priority": 20,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 1350225940
+   },
+   {
+    "pid": 5087253,
+    "tid": 4,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "A-control",
+    "state": "MUTEX",
+    "priority": 30,
+    "real_priority": 30,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 22,
+    "cpu_ns": 353566879,
+    "blocked_on": {
+     "sync": "0x323b1fd050",
+     "id": 215740305492,
+     "mutex_count": "0x90000000",
+     "mutex_owner": "0xa0150002",
+     "mutex_protocol": "PTHREAD_PRIO_NONE",
+     "mutex_shared": false,
+     "mutex_waiting": true,
+     "mutex_owner_tid": 2,
+     "mutex_owner_pid_bits_match": true
+    }
+   }
+  ],
+  [
+   {
+    "pid": 5087253,
+    "tid": 1,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "",
+    "state": "JOIN",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "RR",
+    "last_cpu": 1,
+    "blocked_ms": 4564,
+    "cpu_ns": 904192,
+    "blocked_on": {
+     "tid": 4
+    }
+   },
+   {
+    "pid": 5087253,
+    "tid": 2,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "C-logger",
+    "state": "READY",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 682819880
+   },
+   {
+    "pid": 5087253,
+    "tid": 3,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "B-worker",
+    "state": "RUNNING",
+    "priority": 20,
+    "real_priority": 20,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 1814267244
+   },
+   {
+    "pid": 5087253,
+    "tid": 4,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "A-control",
+    "state": "MUTEX",
+    "priority": 30,
+    "real_priority": 30,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 4,
+    "cpu_ns": 484488798,
+    "blocked_on": {
+     "sync": "0x323b1fd050",
+     "id": 215740305492,
+     "mutex_count": "0x90000000",
+     "mutex_owner": "0xa0150002",
+     "mutex_protocol": "PTHREAD_PRIO_NONE",
+     "mutex_shared": false,
+     "mutex_waiting": true,
+     "mutex_owner_tid": 2,
+     "mutex_owner_pid_bits_match": true
+    }
+   }
+  ],
+  [
+   {
+    "pid": 5087253,
+    "tid": 1,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "",
+    "state": "JOIN",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "RR",
+    "last_cpu": 1,
+    "blocked_ms": 5282,
+    "cpu_ns": 904192,
+    "blocked_on": {
+     "tid": 4
+    }
+   },
+   {
+    "pid": 5087253,
+    "tid": 2,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "C-logger",
+    "state": "READY",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 788371483
+   },
+   {
+    "pid": 5087253,
+    "tid": 3,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "B-worker",
+    "state": "RUNNING",
+    "priority": 20,
+    "real_priority": 20,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 2111462674
+   },
+   {
+    "pid": 5087253,
+    "tid": 4,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "A-control",
+    "state": "MUTEX",
+    "priority": 30,
+    "real_priority": 30,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 22,
+    "cpu_ns": 558556243,
+    "blocked_on": {
+     "sync": "0x323b1fd050",
+     "id": 215740305492,
+     "mutex_count": "0x90000000",
+     "mutex_owner": "0xa0150002",
+     "mutex_protocol": "PTHREAD_PRIO_NONE",
+     "mutex_shared": false,
+     "mutex_waiting": true,
+     "mutex_owner_tid": 2,
+     "mutex_owner_pid_bits_match": true
+    }
+   }
+  ],
+  [
+   {
+    "pid": 5087253,
+    "tid": 1,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "",
+    "state": "JOIN",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "RR",
+    "last_cpu": 1,
+    "blocked_ms": 5973,
+    "cpu_ns": 904192,
+    "blocked_on": {
+     "tid": 4
+    }
+   },
+   {
+    "pid": 5087253,
+    "tid": 2,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "C-logger",
+    "state": "READY",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 894993314
+   },
+   {
+    "pid": 5087253,
+    "tid": 3,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "B-worker",
+    "state": "RUNNING",
+    "priority": 20,
+    "real_priority": 20,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 2383572861
+   },
+   {
+    "pid": 5087253,
+    "tid": 4,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "A-control",
+    "state": "MUTEX",
+    "priority": 30,
+    "real_priority": 30,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 13,
+    "cpu_ns": 636178522,
+    "blocked_on": {
+     "sync": "0x323b1fd050",
+     "id": 215740305492,
+     "mutex_count": "0x90000000",
+     "mutex_owner": "0xa0150002",
+     "mutex_protocol": "PTHREAD_PRIO_NONE",
+     "mutex_shared": false,
+     "mutex_waiting": true,
+     "mutex_owner_tid": 2,
+     "mutex_owner_pid_bits_match": true
+    }
+   }
+  ],
+  [
+   {
+    "pid": 5087253,
+    "tid": 1,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "",
+    "state": "JOIN",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "RR",
+    "last_cpu": 1,
+    "blocked_ms": 6785,
+    "cpu_ns": 904192,
+    "blocked_on": {
+     "tid": 4
+    }
+   },
+   {
+    "pid": 5087253,
+    "tid": 2,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "C-logger",
+    "state": "READY",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 1017043161
+   },
+   {
+    "pid": 5087253,
+    "tid": 3,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "B-worker",
+    "state": "RUNNING",
+    "priority": 20,
+    "real_priority": 20,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 2715079481
+   },
+   {
+    "pid": 5087253,
+    "tid": 4,
+    "name": "rtdemo",
+    "path": "/data/qbridge/rtdemo",
+    "thread_name": "A-control",
+    "state": "MUTEX",
+    "priority": 30,
+    "real_priority": 30,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 25,
+    "cpu_ns": 726964223,
+    "blocked_on": {
+     "sync": "0x323b1fd050",
+     "id": 215740305492,
+     "mutex_count": "0x90000000",
+     "mutex_owner": "0xa0150002",
+     "mutex_protocol": "PTHREAD_PRIO_NONE",
+     "mutex_shared": false,
+     "mutex_waiting": true,
+     "mutex_owner_tid": 2,
+     "mutex_owner_pid_bits_match": true
+    }
+   }
+  ]
+ ]
+}

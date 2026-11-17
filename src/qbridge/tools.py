@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import build as build_mod
-from . import crash, deadlines, runs
+from . import analysis, crash, deadlines, runs
 from .parsers import pidin, qbridged, slog2
 from .policy import Policy, PolicyError
 from .target import Target, TargetError
@@ -301,6 +301,70 @@ def _qbridged_check(s: Session, report: dict, summary: dict | None) -> dict:
     if task is None:
         return {"checked": False, "reason": f"slot {info.get('slot')} not found in qbridged"}
     return qbridged.cross_check(report, task)
+
+
+def diagnose(s: Session, program: str | None = None, seconds: int = 6, snapshots: int = 40,
+             run_id: str | None = None, args: list[str] | None = None) -> dict:
+    """Snapshot thread states while a workload runs and apply the analysis rules.
+
+    With `program`, it starts the workload (background, fixed length), takes
+    up to `snapshots` /dev/qbridge/threads snapshots while it runs, then reads
+    the run's samples so the rule also has deadline evidence from the same run.
+    Without `program`, it snapshots whatever is running now. `run_id` adds the
+    deadline report of a saved run instead.
+    """
+    seconds = max(3, min(int(seconds), 60))
+    snapshots = max(1, min(int(snapshots), 200))
+    csv_remote = None
+    log = None
+    if program:
+        s.policy.require_write("diagnose (starts the workload)")
+        remote = s.policy.deploy_path(program)
+        csv_remote = remote + ".diagnose.csv"
+        started = run(s, program, ["-d", str(seconds), "-o", csv_remote, *(args or [])],
+                      timeout=seconds + 30, background=True)
+        log = started["log"]
+        time.sleep(1.0)   # let the workload reach its steady state
+
+    snaps: list[list[dict]] = []
+    deadline_at = time.monotonic() + max(1.0, seconds - 2.0)
+    while len(snaps) < snapshots and time.monotonic() < deadline_at:
+        r = s.target.run(["cat", qbridged.THREADS_PATH])
+        if not r.ok:
+            raise TargetError(f"cannot read {qbridged.THREADS_PATH}: is qbridged running?")
+        snaps.append(json.loads(r.stdout)["threads"])
+
+    report = None
+    source = None
+    if run_id:
+        report = runs.load(run_id)["report"]
+        source = f"saved run {run_id}"
+    elif program:
+        # Wait for the workload to finish, then analyse its own samples.
+        end = time.monotonic() + seconds + 20
+        summary = None
+        while time.monotonic() < end:
+            tail = s.target.run(["tail", "-1", log]).stdout.strip()
+            try:
+                summary = json.loads(tail)
+                break
+            except ValueError:
+                time.sleep(1.0)
+        if summary and summary.get("deadline_us"):
+            samples = deadlines.parse_samples_csv(s.target.run(["cat", csv_remote]).stdout)
+            if samples:
+                report = deadlines.analyse(samples, float(summary["deadline_us"]),
+                                           float(summary.get("period_us") or 0) or None,
+                                           summary.get("task") or program)
+                source = "the same run's samples"
+
+    result = analysis.diagnose(snaps, report)
+    result["deadline_evidence_from"] = source
+    if report:
+        result["deadline_summary"] = report["summary"]
+    diag_id = runs.save_diagnosis(program, result, snaps)
+    result["diagnosis_id"] = diag_id
+    return result
 
 
 def deadline_stats(s: Session) -> dict:

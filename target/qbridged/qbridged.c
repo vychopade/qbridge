@@ -217,7 +217,31 @@ static void emit_proc(sbuf_t *b, int *first, const debug_process_t *p, const cha
 
 /* ---- /dev/qbridge/threads ---- */
 
-static void emit_blocked(sbuf_t *b, const debug_thread_t *t)
+/* Read a sync_t (pthread_mutex_t) from another process's memory through
+ * /proc/<pid>/as. QNX keeps a mutex's owner and protocol flags in the mutex
+ * itself (sys/target_nto.h): __u.__count holds _NTO_SYNC_* flags such as
+ * _NTO_SYNC_PRIONONE, __owner holds the locking thread's __tls()->__owner
+ * with _NTO_SYNC_WAITING set while others wait. Returns 0 on success. */
+static int read_sync(pid_t pid, uint64_t addr, uint32_t *count, uint32_t *owner)
+{
+    char path[64];
+    snprintf(path, sizeof(path), "/proc/%d/as", pid);
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        return -1;
+    }
+    uint32_t words[2];
+    ssize_t n = pread64(fd, words, sizeof(words), (off64_t)addr);
+    close(fd);
+    if (n != (ssize_t)sizeof(words)) {
+        return -1;
+    }
+    *count = words[0];
+    *owner = words[1];
+    return 0;
+}
+
+static void emit_blocked(sbuf_t *b, const debug_process_t *p, const debug_thread_t *t)
 {
     switch (t->state) {
     case STATE_SEND:
@@ -229,7 +253,33 @@ static void emit_blocked(sbuf_t *b, const debug_thread_t *t)
     case STATE_RECEIVE:
         sb_printf(b, ", \"blocked_on\": {\"chid\": %d}", t->blocked.channel.chid);
         break;
-    case STATE_MUTEX:
+    case STATE_MUTEX: {
+        uint32_t count, owner;
+        sb_printf(b, ", \"blocked_on\": {\"sync\": \"0x%llx\", \"id\": %lld",
+                  (unsigned long long)t->blocked.sync.sync, (long long)t->blocked.sync.id);
+        if (read_sync(p->pid, t->blocked.sync.sync, &count, &owner) == 0) {
+            sb_printf(b, ", \"mutex_count\": \"0x%08x\", \"mutex_owner\": \"0x%08x\"", count, owner);
+            /* Protocol from the count word's flags (documented in target_nto.h). */
+            const char *protocol = (count & _NTO_SYNC_PRIONONE)      ? "PTHREAD_PRIO_NONE"
+                                 : (count & _NTO_SYNC_PRIOCEILING)   ? "PTHREAD_PRIO_PROTECT"
+                                                                     : "PTHREAD_PRIO_INHERIT";
+            sb_printf(b, ", \"mutex_protocol\": \"%s\", \"mutex_shared\": %s", protocol,
+                      (count & _NTO_SYNC_SHARED) ? "true" : "false");
+            /* Holder. Observed on QNX 8.0 (not documented API): the owner word
+             * is _NTO_SYNC_WAITING | (pid & 0x7fff) << 16 | tid. We decode the
+             * tid and say whether the pid bits match this process, so a
+             * mismatch is reported instead of guessed. */
+            uint32_t o = owner & _NTO_SYNC_OWNER_MASK;
+            if (owner != _NTO_SYNC_MUTEX_FREE && owner < _NTO_SYNC_OWNERDEAD) {
+                sb_printf(b, ", \"mutex_waiting\": %s, \"mutex_owner_tid\": %u, "
+                             "\"mutex_owner_pid_bits_match\": %s",
+                          (owner & _NTO_SYNC_WAITING) ? "true" : "false", o & 0xffffu,
+                          ((o >> 16) & 0x7fffu) == ((uint32_t)p->pid & 0x7fffu) ? "true" : "false");
+            }
+        }
+        sb_printf(b, "}");
+        break;
+    }
     case STATE_CONDVAR:
     case STATE_SEM:
     case STATE_RWLOCK_READ:
@@ -269,7 +319,7 @@ static void emit_thread(sbuf_t *b, int *first, const debug_process_t *p, const c
               policy_name(t->policy, pbuf, sizeof(pbuf)),
               t->last_cpu, (unsigned long long)(t->nsec_since_block / 1000000ull),
               (unsigned long long)t->sutime);
-    emit_blocked(b, t);
+    emit_blocked(b, p, t);
     sb_printf(b, "}");
     *first = 0;
 }

@@ -29,6 +29,7 @@ qbridge lets any MCP client (or you, from the command line) build, deploy, inspe
 | `qnx_run` | `qbridge --allow-write run` | yes | Run a program from `/data/qbridge` with a timeout; reports the signal if it dies. `background` starts it and returns at once (output to `<program>.log`) |
 | `qnx_kill` | `qbridge --allow-write kill` | yes | Signal programs qbridge deployed (never system processes) and return their log; `ABRT` makes dumper write a core of a hung program |
 | `qnx_measure` | `qbridge --allow-write measure` | yes (runs a program) | Run a periodic workload for a fixed time; deadline statistics with each cycle split into backlog, scheduling latency, lock wait, CPU time and preempted time; runs of consecutive misses attributed to what started them; saved as a run |
+| `qnx_diagnose` | `qbridge diagnose` | no (yes if it starts the workload) | Snapshot thread states while the workload runs and apply diagnosis rules; currently priority inversion on a mutex, with the holder and protocol read from the mutex in process memory. Each finding has evidence, a confidence level, what it could not determine, and a suggested fix |
 | `qnx_deadlines` | `qbridge deadlines` | no | Live deadline statistics that qbridged keeps for tasks registered with it by message passing (also tasks you start yourself) |
 | `qnx_runs` / `qnx_run_report` | `qbridge runs` / `qbridge run-report` | no | List saved runs; show one (including the measured binary's sha256) |
 | `qnx_events` | `qbridge events` | no | Wait for process deaths and core dumps, pushed by `qbridged` (needs qbridged running) |
@@ -64,6 +65,22 @@ runs the workload, fetches its per-cycle samples and computes the statistics on 
 Each run is saved under `~/.qbridge/runs/<run_id>/` (`meta.json` with the binary's sha256, the program's `summary.json`, the raw `samples.csv`, and qbridge's `report.json`), so comparisons and reports are built only from captured data.
 
 **Workload convention.** A program works with `measure` if it accepts `-d <seconds> -o <samples.csv>`, writes one CSV row per cycle with `release_us` and `response_us` (and optionally `backlog_us`, `latency_us`, `lock_wait_us`, `exec_us`), and prints a JSON summary line with `period_us` and `deadline_us`. [rtdemo](examples/rtdemo/README.md) is the reference.
+
+## Diagnosis
+
+```
+qbridge --allow-write diagnose rtdemo --seconds 8
+```
+
+starts the workload, takes `/dev/qbridge/threads` snapshots while it runs, reads that run's samples, and applies the rules. On the reference target, for the faulty rtdemo:
+
+> **Priority inversion on a mutex (high confidence).** 'A-control' (priority 30) waits for a mutex held by 'C-logger' (priority 10), while 'B-worker' (priority 20) keeps the CPU.
+> Evidence: A was blocked on the mutex in 9 of 25 snapshots, for up to 32 ms. The holder was C-logger at priority 10, read from the mutex's owner word in process memory (pid bits matched 9 of 9). B-worker had the holder's CPU in all 9. The protocol flags say PTHREAD_PRIO_NONE. 76 of 76 runs of consecutive misses in the same run started with a long lock wait.
+> Could not determine: these are instants, not totals; the owner-word layout is observed, not documented; which source line uses the mutex; other delays; a worst case.
+
+For the fixed build it reports no inversion ("this does not prove there is none; it was not observed"). It also reports priority inheritance seen working: the holder ran at priority 30 while its own priority is 10.
+
+Confidence is high when at least three independent pieces of evidence agree: holder below the waiter, a middle-priority thread running, the PRIO_NONE flag, and lock-rooted deadline misses. With fewer it is medium or low, and the fix suggestion becomes more cautious. Diagnoses are saved under `~/.qbridge/diagnoses/` with the snapshots that support them.
 
 ## Guard rails
 

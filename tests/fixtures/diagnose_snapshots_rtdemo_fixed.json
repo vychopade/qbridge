@@ -1,0 +1,78 @@
+{
+ "snapshots_taken": 28,
+ "deadline_summary": "A-control: 0 of 799 cycles missed the 10 ms deadline (0.0%); worst response 8.1 ms, 99th percentile 5.0 ms, mean 2.51 ms.",
+ "snapshots_kept": [
+  [
+   {
+    "pid": 6193154,
+    "tid": 1,
+    "name": "rtdemo_fixed",
+    "path": "/data/qbridge/rtdemo_fixed",
+    "thread_name": "",
+    "state": "JOIN",
+    "priority": 10,
+    "real_priority": 10,
+    "policy": "RR",
+    "last_cpu": 0,
+    "blocked_ms": 5302,
+    "cpu_ns": 820405,
+    "blocked_on": {
+     "tid": 4
+    }
+   },
+   {
+    "pid": 6193154,
+    "tid": 2,
+    "name": "rtdemo_fixed",
+    "path": "/data/qbridge/rtdemo_fixed",
+    "thread_name": "C-logger",
+    "state": "RUNNING",
+    "priority": 30,
+    "real_priority": 10,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 0,
+    "cpu_ns": 790448165
+   },
+   {
+    "pid": 6193154,
+    "tid": 3,
+    "name": "rtdemo_fixed",
+    "path": "/data/qbridge/rtdemo_fixed",
+    "thread_name": "B-worker",
+    "state": "NANOSLEEP",
+    "priority": 20,
+    "real_priority": 20,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 2,
+    "cpu_ns": 2127005243
+   },
+   {
+    "pid": 6193154,
+    "tid": 4,
+    "name": "rtdemo_fixed",
+    "path": "/data/qbridge/rtdemo_fixed",
+    "thread_name": "A-control",
+    "state": "MUTEX",
+    "priority": 30,
+    "real_priority": 30,
+    "policy": "FIFO",
+    "last_cpu": 1,
+    "blocked_ms": 2,
+    "cpu_ns": 554123768,
+    "blocked_on": {
+     "sync": "0x2393a59050",
+     "id": 152800956500,
+     "mutex_count": "0x80000000",
+     "mutex_owner": "0x80020002",
+     "mutex_protocol": "PTHREAD_PRIO_INHERIT",
+     "mutex_shared": false,
+     "mutex_waiting": true,
+     "mutex_owner_tid": 2,
+     "mutex_owner_pid_bits_match": true
+    }
+   }
+  ]
+ ]
+}

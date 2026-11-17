@@ -64,6 +64,30 @@ def load(run_id: str) -> dict:
     return out
 
 
+def save_diagnosis(program: str | None, result: dict, snapshots: list[list[dict]]) -> str:
+    """Save a diagnosis with the snapshots that supported its findings.
+
+    To keep files small, only snapshots in which some thread was MUTEX-blocked
+    are kept, and only the processes named in the findings (or, with no
+    findings, the processes that had a MUTEX-blocked thread).
+    """
+    pids = {f["subject"]["pid"] for f in result.get("findings", [])}
+    for f in result.get("findings", []):
+        pids |= {m["pid"] for m in f["subject"].get("middle", [])}
+    if not pids:
+        pids = {t["pid"] for snap in snapshots for t in snap if t.get("state") == "MUTEX"}
+    kept = [[t for t in snap if t["pid"] in pids] for snap in snapshots
+            if any(t.get("state") == "MUTEX" for t in snap)]
+    diag_id = new_run_id(f"diagnose-{program or 'live'}")
+    d = home() / "diagnoses"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{diag_id}.json").write_text(
+        json.dumps({"diagnosis_id": diag_id, "program": program,
+                    "taken": time.strftime("%Y-%m-%dT%H:%M:%S"), "result": result,
+                    "snapshots_kept": kept}, indent=1) + "\n", encoding="utf-8")
+    return diag_id
+
+
 def list_runs(limit: int = 50) -> list[dict]:
     if not runs_dir().is_dir():
         return []

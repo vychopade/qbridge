@@ -29,6 +29,20 @@ def test_from_env(monkeypatch):
     assert (t.host, t.user, t.port) == ("192.0.2.20", "qnxuser", 2222)
 
 
+def test_cached_host_reused_while_reachable(monkeypatch, tmp_path):
+    import qbridge.target as tg
+    monkeypatch.setenv("QBRIDGE_HOME", str(tmp_path))
+    monkeypatch.delenv("QBRIDGE_HOST", raising=False)
+    calls = []
+    monkeypatch.setattr(tg, "getip", lambda *a, **k: calls.append(1) or "192.0.2.7")
+    monkeypatch.setattr(tg, "_port_open", lambda h, p, timeout=2.0: h == "192.0.2.7")
+    assert Target().resolve_host() == "192.0.2.7" and calls == [1]      # first time: getip
+    assert Target().resolve_host() == "192.0.2.7" and calls == [1]      # then: cache
+    monkeypatch.setattr(tg, "_port_open", lambda h, p, timeout=2.0: False)
+    Target().resolve_host()
+    assert calls == [1, 1]                                              # unreachable: getip again
+
+
 def test_run_quotes_arguments(monkeypatch):
     seen = {}
 

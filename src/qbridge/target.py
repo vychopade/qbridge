@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import shlex
+import socket
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -75,7 +76,14 @@ class Target:
         """
         if self.host:
             return self.host
+        # Reuse the last address that worked while ssh still answers there;
+        # mkqnximage --getip is slow and occasionally fails transiently.
+        cached = _read_cached_host()
+        if cached and _port_open(cached, self.port):
+            self.host = cached
+            return self.host
         self.host = getip(self.image_dir, self.sdp)
+        _write_cached_host(self.host)
         return self.host
 
     # -- ssh ---------------------------------------------------------------
@@ -145,6 +153,36 @@ class Target:
         if p.returncode == 255:
             raise TargetError(f"ssh to {self.host} failed: {p.stderr.strip()}")
         return Result(remote, p.returncode, p.stdout, p.stderr)
+
+
+def _host_cache() -> Path:
+    base = os.environ.get("QBRIDGE_HOME") or (_home() / ".qbridge")
+    return Path(base) / "target_host"
+
+
+def _read_cached_host() -> str | None:
+    try:
+        text = _host_cache().read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return text or None
+
+
+def _write_cached_host(host: str) -> None:
+    try:
+        p = _host_cache()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(host + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _port_open(host: str, port: int, timeout: float = 2.0) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 
 def getip(image_dir: Path, sdp: Path, timeout: float = 120) -> str:

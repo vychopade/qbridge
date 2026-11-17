@@ -143,6 +143,22 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         lambda s: tools.deadline_stats(s),
         False,
     ),
+    "qnx_diagnose": (
+        "Find out why a real-time task misses deadlines. Takes /dev/qbridge/threads snapshots "
+        "while the workload runs (starting it if `program` is given) and applies deterministic "
+        "rules, currently: priority inversion on a mutex (reads the mutex's holder and protocol "
+        "from process memory). Each finding lists its evidence with numbers, a confidence level, "
+        "what it could not determine, and a suggested fix. Starting a program needs write access.",
+        _schema({
+            "program": {"type": "string", "description": "Workload to start, e.g. 'rtdemo'"},
+            "seconds": {"type": "integer", "description": "Workload length, 3-60 (default 6)"},
+            "snapshots": {"type": "integer", "description": "Max snapshots (default 40)"},
+            "run_id": {"type": "string", "description": "Use this saved run's deadline report"},
+        }),
+        lambda s, program=None, seconds=6, snapshots=40, run_id=None:
+            tools.diagnose(s, program, seconds, snapshots, run_id),
+        False,
+    ),
     "qnx_runs": (
         "List saved measurement runs, newest first: label, misses, worst response.",
         _schema({"limit": {"type": "integer"}}),

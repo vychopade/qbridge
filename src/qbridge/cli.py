@@ -62,6 +62,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("deadlines", help="live deadline statistics from qbridged")
 
+    dg = sub.add_parser("diagnose", help="snapshot thread states and apply the diagnosis rules")
+    dg.add_argument("program", nargs="?", help="workload to start (needs --allow-write)")
+    dg.add_argument("--seconds", type=int, default=6)
+    dg.add_argument("--snapshots", type=int, default=40)
+    dg.add_argument("--run-id", help="use this saved run's deadline report")
+
     ru = sub.add_parser("runs", help="list saved measurement runs")
     ru.add_argument("--limit", type=int, default=20)
     rs = sub.add_parser("run-report", help="show one saved measurement run")
@@ -109,6 +115,8 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return tools.measure(s, a.program, a.seconds, a.args, a.label, a.deadline_us)
         case "deadlines":
             return tools.deadline_stats(s)
+        case "diagnose":
+            return tools.diagnose(s, a.program, a.seconds, a.snapshots, a.run_id)
         case "runs":
             return tools.list_runs(s, a.limit)
         case "run-report":
