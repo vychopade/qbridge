@@ -379,6 +379,58 @@ def deadline_stats(s: Session) -> dict:
     return d
 
 
+def timing_check(s: Session, cpu: int = 1, seconds: int = 10) -> dict:
+    """Measure the target's timer lateness on one CPU with vmjitter -t, and save it.
+
+    This is the environment's noise floor: how late a high-priority thread's
+    1 ms timer fires with nothing else of ours running. Reports include the
+    latest saved check. vmjitter (target/tools) must be deployed.
+    """
+    s.policy.require_write("timing check (runs vmjitter)")
+    seconds = max(1, min(int(seconds), 60))
+    out = run(s, "vmjitter", ["-t", "-c", str(int(cpu)), "-d", str(seconds)], timeout=seconds + 20)
+    if out["exit_code"] != 0:
+        raise TargetError(f"vmjitter failed ({out['exit_code']}): {out['stderr'].strip()} "
+                          "(deploy target/tools/build/vmjitter first)")
+    result = json.loads(out["stdout"].strip().splitlines()[-1])
+    result["measured"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    result["target"] = s.target.resolve_host()
+    check_id = runs.save_timing_check(result)
+    late = result["max_late_us"] / 1000
+    result["summary"] = (f"CPU {cpu}: {result['wakeups']} timer wake-ups in {seconds} s; mean "
+                         f"lateness {result['mean_late_us'] / 1000:.2f} ms, worst {late:.1f} ms, "
+                         f"{result['late_over_1ms']} over 1 ms.")
+    result["check_id"] = check_id
+    return result
+
+
+def make_report(s: Session, experiment_id: str, diagnosis_id: str | None = None,
+                out: str | None = None) -> dict:
+    """Write the HTML report for an experiment, from saved data only."""
+    from . import experiments, report
+    e = experiments.load(experiment_id)
+    diag = None
+    if diagnosis_id:
+        diag = runs.load_diagnosis(diagnosis_id)
+    elif (e.get("proposal") or {}).get("diagnosis_id"):
+        diag = runs.load_diagnosis(e["proposal"]["diagnosis_id"])
+    else:
+        diag = runs.latest_diagnosis(e["program"])
+
+    def load_run(run_id: str) -> dict:
+        saved = runs.load(run_id)
+        return {"report": saved["report"], "samples": runs.samples_text(run_id),
+                "summary": saved.get("summary")}
+
+    html_text = report.build(e, load_run, diag, runs.latest_timing_checks())
+    path = Path(out) if out else runs.home() / "reports" / f"{experiment_id}.html"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(html_text, encoding="utf-8")
+    return {"report": str(path), "bytes": len(html_text.encode()),
+            "diagnosis_used": (diag or {}).get("diagnosis_id"),
+            "timing_checks_used": [t["check_id"] for t in runs.latest_timing_checks()]}
+
+
 def list_runs(s: Session, limit: int = 20) -> dict:
     return {"runs": runs.list_runs(limit), "folder": str(runs.runs_dir())}
 

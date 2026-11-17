@@ -218,6 +218,28 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
                                        else {"experiments": experiments.list_all()}),
         False,
     ),
+    "qnx_timing_check": (
+        "Measure the target's timer lateness on one CPU (vmjitter -t: a priority-50 thread "
+        "wakes every 1 ms with nothing else of ours running) and save it. This is the "
+        "environment's noise floor; reports quote the latest check. Needs write access.",
+        _schema({"cpu": {"type": "integer", "description": "Default 1"},
+                 "seconds": {"type": "integer", "description": "Default 10"}}),
+        lambda s, cpu=1, seconds=10: tools.timing_check(s, cpu, seconds),
+        True,
+    ),
+    "qnx_report": (
+        "Write a self-contained HTML report for an experiment, built only from saved data: "
+        "verdict, before/after measurements and charts, where the time went, the diagnosis "
+        "with its evidence, the change and who approved it, recommendation, limitations "
+        "(including the saved timing check) and provenance. Returns the file path.",
+        _schema({"experiment_id": {"type": "string"},
+                 "diagnosis_id": {"type": "string",
+                                  "description": "Default: the one linked to the proposal, "
+                                                 "else the latest for the program"}},
+                ["experiment_id"]),
+        lambda s, experiment_id, diagnosis_id=None: tools.make_report(s, experiment_id, diagnosis_id),
+        False,
+    ),
     "qnx_runs": (
         "List saved measurement runs, newest first: label, misses, worst response.",
         _schema({"limit": {"type": "integer"}}),

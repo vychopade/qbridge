@@ -88,6 +88,49 @@ def save_diagnosis(program: str | None, result: dict, snapshots: list[list[dict]
     return diag_id
 
 
+def save_timing_check(result: dict) -> str:
+    check_id = new_run_id(f"timing-cpu{result.get('cpu', 'x')}")
+    d = home() / "timing"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{check_id}.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    return check_id
+
+
+def latest_timing_checks() -> list[dict]:
+    """The most recent saved timing check per CPU."""
+    d = home() / "timing"
+    if not d.is_dir():
+        return []
+    latest: dict = {}
+    for f in sorted(d.glob("*.json")):
+        r = json.loads(f.read_text(encoding="utf-8"))
+        latest[r.get("cpu")] = {**r, "check_id": f.stem}
+    return [latest[k] for k in sorted(latest, key=lambda c: (c is None, c))]
+
+
+def load_diagnosis(diag_id: str) -> dict:
+    if "/" in diag_id or "\\" in diag_id or diag_id.startswith("."):
+        raise FileNotFoundError(f"bad diagnosis id {diag_id!r}")
+    f = home() / "diagnoses" / f"{diag_id}.json"
+    if not f.is_file():
+        raise FileNotFoundError(f"no saved diagnosis {diag_id!r}")
+    return json.loads(f.read_text(encoding="utf-8"))
+
+
+def latest_diagnosis(program: str) -> dict | None:
+    d = home() / "diagnoses"
+    if not d.is_dir():
+        return None
+    for f in sorted(d.glob(f"*-diagnose-{program}.json"), reverse=True):
+        return json.loads(f.read_text(encoding="utf-8"))
+    return None
+
+
+def samples_text(run_id: str) -> str | None:
+    f = runs_dir() / run_id / "samples.csv"
+    return f.read_text(encoding="utf-8") if f.is_file() else None
+
+
 def list_runs(limit: int = 50) -> list[dict]:
     if not runs_dir().is_dir():
         return []

@@ -88,6 +88,16 @@ def build_parser() -> argparse.ArgumentParser:
     ii = im_sub.add_parser("install", help="add qbridged to the image so it starts at boot")
     ii.add_argument("--binary", help="qbridged binary (default: target/qbridged/build/qbridged)")
 
+    tc = sub.add_parser("timing-check", help="measure and save the target's timer lateness "
+                                             "(needs --allow-write)")
+    tc.add_argument("--cpu", type=int, default=1)
+    tc.add_argument("--seconds", type=int, default=10)
+
+    rp = sub.add_parser("report", help="write the HTML report for an experiment")
+    rp.add_argument("experiment_id")
+    rp.add_argument("--diagnosis-id")
+    rp.add_argument("--out", help="output file (default ~/.qbridge/reports/<id>.html)")
+
     ex = sub.add_parser("experiment", help="measured fix experiments (baseline, change, compare)")
     ex_sub = ex.add_subparsers(dest="exp_command", required=True)
     es = ex_sub.add_parser("start", help="build and measure the baseline (needs --allow-write)")
@@ -153,6 +163,10 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return tools.crash_report(s, a.core, a.binary)
         case "experiment":
             return experiment_command(s, a)
+        case "timing-check":
+            return tools.timing_check(s, a.cpu, a.seconds)
+        case "report":
+            return tools.make_report(s, a.experiment_id, a.diagnosis_id, a.out)
         case "image":
             from . import image
             return image.install_qbridged(s.target.image_dir, a.binary)

@@ -114,6 +114,27 @@ Live on the reference target (Nov 17, 2026), with the change approved by a perso
 
 The experiment was then rolled back (the target's binary matched the baseline sha256 again), so the demo keeps its planted fault. The full record is in `tests/fixtures/experiment_live/`.
 
+## Report
+
+```
+qbridge --allow-write timing-check --cpu 1      # saves the target's timer noise floor
+qbridge report <experiment_id>                  # ~/.qbridge/reports/<id>.html
+```
+
+`qbridge report` (MCP: `qnx_report`) writes one self-contained HTML page, with no scripts and no external files. It is built only from saved data:
+
+- the verdict and before/after headline numbers;
+- per-run measurements;
+- per-cycle response charts with the deadline line, and a response-time distribution;
+- where the time went (each part of a cycle, and what started each run of misses);
+- the diagnosis with evidence, confidence and what it could not determine;
+- the change, who approved it and when, and a timeline;
+- a recommendation;
+- limitations: finite runs, VM timing, the measured timer lateness of the CPUs, the simulated-demo statement, and how many runs passed each cross-check;
+- provenance: run ids and binary sha256 hashes.
+
+[docs/example-report.html](docs/example-report.html) is the report for the live experiment above (download it and open it in a browser).
+
 ## Guard rails
 
 - **Read-only by default.** `deploy` and `run` are refused unless qbridge was started with `--allow-write` (or `QBRIDGE_ALLOW_WRITE=1`). The assistant cannot switch this on itself.
