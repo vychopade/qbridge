@@ -6,13 +6,16 @@ the Policy first.
 
 from __future__ import annotations
 
+import json
 import posixpath
+import re
 import shlex
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import build as build_mod
-from . import crash
+from . import crash, deadlines, runs
 from .parsers import pidin, qbridged, slog2
 from .policy import Policy, PolicyError
 from .target import Target, TargetError
@@ -221,6 +224,73 @@ def kill(s: Session, pid: int | None = None, name: str | None = None,
     if sig in ("ABRT", "QUIT"):
         out["hint"] = "dumper should have written a core file; use qnx_crash to see where it was stuck."
     return out
+
+
+def _remote_sha256(s: Session, path: str) -> str | None:
+    r = s.target.run(["openssl", "dgst", "-sha256", path])
+    m = re.search(r"=\s*([0-9a-f]{64})", r.stdout)
+    return m.group(1) if m else None
+
+
+def measure(s: Session, program: str, seconds: int = 10, args: list[str] | None = None,
+            label: str | None = None, deadline_us: float | None = None,
+            period_us: float | None = None) -> dict:
+    """Run a periodic workload for a fixed time and report its deadline statistics.
+
+    The program must follow the qbridge RT workload convention (rtdemo does):
+    it accepts `-d <seconds> -o <samples.csv>`, writes one CSV row per cycle
+    (release_us, response_us and optionally backlog_us, latency_us,
+    lock_wait_us, exec_us) and prints a JSON summary line with period_us and
+    deadline_us. The run is saved on the host so it can be compared later.
+    """
+    s.policy.require_write("measure")
+    seconds = max(1, min(int(seconds), 600))
+    remote = s.policy.deploy_path(program)
+    csv_remote = remote + ".samples.csv"
+    started = time.strftime("%Y-%m-%dT%H:%M:%S")
+    sha = _remote_sha256(s, remote)
+    out = run(s, program, ["-d", str(seconds), "-o", csv_remote, *(args or [])],
+              timeout=seconds + 30)
+    if out["exit_code"] != 0:
+        raise TargetError(f"{program} exited with {out['exit_code']}"
+                          + (f" ({out['signal']})" if "signal" in out else "")
+                          + f": {out['stderr'].strip()[-500:]}")
+    summary = None
+    for line in reversed(out["stdout"].strip().splitlines()):
+        try:
+            summary = json.loads(line)
+            break
+        except ValueError:
+            continue
+    deadline = deadline_us or (summary or {}).get("deadline_us")
+    period = period_us or (summary or {}).get("period_us")
+    if not deadline:
+        raise ValueError("deadline unknown: the program printed none; pass deadline_us")
+    csv_text = s.target.run(["cat", csv_remote]).stdout
+    samples = deadlines.parse_samples_csv(csv_text)
+    if not samples:
+        raise TargetError(f"no samples in {csv_remote}")
+    task = (summary or {}).get("task") or posixpath.basename(remote)
+    report = deadlines.analyse(samples, float(deadline), float(period) if period else None, task)
+    check = deadlines.cross_check(report, summary)
+
+    run_id = runs.new_run_id(label or posixpath.basename(remote))
+    meta = {"run_id": run_id, "label": label, "program": remote, "binary_sha256": sha,
+            "args": ["-d", str(seconds), "-o", csv_remote, *(args or [])], "seconds": seconds,
+            "started": started, "target": s.target.resolve_host(),
+            "program_summary_fields": sorted((summary or {}).keys())}
+    path = runs.save(run_id, meta, summary, csv_text, {**report, "cross_check": check})
+    return {"run_id": run_id, "saved_to": str(path), "binary_sha256": sha,
+            "summary": report["summary"], "cross_check": check,
+            "report": {k: v for k, v in report.items() if k != "summary"}}
+
+
+def list_runs(s: Session, limit: int = 20) -> dict:
+    return {"runs": runs.list_runs(limit), "folder": str(runs.runs_dir())}
+
+
+def get_run(s: Session, run_id: str) -> dict:
+    return runs.load(run_id)
 
 
 def events(s: Session, wait: int = 10, since: int | None = None,

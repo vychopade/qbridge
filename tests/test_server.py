@@ -103,6 +103,14 @@ def test_cli_accepts_allow_write_after_serve():
     assert b.allow_write and not b.serve_allow_write
 
 
+def test_cli_measure_options_are_not_program_args():
+    from qbridge.cli import build_parser
+    a = build_parser().parse_args(["measure", "rtdemo", "--seconds", "5", "--label", "base"])
+    assert (a.program, a.seconds, a.label, a.args) == ("rtdemo", 5, "base", [])
+    b = build_parser().parse_args(["measure", "rtdemo", "--seconds", "5", "--", "-c", "1"])
+    assert b.args == ["-c", "1"] and b.seconds == 5
+
+
 def test_serve_loop_reads_lines():
     stdin = io.StringIO(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}) + "\n\n")
     stdout = io.StringIO()

@@ -51,6 +51,20 @@ def build_parser() -> argparse.ArgumentParser:
     k.add_argument("--name", help="program name")
     k.add_argument("--signal", default="TERM")
 
+    me = sub.add_parser("measure", help="run a periodic workload and report deadline statistics "
+                                        "(needs --allow-write)")
+    me.add_argument("program")
+    me.add_argument("--seconds", type=int, default=10)
+    me.add_argument("--label")
+    me.add_argument("--deadline-us", type=float)
+    me.add_argument("args", nargs="*",
+                    help="extra program arguments, after --  (e.g. measure rtdemo -- -c 1)")
+
+    ru = sub.add_parser("runs", help="list saved measurement runs")
+    ru.add_argument("--limit", type=int, default=20)
+    rs = sub.add_parser("run-report", help="show one saved measurement run")
+    rs.add_argument("run_id")
+
     ev = sub.add_parser("events", help="process deaths and core dumps pushed by qbridged")
     ev.add_argument("--wait", type=int, default=10, help="seconds to wait (default 10)")
     ev.add_argument("--since", type=int, help="only events after this seq")
@@ -89,6 +103,12 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return tools.run(s, a.path, a.args, a.timeout, a.background)
         case "kill":
             return tools.kill(s, a.pid, a.name, a.signal)
+        case "measure":
+            return tools.measure(s, a.program, a.seconds, a.args, a.label, a.deadline_us)
+        case "runs":
+            return tools.list_runs(s, a.limit)
+        case "run-report":
+            return tools.get_run(s, a.run_id)
         case "events":
             return tools.events(s, a.wait, a.since, a.all)
         case "crashes":

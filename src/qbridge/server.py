@@ -114,6 +114,39 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         lambda s, pid=None, name=None, signal="TERM": tools.kill(s, pid, name, signal),
         True,
     ),
+    "qnx_measure": (
+        "Run a periodic real-time workload (e.g. rtdemo) on the target for a fixed time and "
+        "report deadline statistics computed from its per-cycle samples: misses, worst/p99/"
+        "mean response, and the separate parts of each cycle (backlog, scheduling latency, "
+        "lock wait, CPU time, preempted time). Consecutive misses are grouped and each group "
+        "is attributed to what started it. The run is saved on the host (run_id) for later "
+        "comparison. Timing on a virtual machine is noisy; results describe these runs only. "
+        "Needs write access.",
+        _schema({
+            "program": {"type": "string", "description": "Deployed workload, e.g. 'rtdemo'"},
+            "seconds": {"type": "integer", "description": "Run length, 1-600 (default 10)"},
+            "args": {"type": "array", "items": {"type": "string"},
+                     "description": "Extra arguments for the program"},
+            "label": {"type": "string", "description": "Name for the saved run, e.g. 'baseline'"},
+            "deadline_us": {"type": "number", "description": "Override the program's deadline"},
+        }, ["program"]),
+        lambda s, program, seconds=10, args=None, label=None, deadline_us=None:
+            tools.measure(s, program, seconds, args, label, deadline_us),
+        True,
+    ),
+    "qnx_runs": (
+        "List saved measurement runs, newest first: label, misses, worst response.",
+        _schema({"limit": {"type": "integer"}}),
+        lambda s, limit=20: tools.list_runs(s, limit),
+        False,
+    ),
+    "qnx_run_report": (
+        "Show one saved measurement run: what ran (including the binary's sha256) and the "
+        "full deadline report.",
+        _schema({"run_id": {"type": "string"}}, ["run_id"]),
+        lambda s, run_id: tools.get_run(s, run_id),
+        False,
+    ),
     "qnx_events": (
         "Wait for and return process deaths and core dumps on the target, pushed by qbridged "
         "(no polling). Returns recent history plus anything that happens during `wait` "
