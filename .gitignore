@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+
+# Per-session audit logs and local target settings
+.qbridge/
+qbridge.local.toml
+
+# Core dumps pulled from the target
+*.core
+
+# QNX build output
+target/**/build/
+*.o

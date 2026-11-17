@@ -1,0 +1,958 @@
+﻿1794886003.418               pci_server.28676              pci_log*   1      0      SLOG2_INFO  INFO ,1,-10,0 [28676:1]:  
+1794886003.418               pci_server.28676              pci_log    1      0      SLOG2_INFO  INFO ,1,-10,0 [28676:1]: + PCI Server v3.2 init start +
+1794886003.894               pci_server.28676              pci_log    1      0      SLOG2_INFO  INFO ,1,-10,0 [28676:1]: + PCI Server v3.2 init complete, OK [(PCI_ERR_OK)] +
+1794886003.894               pci_server.28676              pci_log    1      0      SLOG2_INFO  INFO ,1,-10,0 [28676:1]:  
+1794886004.124                devb_eide.90123                 slog*   1      0      SLOG2_INFO  (devb-eide) 1.00A (Nov 20 2023 10:08:10)
+1794886004.125                devb_eide.90123                 slog    1      0      SLOG2_INFO  (libcam.so) (Nov 20 2023 10:07:55) bver 7020019
+1794886004.126                devb_eide.90123                 slog    1      0   SLOG2_WARNING  PCI WARN [90123]: _pci_attach() - deprecated interface. Switch your code to the new PCI server API's in <pci/pci.h>
+1794886004.126                devb_eide.90123                 slog    1      0   SLOG2_WARNING  PCI WARN [90123]: _pci_present() - deprecated interface. Switch your code to the new PCI server API's in <pci/pci.h>
+1794886004.128                devb_eide.90123                 slog    1      0   SLOG2_WARNING  PCI WARN [90123]: _pci_read_config_bus() - deprecated interface. Switch your code to the new PCI server API's in <pci/pci.h>
+1794886004.129                devb_eide.90123                 slog    1      0   SLOG2_WARNING  PCI WARN [90123]: _pci_attach_device() - deprecated interface. Switch your code to the new PCI server API's in <pci/pci.h>
+1794886004.131                devb_eide.90123                 slog    1      0     SLOG2_ERROR  eide_identify_devices: Intel 82371AB vid 0x8086, did 0x7111, class 0x1018a rev 1, busno 0, dfunc 9
+1794886004.132                devb_eide.90123                 slog    1      0     SLOG2_ERROR  eide_identify_devices: cmd_addr 0x1f0, cntl_addr 0x3f4, irq 0xe, chnl 0, udma 2, mdma 2, sdma 0, pio 4
+1794886004.132                devb_eide.90123                 slog    1      0     SLOG2_ERROR  eide_identify_devices: probing dev 0 status 50, error 0
+1794886004.132                devb_eide.90123                 slog    1      0     SLOG2_ERROR  eide_identify_devices: probing dev 1 status 0, error 0
+1794886004.232                devb_eide.90123                 slog    1      0     SLOG2_ERROR  eide_display_identify: mdl VBOX HARDDISK sn VB5e3edf91-3f5a516a  fw 1.0 tid 0, cable 80, max udma 6, cur udma 2, max mdma 2, cur mdma 0, max sdma -1, cur sdma -1, pio 4, mblk 128
+1794886004.232                devb_eide.90123                 slog    1      0   SLOG2_WARNING  PCI WARN [90123]: _pci_write_config_bus() - deprecated interface. Switch your code to the new PCI server API's in <pci/pci.h>
+1794886004.233                devb_eide.90123                 slog    1      0     SLOG2_ERROR  eide_init_devices: VBOX HARDDISK path 0, tid 0, udma 2, mdma 2, sdma -1, pio 4, mblk 128
+1794886004.233                devb_eide.90123                 slog    1      0     SLOG2_ERROR  eide_identify_devices: Intel 82371AB vid 0x8086, did 0x7111, class 0x1018a rev 1, busno 0, dfunc 9
+1794886004.233                devb_eide.90123                 slog    1      0     SLOG2_ERROR  eide_identify_devices: cmd_addr 0x170, cntl_addr 0x374, irq 0xf, chnl 1, udma 2, mdma 2, sdma 0, pio 4
+1794886004.234                devb_eide.90123                 slog    1      0     SLOG2_ERROR  eide_identify_devices: probing dev 0 status 7f, error 7f
+1794886004.234                devb_eide.90123                 slog    1      0     SLOG2_ERROR  eide_identify_devices: probing dev 1 status 7f, error 7f
+1794886004.234                devb_eide.90123                 slog    1      0   SLOG2_WARNING  PCI WARN [90123]: _pci_detach_device() - deprecated interface. Switch your code to the new PCI server API's in <pci/pci.h>
+1794886004.234                devb_eide.90123                 slog    1    100      SLOG2_INFO  (cam-disk.so) (Nov 20 2023 10:08:01)
+1794886004.390                  random.155660              qcrypto*   1      0    SLOG2_NOTICE  qcrypto: default tag: 'random'
+1794886004.391                  random.155660              qcrypto    1      0    SLOG2_NOTICE  qcrypto: loading configuration file '/proc/boot/qcrypto.conf'
+1794886004.395                  random.155660              qcrypto    1      0    SLOG2_NOTICE  qcrypto: 'openssl-3' plugin loaded
+1794886004.403               random.155660..0                  low*   1      0    SLOG2_NOTICE  random: Failed to open seed file /data/var/random/rnd-seed, errno (2) [state_save.c(67)]
+1794886004.425                devc_pty.180238                 slog*   1      0   SLOG2_WARNING  io-char: Invalid option
+1794886004.515                 io_sock.188432          main_buffer*   1      1      SLOG2_INFO  io-sock -m phy -m pci -m usb -d vtnet_pci 
+1794886004.515                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  io-sock fullpath: /system/bin/io-sock
+1794886004.515                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  io-sock BuildID 77dadaf63c2d4c8bc13f4a2c84694ed2
+1794886004.517                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  Copyright (c) 1992-2023 The FreeBSD Project.
+1794886004.517                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  Copyright (c) 1979, 1980, 1983, 1986, 1988, 1989, 1991, 1992, 1993, 1994
+1794886004.517                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  	The Regents of the University of California. All rights reserved.
+1794886004.517                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  FreeBSD is a registered trademark of The FreeBSD Foundation.
+1794886004.517                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  FreeBSD 14.4-RELEASE-p9 n1351-c0e5c6a6c2c8 
+1794886004.517                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  ntox86_64-gcc (QNX8.0.0-ra7e8d3cd2255b7b0fd7ed75b5fd7082edd813c9d-1008) 12.2.0
+1794886004.547                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  wlan: mac acl policy registered
+1794886004.548                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  aesni0: <AES-CBC,AES-CCM,AES-GCM,AES-ICM,AES-XTS,SHA1,SHA256> on QNX
+1794886004.548                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  Event timer "QNX" frequency 1000 Hz quality 600
+1794886004.549                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  Timecounters tick every 1.000 msec
+1794886004.549                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  Timecounter "QNX" frequency 3900260436 Hz quality 600
+1794886004.634                 io_sock.188432          main_buffer   13     13      SLOG2_INFO  lo0: link state changed to UP
+1794886004.634                 io_sock.188432          main_buffer    1      1      SLOG2_INFO  io-sock startup complete
+1794886004.659                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  mods-phy.so: loading module with ""
+1794886004.662                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  Library fullpath: /system/lib/dll/mods-phy.so
+1794886004.662                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  Library BuildID f19ee6bc41516e18c25439010458f532
+1794886004.664                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  mods-phy.so: loaded
+1794886004.664                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  mods-pci.so: loading module with ""
+1794886004.673                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  Library fullpath: /system/lib/dll/mods-pci.so
+1794886004.674                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  Library BuildID 57b904a59a7612ab3a9d491c98972904
+1794886004.675                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  pci0: <pci-server> on QNX
+1794886004.678                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  mods-pci.so: loaded
+1794886004.679                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  mods-usb.so: loading module with ""
+1794886004.703                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  Library fullpath: /system/lib/dll/mods-usb.so
+1794886004.703                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  Library BuildID 39fde15b20041d6c5f124e6fd5a3f1c7
+1794886004.703                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886004.704                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  iousb0: IOUSB discovery connect failed (2)
+1794886004.704                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  device_attach: iousb0 attach returned 2
+1794886004.704                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  mods-usb.so: loaded
+1794886004.704                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  devs-vtnet_pci.so: loading module with ""
+1794886004.706                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  Library fullpath: /system/lib/dll/devs-vtnet_pci.so
+1794886004.706                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  Library BuildID add6a4afbd571c80d88b3032c988a360
+1794886004.706                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  pci0: Bound pci0:0:3:0
+1794886004.706                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  virtio_pci0: <VirtIO PCI (legacy) Network adapter> on pci0
+1794886004.707                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  vtnet0: <VirtIO Networking Adapter> on virtio_pci0
+1794886004.708                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  vtnet0: Ethernet address: 52:54:00:3f:ef:db
+1794886004.708                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  vtnet0: added to devs-vtnet_pci.so
+1794886004.709                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  vtnet0: netmap queues/slots: TX 1/512, RX 1/512
+1794886004.709                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  004.709025 [ 450] vtnet_netmap_attach       vtnet attached txq=1, txd=512 rxq=1, rxd=512
+1794886004.709                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886004.709                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  iousb0: IOUSB discovery connect failed (2)
+1794886004.709                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  device_attach: iousb0 attach returned 2
+1794886004.709                 io_sock.188432          main_buffer   25     25      SLOG2_INFO  devs-vtnet_pci.so: loaded
+1794886005.719                 io_sock.188432          main_buffer   13     13      SLOG2_INFO  vtnet0: link state changed to UP
+1794886005.739                 io_sock.188432          main_buffer   33     33      SLOG2_INFO  io-sock dropped uid:gid(s) to: 33:33
+1794886005.755                  dhcpcd.245778                 slog*   1      0      SLOG2_INFO  <30>Nov 17 03:26:45 dhcpcd[245778-1]: dhcpcd-10.0.1 starting
+1794886005.787                  dhcpcd.245778                 slog    1      0      SLOG2_INFO  <30>Nov 17 03:26:45 dhcpcd[249876-1]: DUID 00:01:00:01:32:8e:85:f5:52:54:00:3f:ef:db
+1794886005.787                  dhcpcd.245778                 slog    1      0      SLOG2_INFO  <30>Nov 17 03:26:45 dhcpcd[249876-1]: vtnet0: IAID 00:3f:ef:db
+1794886006.726                  dhcpcd.245778                 slog    1      0      SLOG2_INFO  <30>Nov 17 03:26:46 dhcpcd[249876-1]: vtnet0: soliciting an IPv6 router
+1794886006.727                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886006.728                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886006.728                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886006.967                  dhcpcd.245778                 slog    1      0      SLOG2_INFO  <30>Nov 17 03:26:46 dhcpcd[249876-1]: vtnet0: soliciting a DHCP lease
+1794886006.976                  dhcpcd.245778                 slog    1      0      SLOG2_INFO  <30>Nov 17 03:26:46 dhcpcd[249876-1]: vtnet0: probing address 192.168.56.103/24
+1794886007.749                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886007.750                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886007.750                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886008.801                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886008.802                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886008.802                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886009.840                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886009.841                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886009.841                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886010.870                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886010.871                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886010.871                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886011.885                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886011.886                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886011.887                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886012.114                  dhcpcd.245778                 slog    1      0      SLOG2_INFO  <30>Nov 17 03:26:52 dhcpcd[249876-1]: vtnet0: leased 192.168.56.103 for 600 seconds
+1794886012.115                  dhcpcd.245778                 slog    1      0      SLOG2_INFO  <30>Nov 17 03:26:52 dhcpcd[249876-1]: vtnet0: adding route to 192.168.56.0/24
+1794886012.920                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886012.921                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886012.921                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886013.964                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886013.965                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886013.965                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886014.998                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886014.999                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886015.000                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886016.009                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886016.010                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886016.010                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886017.019                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886017.020                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886017.020                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886018.029                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886018.030                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886018.031                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886019.035                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886019.036                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886019.036                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886019.812                  dhcpcd.245778                 slog    1      0   SLOG2_WARNING  <28>Nov 17 03:26:59 dhcpcd[249876-1]: vtnet0: no IPv6 Routers available
+1794886020.041                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886020.042                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886020.043                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886021.049                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886021.050                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886021.050                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886022.057                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886022.057                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886022.058                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886023.065                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886023.065                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886023.066                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886024.069                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886024.070                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886024.071                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886025.110                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886025.111                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886025.111                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886026.113                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886026.113                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886026.114                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886027.117                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886027.117                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886027.117                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886028.133                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886028.134                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886028.135                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886029.141                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886029.142                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886029.143                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886030.166                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886030.167                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886030.167                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886031.175                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886031.176                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886031.176                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886032.184                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886032.185                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886032.185                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886033.188                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886033.189                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886033.189                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886034.229                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886034.230                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886034.230                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886035.237                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886035.238                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886035.239                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886036.260                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886036.261                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886036.262                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886037.305                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886037.306                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886037.307                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886038.348                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886038.349                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886038.350                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886039.390                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886039.391                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886039.392                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886040.398                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886040.398                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886040.399                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886041.403                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886041.404                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886041.405                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886042.411                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886042.412                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886042.412                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886043.418                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886043.419                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886043.420                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886044.443                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886044.444                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886044.444                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886045.478                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886045.479                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886045.480                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886046.482                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886046.483                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886046.484                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886047.488                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886047.489                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886047.490                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886048.509                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886048.510                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886048.510                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886049.554                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886049.554                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886049.555                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886050.580                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886050.580                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886050.581                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886051.585                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886051.586                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886051.586                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886052.629                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886052.630                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886052.630                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886053.637                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886053.638                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886053.639                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886054.648                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886054.649                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886054.650                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886055.652                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886055.653                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886055.654                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886056.692                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886056.693                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886056.694                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886057.701                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886057.702                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886057.702                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886058.710                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886058.710                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886058.711                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886059.713                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886059.714                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886059.715                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886060.757                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886060.758                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886060.758                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886061.763                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886061.764                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886061.765                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886062.789                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886062.789                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886062.790                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886063.832                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886063.833                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886063.833                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886064.839                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886064.840                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886064.841                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886065.846                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886065.847                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886065.847                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886066.849                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886066.850                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886066.851                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886067.853                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886067.854                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886067.855                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886068.885                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886068.886                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886068.886                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886069.929                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886069.930                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886069.930                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886070.972                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886070.973                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886070.973                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886071.995              io_usb_otg.307222           io-usb-otg*   7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886071.995              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886071.995              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886071.996                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886071.996              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886071.996              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886071.996              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886071.997                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886071.997              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886071.997              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d97e30, 1457d44870
+1794886071.997                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886072.999              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886072.999              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886072.999              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886072.999              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886072.999              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886072.999                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886073.000              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886073.000              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886073.000              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886073.000                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886073.000              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886073.000              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886073.001                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886074.047              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886074.047              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886074.047              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886074.047              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886074.047              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d925e0, 1457d3d860
+1794886074.048                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886074.048              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886074.048              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886074.048              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886074.049                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886074.049              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886074.049              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d951d0, 1457d44870
+1794886074.049                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886075.091              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886075.091              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886075.091              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886075.091              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886075.091              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d97e30, 1457d3d860
+1794886075.092                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886075.092              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886075.092              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886075.092              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886075.093                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886075.093              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886075.093              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d87c50, 1457d44870
+1794886075.093                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886076.135              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886076.135              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886076.135              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886076.135              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886076.135              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d8a8b0, 1457d3d860
+1794886076.135                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886076.135              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886076.135              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886076.136              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886076.136                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886076.136              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886076.136              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d44870
+1794886076.136                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886077.167              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886077.167              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886077.167              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886077.168              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886077.168              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886077.168                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886077.168              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886077.168              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886077.168              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886077.169                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886077.169              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886077.169              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d97e30, 1457d44870
+1794886077.169                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886078.221              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886078.221              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886078.222              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886078.222              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886078.222              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886078.222                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886078.222              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886078.222              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886078.222              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886078.223                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886078.223              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886078.223              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886078.223                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886079.231              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886079.231              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886079.231              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886079.231              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886079.231              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d925e0, 1457d3d860
+1794886079.232                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886079.232              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886079.232              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886079.232              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886079.232                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886079.232              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886079.232              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d951d0, 1457d44870
+1794886079.233                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886080.252              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886080.252              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886080.252              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886080.252              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886080.252              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d97e30, 1457d3d860
+1794886080.253                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886080.253              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886080.253              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886080.253              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886080.253                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886080.254              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886080.254              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d87c50, 1457d44870
+1794886080.254                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886081.257              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886081.257              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886081.257              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886081.257              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886081.257              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d8a8b0, 1457d3d860
+1794886081.257                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886081.258              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886081.258              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886081.258              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886081.258                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886081.258              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886081.258              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d925e0, 1457d44870
+1794886081.259                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886082.285              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886082.285              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886082.285              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886082.285              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886082.285              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886082.286                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886082.286              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886082.286              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886082.286              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886082.287                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886082.287              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886082.287              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d97e30, 1457d44870
+1794886082.287                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886083.328              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886083.328              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886083.329              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886083.329              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886083.329              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886083.329                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886083.329              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886083.329              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886083.329              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886083.330                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886083.330              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886083.330              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886083.330                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886084.332              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886084.332              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886084.332              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886084.333              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886084.333              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d925e0, 1457d3d860
+1794886084.335                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886084.335              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886084.335              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:9]: 
+1794886084.336              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:9]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886084.337                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886084.337              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:9]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886084.337              io_usb_otg.307222           io-usb-otg    9     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:9]: usbdi_client 0x1457d951d0, 1457d44870
+1794886084.338                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886085.360              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886085.360              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886085.360              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886085.360              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886085.360              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d3d860
+1794886085.360                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886085.361              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886085.361              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886085.361              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886085.361                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886085.361              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886085.361              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d44870
+1794886085.362                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886086.364              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886086.364              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886086.364              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886086.364              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886086.364              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d3d860
+1794886086.364                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886086.365              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886086.365              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886086.365              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886086.365                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886086.365              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886086.365              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d44870
+1794886086.366                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886087.370              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886087.370              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886087.371              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886087.371              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886087.371              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886087.371                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886087.372              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886087.372              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886087.372              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886087.372                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886087.372              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886087.372              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d44870
+1794886087.373                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886088.379              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886088.379              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886088.379              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886088.379              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886088.379              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886088.380                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886088.380              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886088.380              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886088.380              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886088.381                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886088.381              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886088.381              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886088.381                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886089.384              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886089.384              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886089.384              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886089.384              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886089.384              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d3d860
+1794886089.385                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886089.385              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886089.385              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886089.385              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886089.386                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886089.386              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886089.386              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d44870
+1794886089.386                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886090.391              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886090.391              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886090.391              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886090.391              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886090.391              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d3d860
+1794886090.391                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886090.392              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886090.392              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886090.392              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886090.392                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886090.392              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886090.392              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d44870
+1794886090.393                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886091.403              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886091.403              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886091.403              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886091.403              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886091.403              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d3d860
+1794886091.404                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886091.404              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886091.404              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886091.404              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886091.405                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886091.405              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886091.405              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d44870
+1794886091.405                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886092.408              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886092.408              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886092.409              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886092.409              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886092.409              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886092.409                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886092.409              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886092.409              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886092.409              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886092.410                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886092.410              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886092.410              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d44870
+1794886092.410                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886093.435              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886093.435              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886093.435              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886093.435              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886093.435              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886093.436                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886093.436              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886093.436              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886093.436              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886093.437                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886093.437              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886093.437              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886093.437                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886094.444              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886094.444              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886094.445              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886094.445              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886094.445              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d3d860
+1794886094.445                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886094.445              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886094.445              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886094.446              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886094.446                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886094.446              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886094.446              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d44870
+1794886094.446                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886095.456              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886095.456              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886095.456              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886095.456              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886095.456              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d3d860
+1794886095.457                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886095.457              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886095.457              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886095.457              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886095.458                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886095.458              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886095.458              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d44870
+1794886095.458                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886096.460              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886096.460              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886096.461              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886096.461              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886096.461              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d3d860
+1794886096.461                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886096.461              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886096.461              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886096.462              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886096.462                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886096.462              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886096.462              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d44870
+1794886096.462                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886097.466              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886097.466              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886097.466              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886097.466              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886097.466              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886097.467                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886097.467              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886097.467              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886097.467              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886097.468                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886097.468              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886097.468              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d44870
+1794886097.468                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886098.488              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886098.488              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886098.488              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886098.488              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886098.488              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886098.489                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886098.489              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886098.489              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886098.489              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886098.490                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886098.490              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886098.490              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886098.491                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886099.494              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886099.494              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886099.494              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886099.494              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886099.494              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d3d860
+1794886099.495                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886099.495              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886099.495              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886099.495              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886099.495                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886099.495              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886099.495              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d44870
+1794886099.496                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886100.500              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886100.500              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886100.500              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886100.500              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886100.500              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d3d860
+1794886100.500                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886100.501              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886100.501              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886100.501              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886100.501                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886100.501              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886100.501              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d44870
+1794886100.502                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886101.510              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886101.510              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886101.510              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886101.510              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886101.510              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d3d860
+1794886101.511                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886101.511              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886101.511              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886101.511              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886101.512                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886101.512              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886101.512              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d44870
+1794886101.512                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886102.552              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886102.552              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886102.553              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886102.553              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886102.553              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886102.553                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886102.554              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886102.554              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886102.554              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886102.554                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886102.554              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886102.554              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d44870
+1794886102.555                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886103.596              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886103.596              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886103.596              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886103.596              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886103.596              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886103.596                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886103.596              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886103.596              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886103.597              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886103.597                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886103.597              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886103.597              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886103.598                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886104.639              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886104.639              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886104.639              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886104.639              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886104.639              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d3d860
+1794886104.640                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886104.640              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886104.640              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886104.640              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886104.641                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886104.641              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886104.641              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d44870
+1794886104.641                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886105.648              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886105.648              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886105.648              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886105.648              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886105.648              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d3d860
+1794886105.648                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886105.649              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886105.649              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886105.649              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886105.650                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886105.650              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886105.650              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d44870
+1794886105.650                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886106.651              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886106.651              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886106.651              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886106.651              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886106.651              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d3d860
+1794886106.652                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886106.652              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886106.652              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886106.652              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886106.652                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886106.652              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886106.652              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d44870
+1794886106.653                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886107.660              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886107.660              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886107.660              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886107.660              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886107.660              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886107.661                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886107.661              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886107.661              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886107.661              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886107.661                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886107.661              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886107.661              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d44870
+1794886107.662                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886108.664              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886108.664              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886108.665              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886108.665              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886108.665              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886108.665                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886108.665              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886108.665              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886108.666              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886108.666                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886108.666              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886108.666              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886108.667                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886109.692              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886109.692              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886109.692              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886109.692              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886109.692              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d3d860
+1794886109.693                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886109.693              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886109.693              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886109.693              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886109.694                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886109.694              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886109.694              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d44870
+1794886109.694                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886110.700              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886110.700              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886110.700              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886110.700              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886110.700              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d3d860
+1794886110.700                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886110.701              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886110.701              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886110.701              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886110.701                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886110.701              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886110.701              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d44870
+1794886110.702                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886111.724              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886111.724              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886111.724              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886111.724              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886111.724              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d3d860
+1794886111.725                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886111.725              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886111.725              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886111.725              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886111.726                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886111.726              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886111.726              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d44870
+1794886111.726                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886112.768              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886112.768              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886112.768              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886112.768              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886112.768              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886112.768                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886112.768              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886112.768              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886112.769              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886112.769                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886112.769              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886112.769              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d44870
+1794886112.770                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886113.811              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886113.811              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886113.811              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886113.811              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886113.811              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886113.812                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886113.812              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886113.812              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886113.812              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886113.813                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886113.813              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886113.813              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886113.813                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886114.854              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886114.854              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886114.854              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886114.854              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886114.854              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d3d860
+1794886114.854                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886114.855              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886114.855              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886114.855              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886114.856                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886114.856              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886114.856              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d44870
+1794886114.856                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886115.898              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886115.898              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886115.898              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886115.898              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886115.898              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d3d860
+1794886115.899                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886115.899              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886115.899              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886115.899              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886115.899                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886115.899              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886115.899              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d44870
+1794886115.900                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886116.939              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886116.939              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886116.939              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886116.939              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886116.939              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d3d860
+1794886116.940                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886116.940              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886116.940              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886116.940              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886116.941                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886116.941              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886116.941              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d44870
+1794886116.941                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886117.943              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886117.943              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886117.943              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886117.943              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886117.943              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886117.944                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886117.944              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886117.944              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886117.944              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886117.945                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886117.945              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886117.945              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d44870
+1794886117.946                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886118.953              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886118.953              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886118.953              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886118.953              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886118.953              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886118.953                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886118.954              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886118.954              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886118.954              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886118.954                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886118.954              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886118.954              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886118.955                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886119.956              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886119.956              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886119.956              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886119.956              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886119.956              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d3d860
+1794886119.957                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886119.957              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886119.957              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886119.957              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886119.958                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886119.958              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886119.958              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d44870
+1794886119.958                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886120.992              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886120.992              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886120.992              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886120.992              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886120.992              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d3d860
+1794886120.993                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886120.993              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886120.993              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886120.993              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886120.993                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886120.993              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886120.993              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d44870
+1794886120.994                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886122.002              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886122.002              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886122.002              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886122.003              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886122.003              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d3d860
+1794886122.003                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886122.003              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886122.003              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886122.003              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d925e0 
+1794886122.004                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886122.004              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d925e0
+1794886122.004              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d925e0, 1457d44870
+1794886122.004                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886123.011              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886123.011              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886123.011              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d951d0 
+1794886123.011              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d951d0
+1794886123.011              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d951d0, 1457d3d860
+1794886123.012                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886123.012              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886123.012              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886123.012              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d97e30 
+1794886123.013                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886123.013              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d97e30
+1794886123.013              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d97e30, 1457d44870
+1794886123.013                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886124.021              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886124.021              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886124.021              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d87c50 
+1794886124.021              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d87c50
+1794886124.021              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d87c50, 1457d3d860
+1794886124.021                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: <io-usb-otg> on QNX
+1794886124.022              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_connect(62)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886124.022              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_connect(53)[tid:7]: 
+1794886124.022              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_resmgr_connect(313)[tid:7]: usbdi_resmgr_connect: pid 188432 usbdi_client 1457d8a8b0 
+1794886124.022                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  iousb0: IOUSB rw connect failed
+1794886124.022              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_client_disconnect(102)[tid:7]: pid 188432 proc=io-sock 188432 usbdi_client 1457d8a8b0
+1794886124.022              io_usb_otg.307222           io-usb-otg    7     12    SLOG2_NOTICE  usbdi_sci1xx_disconnect(118)[tid:7]: usbdi_client 0x1457d8a8b0, 1457d44870
+1794886124.022                 io_sock.188432          main_buffer   34     34      SLOG2_INFO  device_attach: iousb0 attach returned 6
+1794886124.177         sshd_session.950274..1                 slog*   1      0      SLOG2_INFO  <38>Nov 17 03:28:44 sshd-session[950274-1]: Accepted publickey for root from 192.168.56.1 port 49308 ssh2: ED25519 SHA256:REDACTED
+1794886124.226            sshd_session.962581                 slog*   1      0      SLOG2_INFO  <38>Nov 17 03:28:44 sshd-session[962581-1]: Received disconnect from 192.168.56.1 port 49308:11: disconnected by user
+1794886124.227         sshd_session.962581..0                 slog*   1      0      SLOG2_INFO  <38>Nov 17 03:28:44 sshd-session[962581-1]: Disconnected from user root 192.168.56.1 port 49308
+1794886124.467         sshd_session.987138..1                 slog*   1      0      SLOG2_INFO  <38>Nov 17 03:28:44 sshd-session[987138-1]: Accepted publickey for root from 192.168.56.1 port 49309 ssh2: ED25519 SHA256:REDACTED
+1794886124.515            sshd_session.999445                 slog*   1      0      SLOG2_INFO  <38>Nov 17 03:28:44 sshd-session[999445-1]: Received disconnect from 192.168.56.1 port 49309:11: disconnected by user
+1794886124.516         sshd_session.999445..0                 slog*   1      0      SLOG2_INFO  <38>Nov 17 03:28:44 sshd-session[999445-1]: Disconnected from user root 192.168.56.1 port 49309
+1794886124.742        sshd_session.1024002..1                 slog*   1      0      SLOG2_INFO  <38>Nov 17 03:28:44 sshd-session[1024002-1]: Accepted publickey for root from 192.168.56.1 port 49310 ssh2: ED25519 SHA256:REDACTED
