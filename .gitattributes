@@ -1,0 +1,5 @@
+# Keep LF line endings on every platform. mkqnximage snippets, Makefiles and
+# shell fragments are read by bash/make on the QNX toolchain, where a stray
+# CR breaks commands.
+* text=auto eol=lf
+*.core binary
