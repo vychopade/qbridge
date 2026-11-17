@@ -210,13 +210,26 @@ def parse_gdb(text: str) -> dict:
     return out
 
 
+def _is_user_frame(f: dict) -> bool:
+    """A frame in the program's own source, not libc or a kernel-call stub."""
+    file = f.get("file")
+    if not file:
+        return False
+    # QNX's libc is built under /builds/...; kernel-call stubs are assembly (.S).
+    return not file.startswith("/builds/") and not file.endswith((".S", ".s"))
+
+
 def summarise(c: dict) -> str:
+    frames = c.get("frames", [])
     parts = [f"{c.get('program') or 'process'} died with {c.get('signal', 'a signal')}"]
-    top = next((f for f in c.get("frames", []) if "file" in f), None)
-    if top:
+    top = next((f for f in frames if _is_user_frame(f)), None)
+    if frames and top is not None and frames[0] is not top:
+        parts.append(f"in {frames[0]['function']}(), called from {top['function']}() "
+                     f"at {top['file']}:{top['line']}")
+    elif top:
         parts.append(f"in {top['function']}() at {top['file']}:{top['line']}")
-    elif c.get("frames"):
-        parts.append(f"in {c['frames'][0]['function']}()")
+    elif frames:
+        parts.append(f"in {frames[0]['function']}()")
     s = " ".join(parts) + "."
     addr = c.get("fault_address")
     if addr and c.get("signal") in ("SIGSEGV", "SIGBUS"):

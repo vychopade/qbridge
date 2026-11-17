@@ -87,13 +87,31 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
     ),
     "qnx_run": (
         "Run a deployed program on the target and return its output and exit code. Only "
-        "programs in the deploy folder can be run. Needs write access.",
+        "programs in the deploy folder can be run. With background=true it returns at once "
+        "and the program keeps running (output to <program>.log) so you can inspect it live "
+        "with qnx_ps; it is still stopped after `timeout` seconds. Needs write access.",
         _schema({
             "path": {"type": "string", "description": "Name or path under the deploy folder"},
             "args": {"type": "array", "items": {"type": "string"}},
-            "timeout": {"type": "integer", "description": "Seconds before it is stopped (default 30)"},
+            "timeout": {"type": "integer",
+                        "description": "Seconds before it is stopped (default 30; background max 3600)"},
+            "background": {"type": "boolean", "description": "Start it and return immediately"},
         }, ["path"]),
-        lambda s, path, args=None, timeout=30: tools.run(s, path, args, timeout),
+        lambda s, path, args=None, timeout=30, background=False:
+            tools.run(s, path, args, timeout, background),
+        True,
+    ),
+    "qnx_kill": (
+        "Send a signal to programs qbridge deployed (never to system processes), by pid or "
+        "program name. Returns their log output. Signal ABRT makes dumper write a core file, "
+        "so qnx_crash can show where a hung or deadlocked program was stuck. Needs write access.",
+        _schema({
+            "pid": {"type": "integer"},
+            "name": {"type": "string", "description": "Program name, e.g. 'deadlock'"},
+            "signal": {"type": "string", "enum": sorted(tools.KILL_SIGNALS),
+                       "description": "Default TERM"},
+        }),
+        lambda s, pid=None, name=None, signal="TERM": tools.kill(s, pid, name, signal),
         True,
     ),
     "qnx_events": (

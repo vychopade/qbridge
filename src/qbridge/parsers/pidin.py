@@ -122,6 +122,86 @@ def blocked_graph(threads: list[Thread]) -> list[dict]:
     return edges
 
 
+def _label(t: Thread) -> str:
+    who = f"{t.name}[{t.pid}]"
+    return f"{who} thread '{t.thread_name}'" if t.thread_name and not t.thread_name.isdigit() else who
+
+
+def find_inversions(threads: list[Thread]) -> list[dict]:
+    """Threads waiting on a server that runs below their priority.
+
+    On QNX a server thread normally inherits the priority of the client it is
+    serving. When it does not (e.g. a channel made with _NTO_CHF_FIXED_PRIORITY),
+    a high-priority client can wait behind any thread whose priority falls
+    between the two. That is reported as active when such a thread is READY or
+    RUNNING right now.
+    """
+    by_pid: dict[int, list[Thread]] = {}
+    for t in threads:
+        by_pid.setdefault(t.pid, []).append(t)
+    found = []
+    for c in threads:
+        if c.state not in _PID_STATES or c.blocked_on_pid is None or c.priority is None:
+            continue
+        server = by_pid.get(c.blocked_on_pid, [])
+        # Threads that could be working on the request: not waiting for messages,
+        # not themselves waiting on another server.
+        workers = [s for s in server if s is not c and s.state != "RECEIVE"
+                   and s.blocked_on_pid is None and s.priority is not None]
+        if not workers:
+            continue
+        sp = max(s.priority for s in workers)
+        if sp >= c.priority:
+            continue
+        ahead = [x for x in threads
+                 if x.pid not in (c.pid, c.blocked_on_pid) and x.state in ("RUNNING", "READY")
+                 and x.priority is not None and sp < x.priority < c.priority]
+        top = max(workers, key=lambda s: s.priority)
+        item = {
+            "client": {"pid": c.pid, "tid": c.tid, "name": c.name, "thread_name": c.thread_name,
+                       "priority": c.priority, "state": c.state},
+            "server": {"pid": top.pid, "tid": top.tid, "name": top.name,
+                       "thread_name": top.thread_name, "priority": sp, "state": top.state},
+            "preempted_by": [{"pid": x.pid, "tid": x.tid, "name": x.name,
+                              "thread_name": x.thread_name, "priority": x.priority,
+                              "state": x.state} for x in ahead],
+            "active": bool(ahead),
+        }
+        if c.blocked_ms is not None:
+            item["blocked_ms"] = c.blocked_ms
+        text = (f"{_label(c)} (priority {c.priority}) is waiting on {_label(top)}, which runs at "
+                f"priority {sp}: the server did not inherit the client's priority.")
+        if ahead:
+            text += (" It is being held off by " +
+                     ", ".join(f"{_label(x)} at priority {x.priority} ({x.state})" for x in ahead) +
+                     ". This is a priority inversion. On QNX, servers normally inherit client "
+                     "priority; check for _NTO_CHF_FIXED_PRIORITY on the server's channel.")
+        item["explanation"] = text
+        found.append(item)
+    return found
+
+
+def describe_deadlocks(cycles: list[list[int]], threads: list[Thread]) -> list[dict]:
+    """Turn process cycles into readable deadlock reports."""
+    out = []
+    for cyc in cycles:
+        members = [t for t in threads if t.pid in cyc and t.blocked_on_pid in cyc
+                   and t.state in _PID_STATES]
+        steps = [f"{_label(t)} is {t.state}-blocked on {t.blocked_on_pid}" for t in members]
+        item = {
+            "pids": cyc,
+            "threads": [{"pid": t.pid, "tid": t.tid, "name": t.name, "thread_name": t.thread_name,
+                         "state": t.state, "waiting_on": t.blocked_on_pid,
+                         **({"blocked_ms": t.blocked_ms} if t.blocked_ms is not None else {})}
+                        for t in members],
+            "explanation": "Deadlock: " + "; ".join(steps) + ". Each is waiting for the other, "
+                           "so none can move. A SEND-blocked thread means nobody on that side is "
+                           "receiving; look for a server that sends to its own client.",
+        }
+        out.append(item)
+    return out
+
+
 def find_cycles(edges: list[dict]) -> list[list[int]]:
     """Process-level cycles in the blocked-on graph (a likely deadlock)."""
     adj: dict[int, set[int]] = {}

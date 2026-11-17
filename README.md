@@ -4,7 +4,7 @@ AI assistants can write QNX code but can't see the target. qbridge gives them ey
 
 qbridge lets any MCP client (or you, from the command line) build, deploy, inspect and debug software on a QNX 8.0 target.
 
-> Status: early work for the QNX Global Hackathon. Working today: MCP server and CLI with `info`, `ps`, `logs`, `build`, `deploy`, `run`, `events` and crash analysis, plus the `qbridged` resource manager on the target with pulse-driven events. Next: the priority-inversion and deadlock demo apps.
+> Status: early work for the QNX Global Hackathon. Working today: MCP server and CLI with `info`, `ps`, `logs`, `build`, `deploy`, `run`, `events` and crash analysis, plus the `qbridged` resource manager on the target with pulse-driven events. Also: three demo apps with planted bugs, and deadlock / priority-inversion detection in `ps`.
 
 ## Two halves
 
@@ -16,11 +16,12 @@ qbridge lets any MCP client (or you, from the command line) build, deploy, inspe
 | MCP tool | CLI | Changes the target? | What it does |
 |---|---|---|---|
 | `qnx_info` | `qbridge info` | no | Address, QNX version, CPUs, memory |
-| `qnx_ps` | `qbridge ps` | no | Processes and threads, priorities, states, and a blocked-on graph with deadlock cycles |
+| `qnx_ps` | `qbridge ps` | no | Processes and threads, priorities, states, the blocked-on graph, and plain-English **deadlock** and **priority inversion** findings |
 | `qnx_logs` | `qbridge logs` | no | slog2 entries filtered by process, pid, time, severity, text |
 | `qnx_build` | `qbridge build` | no (host only) | `make` in a folder or `qcc` on one file; errors and warnings with file/line/column |
 | `qnx_deploy` | `qbridge --allow-write deploy` | yes | Copy a file into `/data/qbridge` on the target |
-| `qnx_run` | `qbridge --allow-write run` | yes | Run a program from `/data/qbridge` with a timeout; reports the signal if it dies |
+| `qnx_run` | `qbridge --allow-write run` | yes | Run a program from `/data/qbridge` with a timeout; reports the signal if it dies. `background` starts it and returns at once (output to `<program>.log`) |
+| `qnx_kill` | `qbridge --allow-write kill` | yes | Signal programs qbridge deployed (never system processes) and return their log; `ABRT` makes dumper write a core of a hung program |
 | `qnx_events` | `qbridge events` | no | Wait for process deaths and core dumps, pushed by `qbridged` (needs qbridged running) |
 | `qnx_crashes` | `qbridge crashes` | no | Core files written by QNX's `dumper` |
 | `qnx_crash` | `qbridge crash` | no | Fetch a core and its binary, run gdb on the host: signal, fault address, backtrace with args and locals, source, and a plain-English summary |
@@ -45,7 +46,12 @@ returns, among the frames and locals:
 
 - **Read-only by default.** `deploy` and `run` are refused unless qbridge was started with `--allow-write` (or `QBRIDGE_ALLOW_WRITE=1`). The assistant cannot switch this on itself.
 - **One deploy folder.** Files can only be copied to, and programs only run from, `/data/qbridge` on the target. Paths like `../../proc/boot/ksh` are rejected.
-- **Time limits.** Programs run under QNX's `timeout`, so a hung program cannot hang the assistant.
+- **Only its own processes.** `kill` checks each process's program path and refuses anything outside the deploy folder, so the assistant cannot signal system services.
+- **Time limits.** Programs run under QNX's `timeout`, background ones included, so a hung program cannot hang the assistant or outlive the session.
+
+## Demo apps
+
+[examples/](examples/README.md) has three programs with planted bugs (a NULL dereference, a priority inversion and a message-passing deadlock) and what qbridge reports for each.
 
 ## Use it from an MCP client
 

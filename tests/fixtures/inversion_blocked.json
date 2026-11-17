@@ -1,0 +1,7 @@
+{"time": 1794889411, "edges": [
+    {"from_pid": 57351, "from_tid": 1, "from_name": "ksh", "from_priority": 10, "state": "REPLY", "to_pid": 49157, "chid": 1, "blocked_ms": 292070},
+    {"from_pid": 65544, "from_tid": 1, "from_name": "ksh", "from_priority": 10, "state": "REPLY", "to_pid": 49157, "chid": 1, "blocked_ms": 292065},
+    {"from_pid": 73737, "from_tid": 1, "from_name": "ksh", "from_priority": 10, "state": "REPLY", "to_pid": 49157, "chid": 1, "blocked_ms": 292060},
+    {"from_pid": 81930, "from_tid": 1, "from_name": "ksh", "from_priority": 10, "state": "REPLY", "to_pid": 49157, "chid": 1, "blocked_ms": 292055},
+    {"from_pid": 2650133, "from_tid": 1, "from_name": "inversion", "from_priority": 30, "state": "REPLY", "to_pid": 2637848, "chid": 1, "blocked_ms": 4940}
+  ]}

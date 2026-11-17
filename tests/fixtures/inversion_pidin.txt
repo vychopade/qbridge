@@ -1,0 +1,121 @@
+     pid|tid|name                                                                            |prio|STATE         |Blocked                     |thread name         
+       1|  1|/proc/boot/procnto-smp-instr                                                    |  0f|READY         |                            |idle_cpu_0          
+       1|  2|/proc/boot/procnto-smp-instr                                                    |  0f|READY         |                            |idle_cpu_1          
+       1|  3|/proc/boot/procnto-smp-instr                                                    |255i|INTR          |                            |ipi_cpu_0           
+       1|  4|/proc/boot/procnto-smp-instr                                                    |255i|INTR          |                            |ipi_cpu_1           
+       1|  5|/proc/boot/procnto-smp-instr                                                    |254i|INTR          |                            |clock_cpu_0         
+       1|  6|/proc/boot/procnto-smp-instr                                                    |254i|INTR          |                            |clock_cpu_1         
+       1|  7|/proc/boot/procnto-smp-instr                                                    |  1f|NANOSLEEP     |                            |sched_sporadic      
+       1|  8|/proc/boot/procnto-smp-instr                                                    | 10r|???           |                            |proc_pool_manager   
+       1|  9|/proc/boot/procnto-smp-instr                                                    | 10r|RECEIVE       |1                           |proc_pool_thread    
+       1| 10|/proc/boot/procnto-smp-instr                                                    | 10r|RECEIVE       |1                           |proc_pool_thread    
+       1| 11|/proc/boot/procnto-smp-instr                                                    | 11r|RECEIVE       |1                           |proc_pool_thread    
+       1| 12|/proc/boot/procnto-smp-instr                                                    | 10r|RECEIVE       |1                           |proc_pool_thread    
+       1| 13|/proc/boot/procnto-smp-instr                                                    | 10r|RECEIVE       |1                           |proc_pool_thread    
+       1| 14|/proc/boot/procnto-smp-instr                                                    | 10r|RUNNING       |                            |proc_pool_thread    
+       1| 15|/proc/boot/procnto-smp-instr                                                    | 10r|RECEIVE       |1                           |proc_pool_thread    
+       1| 16|/proc/boot/procnto-smp-instr                                                    | 10r|RECEIVE       |1                           |proc_pool_thread    
+   16387|  1|proc/boot/slogger2                                                              | 10r|RECEIVE       |1                           |1                   
+   28676|  1|proc/boot/pci-server                                                            | 10r|RECEIVE       |1                           |1                   
+   28676|  2|proc/boot/pci-server                                                            | 10r|RECEIVE       |1                           |2                   
+   28676|  3|proc/boot/pci-server                                                            | 21r|RECEIVE       |1                           |3                   
+   28676|  4|proc/boot/pci-server                                                            | 10r|RECEIVE       |1                           |4                   
+   49157|  1|proc/boot/devc-con                                                              | 10r|RECEIVE       |1                           |1                   
+   49157|  2|proc/boot/devc-con                                                              |254i|INTR          |                            |2                   
+   57351|  1|proc/boot/ksh                                                                   | 10r|REPLY         |49157                       |1                   
+   65544|  1|proc/boot/ksh                                                                   | 10r|REPLY         |49157                       |1                   
+   73737|  1|proc/boot/ksh                                                                   | 10r|REPLY         |49157                       |1                   
+   81930|  1|proc/boot/ksh                                                                   | 10r|REPLY         |49157                       |1                   
+   86022|  1|proc/boot/fsevmgr                                                               | 10r|SIGWAITINFO   |                            |1                   
+   86022|  2|proc/boot/fsevmgr                                                               | 10r|RECEIVE       |1                           |fsys_resmgr         
+   86022|  3|proc/boot/fsevmgr                                                               | 10r|RECEIVE       |2                           |client_resmgr       
+   86022|  4|proc/boot/fsevmgr                                                               | 10r|RECEIVE       |1                           |fsys_resmgr         
+   90123|  1|proc/boot/devb-eide                                                             | 10r|SIGWAITINFO   |                            |xpt_signal_handler  
+   90123|  2|proc/boot/devb-eide                                                             | 21r|RECEIVE       |1                           |eide_driver_thread  
+   90123|  3|proc/boot/devb-eide                                                             |254i|INTR          |                            |3                   
+   90123|  4|proc/boot/devb-eide                                                             | 21r|RECEIVE       |3                           |async_io            
+   90123|  5|proc/boot/devb-eide                                                             | 10r|RECEIVE       |4                           |fsnotify_flusher    
+   90123|  6|proc/boot/devb-eide                                                             | 10r|RECEIVE       |5                           |fsnotify_waiter     
+   90123|  7|proc/boot/devb-eide                                                             | 10r|RECEIVE       |2                           |fsys_resmgr         
+   90123|  8|proc/boot/devb-eide                                                             | 10r|RECEIVE       |2                           |fsys_resmgr         
+   90123|  9|proc/boot/devb-eide                                                             | 10r|RECEIVE       |2                           |fsys_resmgr         
+   90123| 10|proc/boot/devb-eide                                                             | 10r|RECEIVE       |2                           |fsys_resmgr         
+   90123| 11|proc/boot/devb-eide                                                             | 10r|RECEIVE       |2                           |fsys_resmgr         
+   90123| 12|proc/boot/devb-eide                                                             | 10r|RECEIVE       |2                           |fsys_resmgr         
+   90123| 13|proc/boot/devb-eide                                                             | 10r|RECEIVE       |2                           |fsys_resmgr         
+   90123| 14|proc/boot/devb-eide                                                             | 10r|RECEIVE       |2                           |fsys_resmgr         
+  155660|  1|system/bin/random                                                               | 10r|SIGWAITINFO   |                            |Signal Thread       
+  155660|  2|system/bin/random                                                               | 10r|NANOSLEEP     |                            |py Collection Thread
+  155660|  3|system/bin/random                                                               | 10r|RECEIVE       |1                           |Resmgr Thread       
+  155660|  4|system/bin/random                                                               | 10r|RECEIVE       |2                           |Seed Save Thread    
+  167949|  1|system/bin/pipe                                                                 | 10r|SIGWAITINFO   |                            |1                   
+  167949|  2|system/bin/pipe                                                                 | 10r|RECEIVE       |1                           |2                   
+  167949|  3|system/bin/pipe                                                                 | 10r|RECEIVE       |1                           |3                   
+  167949|  5|system/bin/pipe                                                                 | 10r|RECEIVE       |1                           |5                   
+  167949|  6|system/bin/pipe                                                                 | 10r|RECEIVE       |1                           |6                   
+  180238|  1|system/bin/devc-pty                                                             | 10r|RECEIVE       |1                           |1                   
+  184335|  1|system/bin/dumper                                                               | 10r|RECEIVE       |1                           |1                   
+  184335|  2|system/bin/dumper                                                               | 10r|RECEIVE       |2                           |2                   
+  188432|  1|system/bin/io-sock                                                              | 21r|SIGWAITINFO   |                            |io-sock main        
+  188432|  2|system/bin/io-sock                                                              | 21r|SIGWAITINFO   |                            |qnx_kthread_context 
+  188432|  3|system/bin/io-sock                                                              | 21r|SEM           |25782031d8                  |softirq_0           
+  188432|  4|system/bin/io-sock                                                              | 21r|SEM           |25782030d8                  |softirq_1           
+  188432|  5|system/bin/io-sock                                                              | 21r|SEM           |2578202ed8                  |in6m_free taskq     
+  188432|  6|system/bin/io-sock                                                              | 21r|SEM           |2578202dd8                  |inm_free taskq      
+  188432|  7|system/bin/io-sock                                                              | 21r|SEM           |2578202cd8                  |kqueue_ctx taskq    
+  188432|  8|system/bin/io-sock                                                              | 21r|SEM           |2578202bd8                  |jail_remove taskq   
+  188432|  9|system/bin/io-sock                                                              | 21r|SEM           |2578202ad8                  |bus taskq           
+  188432| 10|system/bin/io-sock                                                              | 21r|SEM           |25782029d8                  |fast_taskqueue      
+  188432| 11|system/bin/io-sock                                                              | 21r|SEM           |25782028d8                  |thread taskq        
+  188432| 12|system/bin/io-sock                                                              | 21r|RECEIVE       |3                           |Giant taskq         
+  188432| 13|system/bin/io-sock                                                              | 21r|RECEIVE       |4                           |task queue          
+  188432| 14|system/bin/io-sock                                                              | 21r|RECEIVE       |5                           |netisr 0            
+  188432| 15|system/bin/io-sock                                                              | 21r|RECEIVE       |6                           |clock (0)           
+  188432| 16|system/bin/io-sock                                                              | 21r|RECEIVE       |7                           |clock (1)           
+  188432| 17|system/bin/io-sock                                                              | 21r|SEM           |25782018d8                  |epair_task          
+  188432| 18|system/bin/io-sock                                                              | 21r|SEM           |2578200ad8                  |ip_mroute_tskq task 
+  188432| 19|system/bin/io-sock                                                              | 21r|CONDVAR       |(0x25780a634c)              |sctp_iterator       
+  188432| 20|system/bin/io-sock                                                              | 21r|CONDVAR       |(0x25780a63cc)              |pf purge            
+  188432| 21|system/bin/io-sock                                                              | 21r|RECEIVE       |8                           |pf send             
+  188432| 22|system/bin/io-sock                                                              | 21r|RECEIVE       |9                           |pfsync              
+  188432| 23|system/bin/io-sock                                                              | 21r|CONDVAR       |(0x25780a654c)              |uma                 
+  188432| 24|system/bin/io-sock                                                              | 21r|RECEIVE       |10                          |proc death listener 
+  188432| 25|system/bin/io-sock                                                              | 21r|RECEIVE       |1                           |resmgr chan 1       
+  188432| 26|system/bin/io-sock                                                              | 21r|RECEIVE       |1                           |resmgr chan 1       
+  188432| 27|system/bin/io-sock                                                              | 21r|RECEIVE       |1                           |unblock chan 1      
+  188432| 28|system/bin/io-sock                                                              | 21r|RECEIVE       |2                           |resmgr chan 2       
+  188432| 29|system/bin/io-sock                                                              | 21r|RECEIVE       |2                           |unblock chan 2      
+  188432| 30|system/bin/io-sock                                                              | 21r|SEM           |2578e723d8                  |if_io_tqg_0         
+  188432| 31|system/bin/io-sock                                                              | 21r|SEM           |2578f255d8                  |if_io_tqg_1         
+  188432| 32|system/bin/io-sock                                                              | 21r|SEM           |2578e728d8                  |if_config_tqg_0     
+  188432| 33|system/bin/io-sock                                                              | 21r|RECEIVE       |2                           |resmgr chan 2       
+  188432| 34|system/bin/io-sock                                                              | 21r|SEM           |2578e72dd8                  |iousb_poll_tq       
+  188432| 35|system/bin/io-sock                                                              | 21r|INTR          |                            |virtio_pci0 irq 9   
+  188432| 36|system/bin/io-sock                                                              | 21r|SEM           |2578e720d8                  |vtnet0 rxq 0        
+  188432| 37|system/bin/io-sock                                                              | 21r|SEM           |2578e71ed8                  |vtnet0 txq 0        
+  188432| 38|system/bin/io-sock                                                              | 21r|RECEIVE       |1                           |resmgr chan 1       
+  188432| 39|system/bin/io-sock                                                              | 21r|RECEIVE       |1                           |resmgr chan 1       
+  188432| 40|system/bin/io-sock                                                              | 21r|RECEIVE       |2                           |resmgr chan 2       
+  249876|  1|system/bin/dhcpcd                                                               | 10r|SIGWAITINFO   |                            |1                   
+  274450|  1|system/bin/sshd                                                                 | 10r|SIGWAITINFO   |                            |1                   
+  278545|  1|system/bin/qconn                                                                | 10r|SIGWAITINFO   |                            |1                   
+  278545|  2|system/bin/qconn                                                                | 10r|RECEIVE       |1                           |2                   
+  282643|  1|system/bin/mqueue                                                               | 10r|RECEIVE       |1                           |1                   
+  307222|  1|system/bin/io-usb-otg                                                           | 10r|SIGWAITINFO   |                            |signal_handler      
+  307222|  2|system/bin/io-usb-otg                                                           | 10r|CONDVAR       |(0x17789868e0)              |usbmgr 0            
+  307222|  3|system/bin/io-usb-otg                                                           | 10r|CONDVAR       |(0x1778987400)              |hub 1               
+  307222|  4|system/bin/io-usb-otg                                                           | 10r|CONDVAR       |(0x1778987f20)              |enumerator 2        
+  307222|  5|system/bin/io-usb-otg                                                           | 21r|RECEIVE       |1                           |usbdi_resmgr        
+  307222|  6|system/bin/io-usb-otg                                                           | 10r|RECEIVE       |2                           |usbdi_resmgr        
+  307222|  7|system/bin/io-usb-otg                                                           | 21r|RECEIVE       |1                           |usbdi_resmgr        
+  307222|  8|system/bin/io-usb-otg                                                           | 21r|RECEIVE       |1                           |usbdi_resmgr        
+  311319|  1|system/bin/qbridged                                                             | 10r|RECEIVE       |1                           |1                   
+ 2625562|  1|system/bin/timeout                                                              | 10r|SIGWAITINFO   |                            |1                   
+ 2637848|  1|data/qbridge/inversion                                                          | 10f|READY         |                            |server-low          
+ 2650114|  1|data/qbridge/inversion                                                          | 20f|RUNNING       |                            |hog-medium          
+ 2650133|  1|data/qbridge/inversion                                                          | 30f|REPLY         |2637848                     |client-high         
+ 2650137|  1|system/bin/sshd-session                                                         | 10r|SIGWAITINFO   |                            |1                   
+ 2662427|  1|system/bin/sshd-session                                                         | 10r|SIGWAITINFO   |                            |1                   
+ 2662428|  1|bin/sh                                                                          | 10r|SIGSUSPEND    |                            |1                   
+ 2666525|  1|proc/boot/sh                                                                    | 10r|SIGSUSPEND    |                            |1                   
+ 2687006|  1|proc/boot/pidin                                                                 | 10r|REPLY         |1                           |1                   

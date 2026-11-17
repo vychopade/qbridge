@@ -44,6 +44,12 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("path", help="name or path under the deploy folder")
     r.add_argument("args", nargs=argparse.REMAINDER)
     r.add_argument("--timeout", type=int, default=30)
+    r.add_argument("--background", action="store_true", help="start it and return at once")
+
+    k = sub.add_parser("kill", help="signal a deployed program (needs --allow-write)")
+    k.add_argument("--pid", type=int)
+    k.add_argument("--name", help="program name")
+    k.add_argument("--signal", default="TERM")
 
     ev = sub.add_parser("events", help="process deaths and core dumps pushed by qbridged")
     ev.add_argument("--wait", type=int, default=10, help="seconds to wait (default 10)")
@@ -80,7 +86,9 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
         case "deploy":
             return tools.deploy(s, a.local_path, a.name)
         case "run":
-            return tools.run(s, a.path, a.args, a.timeout)
+            return tools.run(s, a.path, a.args, a.timeout, a.background)
+        case "kill":
+            return tools.kill(s, a.pid, a.name, a.signal)
         case "events":
             return tools.events(s, a.wait, a.since, a.all)
         case "crashes":
