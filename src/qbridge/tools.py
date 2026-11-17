@@ -425,7 +425,7 @@ def make_report(s: Session, experiment_id: str, diagnosis_id: str | None = None,
     html_text = report.build(e, load_run, diag, runs.latest_timing_checks())
     path = Path(out) if out else runs.home() / "reports" / f"{experiment_id}.html"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(html_text, encoding="utf-8")
+    path.write_text(html_text, encoding="utf-8", newline="\n")
     return {"report": str(path), "bytes": len(html_text.encode()),
             "diagnosis_used": (diag or {}).get("diagnosis_id"),
             "timing_checks_used": [t["check_id"] for t in runs.latest_timing_checks()]}
