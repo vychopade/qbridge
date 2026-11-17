@@ -45,6 +45,11 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("args", nargs=argparse.REMAINDER)
     r.add_argument("--timeout", type=int, default=30)
 
+    sub.add_parser("crashes", help="list core files on the target")
+    c = sub.add_parser("crash", help="backtrace and locals from a core file (default: newest)")
+    c.add_argument("--core", help="core path on the target, or program name")
+    c.add_argument("--binary", help="local binary with symbols (default: fetched from target)")
+
     sv = sub.add_parser("serve", help="run as an MCP server on stdio")
     # Also accepted after 'serve', which is how MCP client configs usually read.
     sv.add_argument("--allow-write", dest="serve_allow_write", action="store_true",
@@ -66,6 +71,10 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return tools.deploy(s, a.local_path, a.name)
         case "run":
             return tools.run(s, a.path, a.args, a.timeout)
+        case "crashes":
+            return tools.crashes(s)
+        case "crash":
+            return tools.crash_report(s, a.core, a.binary)
     raise ValueError(f"unknown command {a.command}")
 
 

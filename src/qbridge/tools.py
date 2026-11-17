@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import build as build_mod
+from . import crash
 from .parsers import pidin, slog2
 from .policy import Policy
 from .target import Target, TargetError
@@ -94,10 +95,25 @@ def run(s: Session, path: str, args: list[str] | None = None, timeout: int = 30)
     remote = s.policy.deploy_path(path)
     argv = ["timeout", str(int(timeout)), remote, *(args or [])]
     r = s.target.run(argv, timeout=timeout + 15)
-    return {
+    out = {
         "command": r.command,
         "exit_code": r.returncode,
         "timed_out": r.returncode == TIMEOUT_EXIT,
         "stdout": _clip(r.stdout),
         "stderr": _clip(r.stderr),
     }
+    # The shell reports death by signal N as exit code 128+N (seen on target: 139 = SIGSEGV).
+    if r.returncode > 128 and r.returncode != TIMEOUT_EXIT:
+        signo = r.returncode - 128
+        out["signal"] = crash.SIGNALS.get(signo, f"signal {signo}")
+        out["hint"] = "The program was killed by a signal; dumper may have written a core. Use qnx_crash."
+    return out
+
+
+def crashes(s: Session) -> dict:
+    return {"core_dirs": crash.CORE_DIRS, "cores": crash.list_cores(s.target)}
+
+
+def crash_report(s: Session, core: str | None = None, binary: str | None = None) -> dict:
+    # Reads the core and binary from the target; changes nothing there.
+    return crash.analyse(s.target, core=core, binary=binary)

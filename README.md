@@ -4,7 +4,7 @@ AI assistants can write QNX code but can't see the target. qbridge gives them ey
 
 qbridge lets any MCP client (or you, from the command line) build, deploy, inspect and debug software on a QNX 8.0 target.
 
-> Status: early work for the QNX Global Hackathon. Working today: MCP server and CLI with `info`, `ps`, `logs`, `build`, `deploy` and `run`. In progress: crash analysis, image control, and the `qbridged` resource manager on the target.
+> Status: early work for the QNX Global Hackathon. Working today: MCP server and CLI with `info`, `ps`, `logs`, `build`, `deploy`, `run` and crash analysis. In progress: image control and the `qbridged` resource manager on the target.
 
 ## Tools
 
@@ -15,7 +15,25 @@ qbridge lets any MCP client (or you, from the command line) build, deploy, inspe
 | `qnx_logs` | `qbridge logs` | no | slog2 entries filtered by process, pid, time, severity, text |
 | `qnx_build` | `qbridge build` | no (host only) | `make` in a folder or `qcc` on one file; errors and warnings with file/line/column |
 | `qnx_deploy` | `qbridge --allow-write deploy` | yes | Copy a file into `/data/qbridge` on the target |
-| `qnx_run` | `qbridge --allow-write run` | yes | Run a program from `/data/qbridge` with a timeout |
+| `qnx_run` | `qbridge --allow-write run` | yes | Run a program from `/data/qbridge` with a timeout; reports the signal if it dies |
+| `qnx_crashes` | `qbridge crashes` | no | Core files written by QNX's `dumper` |
+| `qnx_crash` | `qbridge crash` | no | Fetch a core and its binary, run gdb on the host: signal, fault address, backtrace with args and locals, source, and a plain-English summary |
+
+### Crash analysis example
+
+`examples/crash_null` is a small program with a planted NULL pointer bug. After building, deploying and running it:
+
+```
+qbridge crash
+```
+
+returns, among the frames and locals:
+
+```
+"summary": "/data/qbridge/sensor died with SIGSEGV in apply_calibration() at sensor.c:38.
+            Fault address 0x8 is in the first page: a NULL pointer dereference (field at
+            offset 8). NULL pointer(s) in that frame: cal."
+```
 
 ## Guard rails
 
@@ -78,7 +96,9 @@ Add `--allow-write` after `serve` to let the assistant deploy and run programs. 
 ## Notes from the real target
 
 - Windows OpenSSH fails against the QNX 8.0 sshd with "Corrupted MAC on input" unless the MAC is forced to `hmac-sha2-256`; qbridge does this for you.
-- `dumper` runs as `dumper -U 30:30 -d /data/var/dumper -M 1000 -D cores`, so core files land in `/data/var/dumper`.
+- `dumper` runs as `dumper -U 30:30 -d /data/var/dumper -M 1000 -D cores`, so core files for root's processes land in `/data/var/dumper/<program>.core`, overwritten on each crash.
+- A process killed by a signal shows exit code 128+N in the target shell (SIGSEGV is 139).
+- gdb is the SDP's `ntox86_64-gdb` (14.2). Shared libraries are resolved from `$QNX_TARGET/x86_64/lib` and `usr/lib`.
 
 ## Tests
 

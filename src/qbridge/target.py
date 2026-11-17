@@ -103,17 +103,31 @@ class Target:
             local, f"{self.user}@{self.resolve_host()}:{remote}",
         ]
 
-    def put(self, local: Path, remote: str, timeout: float = 120) -> None:
-        """Copy one file to the target."""
+    def scp_get_args(self, remote: str, local: str) -> list[str]:
+        return [
+            "scp", *self._common_opts(), "-P", str(self.port),
+            f"{self.user}@{self.resolve_host()}:{remote}", local,
+        ]
+
+    def _scp(self, args: list[str], what: str, timeout: float) -> None:
         try:
-            p = subprocess.run(self.scp_args(str(local), remote), capture_output=True,
-                               text=True, errors="replace", timeout=timeout)
+            p = subprocess.run(args, capture_output=True, text=True, errors="replace",
+                               timeout=timeout)
         except FileNotFoundError as e:
             raise TargetError("scp was not found on PATH") from e
         except subprocess.TimeoutExpired as e:
-            raise TargetError(f"copying {local} timed out after {timeout}s") from e
+            raise TargetError(f"copying {what} timed out after {timeout}s") from e
         if p.returncode != 0:
-            raise TargetError(f"scp {local} -> {remote} failed: {p.stderr.strip()}")
+            raise TargetError(f"scp {what} failed: {p.stderr.strip()}")
+
+    def put(self, local: Path, remote: str, timeout: float = 120) -> None:
+        """Copy one file to the target."""
+        self._scp(self.scp_args(str(local), remote), f"{local} -> {remote}", timeout)
+
+    def get(self, remote: str, local: Path, timeout: float = 300) -> None:
+        """Copy one file from the target."""
+        Path(local).parent.mkdir(parents=True, exist_ok=True)
+        self._scp(self.scp_get_args(remote, str(local)), f"{remote} -> {local}", timeout)
 
     def run(self, argv: list[str], timeout: float = 60) -> Result:
         """Run a command on the target. argv is quoted for the target shell."""

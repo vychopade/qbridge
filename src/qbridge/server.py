@@ -22,7 +22,8 @@ SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
 INSTRUCTIONS = (
     "qbridge connects you to a QNX 8.0 target. Use qnx_ps and qnx_logs to see what is "
     "running and why it is stuck (blocked_on shows which process each thread waits on; "
-    "cycles are likely deadlocks). Use qnx_build to compile on the host. qnx_deploy and "
+    "cycles are likely deadlocks). When a program dies from a signal, use qnx_crash to get "
+    "the backtrace from its core file. Use qnx_build to compile on the host. qnx_deploy and "
     "qnx_run change the target and only work if the user started qbridge with --allow-write."
 )
 
@@ -94,6 +95,25 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         }, ["path"]),
         lambda s, path, args=None, timeout=30: tools.run(s, path, args, timeout),
         True,
+    ),
+    "qnx_crashes": (
+        "List core files that QNX's dumper wrote on the target (newest first).",
+        _schema({}),
+        lambda s: tools.crashes(s),
+        False,
+    ),
+    "qnx_crash": (
+        "Analyse a crash: fetch a core file and the program that made it from the target, "
+        "run gdb on the host, and return the signal, fault address, backtrace with arguments "
+        "and locals, the source around the crash, and a one-line summary. Defaults to the "
+        "newest core.",
+        _schema({
+            "core": {"type": "string", "description": "Core path on the target, or program name"},
+            "binary": {"type": "string",
+                       "description": "Local binary with debug symbols (default: fetched from target)"},
+        }),
+        lambda s, core=None, binary=None: tools.crash_report(s, core, binary),
+        False,
     ),
 }
 
