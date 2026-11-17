@@ -4,7 +4,7 @@ AI assistants can write QNX code but can't see the target. qbridge gives them ey
 
 qbridge lets any MCP client (or you, from the command line) build, deploy, inspect and debug software on a QNX 8.0 target.
 
-> Status: early work for the QNX Global Hackathon. Working today: MCP server and CLI with `info`, `ps`, `logs`, `build`, `deploy`, `run` and crash analysis, plus the `qbridged` resource manager on the target. In progress: push events from qbridged, and image control.
+> Status: early work for the QNX Global Hackathon. Working today: MCP server and CLI with `info`, `ps`, `logs`, `build`, `deploy`, `run`, `events` and crash analysis, plus the `qbridged` resource manager on the target with pulse-driven events. Next: the priority-inversion and deadlock demo apps.
 
 ## Two halves
 
@@ -21,6 +21,7 @@ qbridge lets any MCP client (or you, from the command line) build, deploy, inspe
 | `qnx_build` | `qbridge build` | no (host only) | `make` in a folder or `qcc` on one file; errors and warnings with file/line/column |
 | `qnx_deploy` | `qbridge --allow-write deploy` | yes | Copy a file into `/data/qbridge` on the target |
 | `qnx_run` | `qbridge --allow-write run` | yes | Run a program from `/data/qbridge` with a timeout; reports the signal if it dies |
+| `qnx_events` | `qbridge events` | no | Wait for process deaths and core dumps, pushed by `qbridged` (needs qbridged running) |
 | `qnx_crashes` | `qbridge crashes` | no | Core files written by QNX's `dumper` |
 | `qnx_crash` | `qbridge crash` | no | Fetch a core and its binary, run gdb on the host: signal, fault address, backtrace with args and locals, source, and a plain-English summary |
 

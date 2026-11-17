@@ -7,6 +7,7 @@ the Policy first.
 from __future__ import annotations
 
 import posixpath
+import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -95,10 +96,13 @@ def deploy(s: Session, local_path: str, name: str | None = None) -> dict:
         raise FileNotFoundError(f"{local} is not a file")
     remote = s.policy.deploy_path(name or local.name)
     s.target.run(["mkdir", "-p", posixpath.dirname(remote)])
-    s.target.put(local, remote)
-    r = s.target.run(["chmod", "+x", remote])
+    # QNX refuses to overwrite a running executable ("dest open ... Failure"),
+    # so copy beside it and rename over it; rename works while it runs.
+    tmp = remote + ".new"
+    s.target.put(local, tmp)
+    r = s.target.run(["sh", "-c", f"chmod +x {shlex.quote(tmp)} && mv -f {shlex.quote(tmp)} {shlex.quote(remote)}"])
     if not r.ok:
-        raise TargetError(f"chmod failed: {r.stderr.strip()}")
+        raise TargetError(f"installing {remote} failed: {r.stderr.strip()}")
     return {"local": str(local), "remote": remote, "bytes": local.stat().st_size}
 
 
@@ -120,6 +124,26 @@ def run(s: Session, path: str, args: list[str] | None = None, timeout: int = 30)
         out["signal"] = crash.SIGNALS.get(signo, f"signal {signo}")
         out["hint"] = "The program was killed by a signal; dumper may have written a core. Use qnx_crash."
     return out
+
+
+def events(s: Session, wait: int = 10, since: int | None = None,
+           include_noise: bool = False) -> dict:
+    """Process deaths and core dumps pushed by qbridged.
+
+    Reads /dev/qbridge/events for up to `wait` seconds. The read blocks in
+    qbridged until something happens, so this returns recent history plus
+    anything that occurs while waiting. Pass the returned last_seq as `since`
+    next time to get only newer events.
+    """
+    wait = max(1, min(int(wait), 120))
+    r = s.target.run(["timeout", str(wait), "cat", qbridged.EVENTS_PATH], timeout=wait + 15)
+    if r.returncode not in (0, TIMEOUT_EXIT):
+        raise TargetError(f"cannot read {qbridged.EVENTS_PATH} (is qbridged running?): "
+                          f"{r.stderr.strip()}")
+    all_events = qbridged.parse_events(r.stdout)
+    kept, hidden = qbridged.filter_events(all_events, since, include_noise)
+    last = max((e.get("seq", 0) for e in all_events), default=since or 0)
+    return {"events": kept, "last_seq": last, "hidden_noise": hidden, "waited_s": wait}
 
 
 def crashes(s: Session) -> dict:

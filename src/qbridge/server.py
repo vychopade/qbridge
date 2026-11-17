@@ -96,6 +96,20 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         lambda s, path, args=None, timeout=30: tools.run(s, path, args, timeout),
         True,
     ),
+    "qnx_events": (
+        "Wait for and return process deaths and core dumps on the target, pushed by qbridged "
+        "(no polling). Returns recent history plus anything that happens during `wait` "
+        "seconds. Use it right after qnx_run, or to watch a running system. Pass last_seq "
+        "back as `since` to see only newer events.",
+        _schema({
+            "wait": {"type": "integer", "description": "Seconds to wait for events (1-120, default 10)"},
+            "since": {"type": "integer", "description": "Only events with seq greater than this"},
+            "include_noise": {"type": "boolean",
+                              "description": "Also show deaths of shell helpers (sh, cat, ...)"},
+        }),
+        lambda s, wait=10, since=None, include_noise=False: tools.events(s, wait, since, include_noise),
+        False,
+    ),
     "qnx_crashes": (
         "List core files that QNX's dumper wrote on the target (newest first).",
         _schema({}),

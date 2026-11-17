@@ -1,0 +1,10 @@
+{"seq": 1, "time": 1794888808, "type": "death", "pid": 1826842, "name": "sleep", "path": "/proc/boot/sleep"}
+{"seq": 2, "time": 1794888808, "type": "death", "pid": 1839130, "name": "sh", "path": "/proc/boot/sh"}
+{"seq": 3, "time": 1794888809, "type": "death", "pid": 1847323, "name": "sh", "path": "/proc/boot/sh"}
+{"seq": 4, "time": 1794888809, "type": "death", "pid": 1859611, "name": "sh", "path": "/proc/boot/sh"}
+{"seq": 5, "time": 1794888809, "type": "death", "pid": 1859614, "name": "sh", "path": "/proc/boot/sh"}
+{"seq": 6, "time": 1794888809, "type": "core", "pid": 1875995, "name": "sensor", "path": "/data/qbridge/sensor", "core": "/data/var/dumper/sensor.core"}
+{"seq": 7, "time": 1794888809, "type": "death", "pid": 1875995, "name": "sensor", "path": "/data/qbridge/sensor"}
+{"seq": 8, "time": 1794888809, "type": "death", "pid": 1884187, "name": "sh", "path": "/proc/boot/sh"}
+{"seq": 9, "time": 1794888812, "type": "death", "pid": 1892379, "name": "sh", "path": "/proc/boot/sh"}
+{"seq": 10, "time": 1794888812, "type": "death", "pid": 1900571, "name": "sh", "path": "/proc/boot/sh"}

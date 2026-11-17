@@ -45,6 +45,11 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("args", nargs=argparse.REMAINDER)
     r.add_argument("--timeout", type=int, default=30)
 
+    ev = sub.add_parser("events", help="process deaths and core dumps pushed by qbridged")
+    ev.add_argument("--wait", type=int, default=10, help="seconds to wait (default 10)")
+    ev.add_argument("--since", type=int, help="only events after this seq")
+    ev.add_argument("--all", action="store_true", help="include shell helper deaths")
+
     sub.add_parser("crashes", help="list core files on the target")
     c = sub.add_parser("crash", help="backtrace and locals from a core file (default: newest)")
     c.add_argument("--core", help="core path on the target, or program name")
@@ -76,6 +81,8 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return tools.deploy(s, a.local_path, a.name)
         case "run":
             return tools.run(s, a.path, a.args, a.timeout)
+        case "events":
+            return tools.events(s, a.wait, a.since, a.all)
         case "crashes":
             return tools.crashes(s)
         case "crash":

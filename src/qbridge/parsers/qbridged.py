@@ -55,3 +55,45 @@ def parse_threads(text: str) -> list[Thread]:
 
 def parse_procs(text: str) -> dict[int, dict]:
     return {p["pid"]: p for p in json.loads(text)["procs"]}
+
+
+EVENTS_PATH = "/dev/qbridge/events"
+
+# Short-lived helpers that qbridge's own ssh commands start. Their deaths are
+# noise when you are watching your program, so they are hidden by default.
+NOISE = {
+    "sh", "ksh", "sleep", "cat", "timeout", "sshd-session", "sshd", "pidin", "slog2info",
+    "stat", "chmod", "mv", "mkdir", "uname", "sftp-server", "scp", "grep", "ls", "dd",
+    "tail", "head", "true", "wc",
+}
+
+
+def parse_events(text: str) -> list[dict]:
+    """JSON lines from /dev/qbridge/events. A cut-off last line is ignored."""
+    events = []
+    for line in text.lstrip("﻿").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            events.append(json.loads(line))
+        except ValueError:
+            continue
+    return events
+
+
+def filter_events(events: list[dict], since: int | None = None,
+                  include_noise: bool = False) -> tuple[list[dict], int]:
+    """Drop events at or before seq `since` and (by default) helper-process deaths.
+
+    Returns (kept, number hidden as noise). Core events are always kept.
+    """
+    kept, hidden = [], 0
+    for e in events:
+        if since is not None and e.get("seq", 0) <= since:
+            continue
+        if not include_noise and e.get("type") == "death" and e.get("name") in NOISE:
+            hidden += 1
+            continue
+        kept.append(e)
+    return kept, hidden

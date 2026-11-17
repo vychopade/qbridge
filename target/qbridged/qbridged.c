@@ -11,8 +11,15 @@
  *   /dev/qbridge/blocked   the blocked-on graph: SEND/REPLY edges with the
  *                          server pid, channel and connection ids
  *   /dev/qbridge/crashes   core files written by dumper
+ *   /dev/qbridge/events    process deaths and new core dumps, as JSON lines.
+ *                          A read blocks until there is something new.
  *
- * Each open() takes one consistent snapshot; reads return slices of it.
+ * Each open() of the first five takes one consistent snapshot; reads return
+ * slices of it.
+ *
+ * Events are pushed, not polled: the process manager (procmgr_event_notify_add)
+ * and dumper (DCMD_DUMPER_NOTIFYEVENT) send pulses to qbridged's channel, and
+ * qbridged answers held read()s on /dev/qbridge/events when one arrives.
  *
  * Usage: qbridged [-f] [-d core_dir] [-m mount_prefix]
  *   -f  stay in the foreground (default: become a daemon)
@@ -31,6 +38,7 @@
 #include <unistd.h>
 
 #include <devctl.h>
+#include <sys/dcmd_dumper.h>
 #include <sys/debug.h>
 #include <sys/neutrino.h>
 #include <sys/procfs.h>
@@ -180,6 +188,8 @@ static void thread_name(pid_t pid, int tid, char *out, size_t outlen)
     }
 }
 
+static void cache_put(pid_t pid, const char *path);
+
 typedef void (*thread_cb)(sbuf_t *b, int *first, const debug_process_t *p,
                           const char *path, const debug_thread_t *t);
 
@@ -213,6 +223,7 @@ static int walk_threads(sbuf_t *b, int *first, thread_cb cb,
         }
         char path[PATH_MAX];
         read_exefile((pid_t)pid, path, sizeof(path));
+        cache_put((pid_t)pid, path);
         count++;
         if (proc_cb) {
             proc_cb(b, first, &info, path);
@@ -380,12 +391,90 @@ static void emit_crashes(sbuf_t *b)
 }
 
 /* ------------------------------------------------------------------------ */
+/* pid -> program path cache                                                 */
+/*                                                                          */
+/* A death pulse carries only the pid, and by then /proc/<pid> is gone, so  */
+/* names are remembered while processes are alive: at startup, on every     */
+/* PROCESS_CREATE pulse, and on every snapshot walk.                        */
+
+#define NAME_CACHE_SIZE 1024
+
+static struct {
+    pid_t pid;
+    char  path[PATH_MAX];
+} name_cache[NAME_CACHE_SIZE];
+
+static void cache_put(pid_t pid, const char *path)
+{
+    /* A process that has already died reads back as "(Zombie)"; keep the
+     * name we had instead. */
+    if (pid <= 0 || path[0] == '\0' || path[0] == '(') {
+        return;
+    }
+    unsigned slot = (unsigned)pid % NAME_CACHE_SIZE;
+    name_cache[slot].pid = pid;
+    snprintf(name_cache[slot].path, sizeof(name_cache[slot].path), "%s", path);
+}
+
+static const char *cache_get(pid_t pid)
+{
+    unsigned slot = (unsigned)pid % NAME_CACHE_SIZE;
+    return name_cache[slot].pid == pid ? name_cache[slot].path : "";
+}
+
+static void cache_proc(sbuf_t *b, int *first, const debug_process_t *p, const char *path)
+{
+    (void)b;
+    (void)first;
+    cache_put(p->pid, path);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Event ring                                                                 */
+
+#define EVENT_RING 256
+
+enum qb_event_type { EV_DEATH, EV_CORE };
+
+struct qb_event {
+    uint64_t           seq;
+    long long          time;
+    enum qb_event_type type;
+    pid_t              pid;
+    char               path[PATH_MAX];   /* program path */
+    char               core[PATH_MAX];   /* core file, for EV_CORE */
+};
+
+static struct qb_event ring[EVENT_RING];
+static uint64_t next_seq = 1;            /* seq of the next event to record */
+
+static uint64_t oldest_seq(void)
+{
+    return next_seq > EVENT_RING ? next_seq - EVENT_RING : 1;
+}
+
+static void format_event(sbuf_t *b, const struct qb_event *e)
+{
+    sb_printf(b, "{\"seq\": %llu, \"time\": %lld, \"type\": \"%s\", \"pid\": %d, \"name\": ",
+              (unsigned long long)e->seq, e->time, e->type == EV_DEATH ? "death" : "core",
+              e->pid);
+    sb_json_str(b, basename_of(e->path));
+    sb_printf(b, ", \"path\": ");
+    sb_json_str(b, e->path);
+    if (e->type == EV_CORE) {
+        sb_printf(b, ", \"core\": ");
+        sb_json_str(b, e->core);
+    }
+    sb_printf(b, "}\n");
+}
+
+/* ------------------------------------------------------------------------ */
 /* Resource manager                                                          */
 
-enum qb_file { QB_VERSION, QB_PROCS, QB_THREADS, QB_BLOCKED, QB_CRASHES, QB_NFILES };
+enum qb_file { QB_VERSION, QB_PROCS, QB_THREADS, QB_BLOCKED, QB_CRASHES, QB_EVENTS, QB_NFILES };
 
 static const char *file_names[QB_NFILES] = {
-    "version", "procs", "threads", "blocked", "crashes",
+    "version", "procs", "threads", "blocked", "crashes", "events",
 };
 
 struct qb_attr {
@@ -397,7 +486,19 @@ struct qb_ocb {
     iofunc_ocb_t   hdr;
     sbuf_t         snap;   /* snapshot taken on first read */
     int            ready;
+    uint64_t       cursor; /* events file: next seq this reader has not seen */
 };
+
+/* Readers of /dev/qbridge/events that are waiting for an event. Their read()
+ * is held: we do not reply until an event arrives, so the client stays
+ * REPLY-blocked on us - the reply itself is the notification. */
+#define MAX_WAITERS 32
+
+static struct {
+    int            rcvid;
+    struct qb_ocb *ocb;
+    size_t         nbytes;
+} waiters[MAX_WAITERS];
 
 static void build_snapshot(enum qb_file which, sbuf_t *b)
 {
@@ -437,14 +538,206 @@ static void build_snapshot(enum qb_file which, sbuf_t *b)
 static struct qb_ocb *qb_ocb_calloc(resmgr_context_t *ctp, struct qb_attr *attr)
 {
     (void)ctp;
-    (void)attr;
-    return calloc(1, sizeof(struct qb_ocb));
+    struct qb_ocb *ocb = calloc(1, sizeof(struct qb_ocb));
+    if (ocb != NULL && attr->which == QB_EVENTS) {
+        /* A new reader first gets the recent history still in the ring. */
+        ocb->cursor = oldest_seq();
+    }
+    return ocb;
 }
 
 static void qb_ocb_free(struct qb_ocb *ocb)
 {
+    for (int i = 0; i < MAX_WAITERS; i++) {
+        if (waiters[i].ocb == ocb) {
+            waiters[i].ocb = NULL;
+            waiters[i].rcvid = 0;
+        }
+    }
     free(ocb->snap.data);
     free(ocb);
+}
+
+/* Format the events this reader has not seen, as JSON lines, up to max bytes.
+ * Only whole lines are sent. Returns the number of bytes in b. */
+static size_t pending_events(struct qb_ocb *ocb, sbuf_t *b, size_t max)
+{
+    if (ocb->cursor < oldest_seq()) {
+        ocb->cursor = oldest_seq();   /* reader fell behind; skip lost events */
+    }
+    while (ocb->cursor < next_seq) {
+        size_t before = b->len;
+        format_event(b, &ring[ocb->cursor % EVENT_RING]);
+        if (b->len > max && before > 0) {
+            b->len = before;          /* does not fit; leave it for the next read */
+            break;
+        }
+        ocb->cursor++;
+    }
+    return b->failed ? 0 : b->len;
+}
+
+static int events_read(resmgr_context_t *ctp, io_read_t *msg, struct qb_ocb *ocb)
+{
+    sbuf_t b = {0};
+    size_t n = pending_events(ocb, &b, msg->i.nbytes);
+    if (n > 0) {
+        MsgReply(ctp->rcvid, (long)n, b.data, n);
+        free(b.data);
+        return _RESMGR_NOREPLY;
+    }
+    free(b.data);
+    if (ocb->hdr.ioflag & O_NONBLOCK) {
+        return EAGAIN;
+    }
+    for (int i = 0; i < MAX_WAITERS; i++) {
+        if (waiters[i].rcvid == 0) {
+            waiters[i].rcvid = ctp->rcvid;
+            waiters[i].ocb = ocb;
+            waiters[i].nbytes = msg->i.nbytes;
+            return _RESMGR_NOREPLY;   /* hold the client until an event arrives */
+        }
+    }
+    return EBUSY;
+}
+
+/* The client wants out (signal, timeout): release a held read. */
+static int qb_unblock(resmgr_context_t *ctp, io_pulse_t *msg, struct qb_ocb *ocb)
+{
+    (void)ocb;
+    /* The unblock pulse carries the blocked client's rcvid in its value. */
+    int rcvid = msg->value.sival_int ? msg->value.sival_int : ctp->rcvid;
+    for (int i = 0; i < MAX_WAITERS; i++) {
+        if (waiters[i].rcvid != 0 && waiters[i].rcvid == rcvid) {
+            MsgError(waiters[i].rcvid, EINTR);
+            waiters[i].rcvid = 0;
+            waiters[i].ocb = NULL;
+            break;
+        }
+    }
+    return _RESMGR_NOREPLY;
+}
+
+static void wake_waiters(void)
+{
+    for (int i = 0; i < MAX_WAITERS; i++) {
+        if (waiters[i].rcvid == 0 || waiters[i].ocb == NULL) {
+            continue;
+        }
+        sbuf_t b = {0};
+        size_t n = pending_events(waiters[i].ocb, &b, waiters[i].nbytes);
+        if (n > 0) {
+            MsgReply(waiters[i].rcvid, (long)n, b.data, n);
+            waiters[i].rcvid = 0;
+            waiters[i].ocb = NULL;
+        }
+        free(b.data);
+    }
+}
+
+static void add_event(enum qb_event_type type, pid_t pid, const char *core)
+{
+    struct qb_event *e = &ring[next_seq % EVENT_RING];
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+    memset(e, 0, sizeof(*e));
+    e->seq = next_seq++;
+    e->time = (long long)now.tv_sec;
+    e->type = type;
+    e->pid = pid;
+    snprintf(e->path, sizeof(e->path), "%s", cache_get(pid));
+    if (core != NULL) {
+        snprintf(e->core, sizeof(e->core), "%s", core);
+    }
+    wake_waiters();
+}
+
+/* ------------------------------------------------------------------------ */
+/* Pulses from the process manager and dumper                                 */
+
+static int pulse_death, pulse_create, pulse_core;
+static int dumper_fd = -1;
+
+static int on_pulse(message_context_t *ctp, int code, unsigned flags, void *handle)
+{
+    (void)flags;
+    (void)handle;
+    pid_t pid = (pid_t)ctp->msg->pulse.value.sival_int;
+    if (code == pulse_create) {
+        char path[PATH_MAX];
+        read_exefile(pid, path, sizeof(path));
+        cache_put(pid, path);
+    } else if (code == pulse_death) {
+        /* The create pulse can arrive before a fork()ed child exec()s, so the
+         * cached name may be the parent's. Try /proc once more while the
+         * dying process may still be there. */
+        char path[PATH_MAX];
+        read_exefile(pid, path, sizeof(path));
+        cache_put(pid, path);
+        add_event(EV_DEATH, pid, NULL);
+    } else if (code == pulse_core) {
+        dump_info_t info;
+        char core[PATH_MAX] = "";
+        iov_t in, out;
+        info.i.pid = pid;
+        SETIOV(&in, &info.i, sizeof(info.i));
+        SETIOV(&out, core, sizeof(core) - 1);
+        if (devctlv(dumper_fd, DCMD_DUMPER_GETPATH, 1, 1, &in, &out, NULL) != EOK) {
+            core[0] = '\0';
+        }
+        /* The process is still alive while dumper writes the core, so its
+         * exefile is current here; this also fixes the name for the death
+         * event that follows. */
+        char path[PATH_MAX];
+        read_exefile(pid, path, sizeof(path));
+        cache_put(pid, path);
+        add_event(EV_CORE, pid, core);
+    }
+    return 0;
+}
+
+/* Build a pulse sigevent aimed at our own channel. UPDATEABLE lets the
+ * sender put the pid in the pulse value. */
+static void make_event(struct sigevent *ev, int coid, int code)
+{
+    SIGEV_PULSE_INIT(ev, coid, SIGEV_PULSE_PRIO_INHERIT, code, 0);
+    SIGEV_MAKE_UPDATEABLE(ev);
+}
+
+static void setup_events(dispatch_t *dpp)
+{
+    pulse_death = pulse_attach(dpp, MSG_FLAG_ALLOC_PULSE, 0, on_pulse, NULL);
+    pulse_create = pulse_attach(dpp, MSG_FLAG_ALLOC_PULSE, 0, on_pulse, NULL);
+    pulse_core = pulse_attach(dpp, MSG_FLAG_ALLOC_PULSE, 0, on_pulse, NULL);
+    int coid = message_connect(dpp, MSG_FLAG_SIDE_CHANNEL);
+    if (pulse_death < 0 || pulse_create < 0 || pulse_core < 0 || coid < 0) {
+        fprintf(stderr, "qbridged: pulse setup failed: %s\n", strerror(errno));
+        return;
+    }
+
+    /* Process manager: tell us whenever a process is created or dies. */
+    struct sigevent ev_death, ev_create;
+    make_event(&ev_death, coid, pulse_death);
+    make_event(&ev_create, coid, pulse_create);
+    if (MsgRegisterEvent(&ev_death, SYSMGR_COID) == -1 ||
+        MsgRegisterEvent(&ev_create, SYSMGR_COID) == -1 ||
+        procmgr_event_notify_add(PROCMGR_EVENT_PROCESS_DEATH, &ev_death) == -1 ||
+        procmgr_event_notify_add(PROCMGR_EVENT_PROCESS_CREATE, &ev_create) == -1) {
+        fprintf(stderr, "qbridged: procmgr events: %s\n", strerror(errno));
+    }
+
+    /* dumper: tell us when it has written a core file. */
+    dumper_fd = open("/proc/dumper", O_RDONLY | O_CLOEXEC);
+    if (dumper_fd < 0) {
+        fprintf(stderr, "qbridged: /proc/dumper: %s (no core events)\n", strerror(errno));
+        return;
+    }
+    struct sigevent ev_core;
+    make_event(&ev_core, coid, pulse_core);
+    if (MsgRegisterEvent(&ev_core, dumper_fd) == -1 ||
+        devctl(dumper_fd, DCMD_DUMPER_NOTIFYEVENT, &ev_core, sizeof(ev_core), NULL) != EOK) {
+        fprintf(stderr, "qbridged: dumper events: %s\n", strerror(errno));
+    }
 }
 
 static int qb_read(resmgr_context_t *ctp, io_read_t *msg, struct qb_ocb *ocb)
@@ -455,6 +748,9 @@ static int qb_read(resmgr_context_t *ctp, io_read_t *msg, struct qb_ocb *ocb)
     }
     if ((msg->i.xtype & _IO_XTYPE_MASK) != _IO_XTYPE_NONE) {
         return ENOSYS;
+    }
+    if (ocb->hdr.attr->which == QB_EVENTS) {
+        return events_read(ctp, msg, ocb);
     }
     if (!ocb->ready) {
         build_snapshot(ocb->hdr.attr->which, &ocb->snap);
@@ -508,6 +804,7 @@ int main(int argc, char **argv)
     static resmgr_io_funcs_t io_funcs;
     iofunc_func_init(_RESMGR_CONNECT_NFUNCS, &connect_funcs, _RESMGR_IO_NFUNCS, &io_funcs);
     io_funcs.read = qb_read;
+    io_funcs.unblock = qb_unblock;
 
     static iofunc_funcs_t ocb_funcs = {
         .nfuncs = _IOFUNC_NFUNCS,
@@ -544,6 +841,10 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
     }
+
+    /* After procmgr_daemon(), which closes extra file descriptors. */
+    walk_threads(NULL, NULL, NULL, cache_proc);
+    setup_events(dpp);
 
     dispatch_context_t *ctp = dispatch_context_alloc(dpp);
     if (ctp == NULL) {
