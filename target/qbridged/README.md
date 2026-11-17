@@ -35,6 +35,20 @@ qbridge --allow-write run qbridged
 
 On the target: `qbridged [-f] [-d core_dir] [-m mount_prefix]`. `-f` stays in the foreground. It must run as root to read other processes' `/proc` entries and attach under `/dev`.
 
+## Start it at boot
+
+qbridge adds qbridged to a `mkqnximage` image with two snippet files in [target/image/snippets](../image/snippets): `system_files.qbridge` puts the binary at `/system/bin/qbridged`, and `post_start.qbridge` starts it from the image's `post_startup.sh`.
+
+```
+qbridge build target\qbridged
+qbridge image install
+cd %USERPROFILE%\qnx-target
+mkqnximage --stop
+mkqnximage --build --run
+```
+
+`qbridge image install` copies the binary and both snippets into the image folder (`QBRIDGE_IMAGE_DIR`, default `%USERPROFILE%\qnx-target`). Rebuilding resets the target's `/data` partition, and the target may come back with a new address; qbridge finds it with `mkqnximage --getip`.
+
 ## Checked against pidin
 
 On a QNX 8.0 x86_64 VirtualBox target, a back-to-back snapshot of `/dev/qbridge/threads` and `pidin` listed the same 115 threads with identical priorities. The only differences were the short-lived `cat`/`pidin` processes themselves and threads that changed state between the two snapshots. qbridged also reports full thread names, where pidin truncates long ones.
@@ -42,4 +56,3 @@ On a QNX 8.0 x86_64 VirtualBox target, a back-to-back snapshot of `/dev/qbridge/
 ## Not done yet
 
 - Push events over pulses (process death, new core dump) instead of polling.
-- Starting qbridged from the image's startup script via `mkqnximage`.

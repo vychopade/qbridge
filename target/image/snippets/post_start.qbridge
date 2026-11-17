@@ -1,0 +1,4 @@
+# qbridge: start qbridged, the resource manager that serves /dev/qbridge.
+# It runs as root (it reads other processes' /proc entries) and makes itself
+# a daemon, so the boot script carries on straight away.
+START_P(qbridged_t) /system/bin/qbridged

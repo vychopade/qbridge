@@ -50,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--core", help="core path on the target, or program name")
     c.add_argument("--binary", help="local binary with symbols (default: fetched from target)")
 
+    im = sub.add_parser("image", help="changes to the mkqnximage image folder on the host")
+    im_sub = im.add_subparsers(dest="image_command", required=True)
+    ii = im_sub.add_parser("install", help="add qbridged to the image so it starts at boot")
+    ii.add_argument("--binary", help="qbridged binary (default: target/qbridged/build/qbridged)")
+
     sv = sub.add_parser("serve", help="run as an MCP server on stdio")
     # Also accepted after 'serve', which is how MCP client configs usually read.
     sv.add_argument("--allow-write", dest="serve_allow_write", action="store_true",
@@ -75,6 +80,9 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return tools.crashes(s)
         case "crash":
             return tools.crash_report(s, a.core, a.binary)
+        case "image":
+            from . import image
+            return image.install_qbridged(s.target.image_dir, a.binary)
     raise ValueError(f"unknown command {a.command}")
 
 

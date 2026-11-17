@@ -1,0 +1,4 @@
+# qbridge: put qbridged in the system partition as /system/bin/qbridged.
+# mkqnx6fsimg buildfile format. The source path is relative to the image folder;
+# `qbridge image install` copies the binary to local/qbridge/qbridged.
+[uid=0 gid=0 perms=0555] bin/qbridged=local/qbridge/qbridged
