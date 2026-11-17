@@ -30,7 +30,7 @@ For every `MUTEX`-blocked thread, `/dev/qbridge/threads` also reads the mutex it
 | `mutex_owner_tid` | `__owner & 0xffff` | **observed**, not documented |
 | `mutex_owner_pid_bits_match` | `(__owner >> 16) & 0x7fff` equals the pid's low 15 bits | **observed**, not documented |
 
-The owner layout (`WAITING | (pid & 0x7fff) << 16 | tid`) was worked out on the target from three rtdemo runs. In each, the low 16 bits were the tid of the thread that held the lock (C-logger, tid 2), and the next 15 bits were the low bits of that run's pid (0x3015, 0x7002 and 0x2017 for pids ending ...3015 and 0x1d7002, 0x48a017). The analysis only names a holder when the pid bits match, and its findings say the layout is observed rather than documented.
+The owner layout (`WAITING | (pid & 0x7fff) << 16 | tid`) was worked out on the target from rtdemo runs. In all three probe runs, the low 16 bits were the tid of the thread that held the lock (C-logger, tid 2). In the two runs where the pid was recorded (0x1d7002 and 0x48a017), the next 15 bits were exactly the pid's low 15 bits (0x7002 and 0x2017). Later live diagnoses matched the pid bits on every read (9 of 9). The analysis only names a holder when the pid bits match, and its findings say the layout is observed rather than documented.
 
 ## Tasks report their deadlines by message passing
 
