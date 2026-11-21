@@ -13,6 +13,9 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import commands
+from .policy import PolicyError
+
 # Windows OpenSSH fails against the QNX 8.0 sshd with "Corrupted MAC on input"
 # unless the MAC is forced. Verified on a QNX 8.0 VirtualBox image, Nov 2026.
 SSH_MAC = "hmac-sha2-256"
@@ -47,6 +50,8 @@ class Target:
     image_dir: Path = field(default_factory=lambda: _home() / "qnx-target")
     sdp: Path = field(default_factory=lambda: _home() / "qnx800")
     connect_timeout: int = 10
+    # Every command and upload is checked against the allowlist in commands.py.
+    deploy_root: str = "/data/qbridge"
 
     @classmethod
     def from_env(cls) -> "Target":
@@ -129,7 +134,9 @@ class Target:
             raise TargetError(f"scp {what} failed: {p.stderr.strip()}")
 
     def put(self, local: Path, remote: str, timeout: float = 120) -> None:
-        """Copy one file to the target."""
+        """Copy one file to the target (only into the deploy folder)."""
+        if not commands._under(remote, self.deploy_root):
+            raise PolicyError(f"uploads may only go into {self.deploy_root}, not {remote!r}")
         self._scp(self.scp_args(str(local), remote), f"{local} -> {remote}", timeout)
 
     def get(self, remote: str, local: Path, timeout: float = 300) -> None:
@@ -138,7 +145,11 @@ class Target:
         self._scp(self.scp_get_args(remote, str(local)), f"{remote} -> {local}", timeout)
 
     def run(self, argv: list[str], timeout: float = 60) -> Result:
-        """Run a command on the target. argv is quoted for the target shell."""
+        """Run a command on the target. argv is quoted for the target shell.
+
+        Refused (PolicyError, nothing sent) unless it passes commands.check().
+        """
+        commands.check(argv, self.deploy_root)
         remote = " ".join(shlex.quote(a) for a in argv)
         args = self.ssh_args(remote)
         try:

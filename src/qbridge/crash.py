@@ -19,7 +19,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import qnxenv
+from . import commands, qnxenv
 from .target import Target, TargetError
 
 CORE_DIRS = ["/data/var/dumper"]
@@ -42,8 +42,7 @@ def cache_dir() -> Path:
 def list_cores(target: Target, dirs: list[str] | None = None) -> list[dict]:
     """Core files on the target, newest first."""
     dirs = dirs or CORE_DIRS
-    globs = " ".join(f"{d}/*.core*" for d in dirs)
-    r = target.run(["sh", "-c", f"stat -c '%n|%s|%Y' {globs} 2>/dev/null; true"])
+    r = target.run(commands.script("list_cores", target.deploy_root, dirs=tuple(dirs)))
     cores = []
     for line in r.stdout.splitlines():
         parts = line.strip().split("|")

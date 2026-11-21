@@ -187,7 +187,7 @@ def approve(exp_id: str, answer: str, approver: str = "cli prompt") -> dict:
     e["state"] = "approved"
     e["history"].append({"time": e["approval"]["time"], "event": f"approved ({approver})"})
     _save(e)
-    return {"approved": True, "experiment_id": exp_id}
+    return {"approved": True, "experiment_id": exp_id, "diff_sha256": e["approval"]["diff_sha256"]}
 
 
 def run(s, exp_id: str) -> dict:
