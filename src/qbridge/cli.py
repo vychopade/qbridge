@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-from . import experiments, tools
+from . import audit, experiments, tools
 from .policy import Policy, PolicyError
 from .qnxenv import QnxEnvError
 from .target import Target, TargetError
@@ -88,6 +88,10 @@ def build_parser() -> argparse.ArgumentParser:
     ii = im_sub.add_parser("install", help="add qbridged to the image so it starts at boot")
     ii.add_argument("--binary", help="qbridged binary (default: target/qbridged/build/qbridged)")
 
+    au = sub.add_parser("audit", help="show the audit log of qbridge actions")
+    au.add_argument("--limit", type=int, default=30)
+    au.add_argument("--verify", action="store_true", help="check the hash chain")
+
     tc = sub.add_parser("timing-check", help="measure and save the target's timer lateness "
                                              "(needs --allow-write)")
     tc.add_argument("--cpu", type=int, default=1)
@@ -165,6 +169,8 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return experiment_command(s, a)
         case "timing-check":
             return tools.timing_check(s, a.cpu, a.seconds)
+        case "audit":
+            return tools.audit_log(s, a.limit, a.verify)
         case "report":
             return tools.make_report(s, a.experiment_id, a.diagnosis_id, a.out)
         case "image":
@@ -219,6 +225,30 @@ def experiment_command(s: tools.Session, a: argparse.Namespace) -> dict:
     raise ValueError(a.exp_command)
 
 
+_CLI_TOOL = {
+    "info": "qnx_info", "ps": "qnx_ps", "logs": "qnx_logs", "build": "qnx_build",
+    "deploy": "qnx_deploy", "run": "qnx_run", "kill": "qnx_kill", "measure": "qnx_measure",
+    "deadlines": "qnx_deadlines", "diagnose": "qnx_diagnose", "runs": "qnx_runs",
+    "run-report": "qnx_run_report", "events": "qnx_events", "crashes": "qnx_crashes",
+    "crash": "qnx_crash", "timing-check": "qnx_timing_check", "report": "qnx_report",
+    "audit": "qnx_audit",
+}
+_NOT_ARGS = {"command", "allow_write", "serve_allow_write", "exp_command", "image_command"}
+
+
+def _audit_name(a: argparse.Namespace) -> tuple[str, bool]:
+    """The audit log names CLI commands like their MCP tools."""
+    from .server import TOOLS
+    if a.command == "experiment":
+        name = f"qnx_experiment_{a.exp_command}"
+    elif a.command == "image":
+        return f"image_{a.image_command}", False          # changes the host image folder only
+    else:
+        name = _CLI_TOOL.get(a.command, a.command)
+    # Approval (CLI only, no MCP tool) records a decision; it does not touch the target.
+    return name, TOOLS[name][3] if name in TOOLS else False
+
+
 def main(argv: list[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
     if a.command == "serve":
@@ -226,12 +256,17 @@ def main(argv: list[str] | None = None) -> int:
         serve(allow_write=a.allow_write or a.serve_allow_write)
         return 0
     s = tools.Session(Target.from_env(), Policy.from_env(a.allow_write))
+    name, changes = _audit_name(a)
+    args = {k: v for k, v in vars(a).items() if k not in _NOT_ARGS}
     try:
         out = dispatch(s, a)
     except (TargetError, PolicyError, QnxEnvError, FileNotFoundError, ValueError,
             experiments.ExperimentError) as e:
+        audit.record("cli", name, args, changes, "refused" if isinstance(e, PolicyError) else "error",
+                     error=f"{type(e).__name__}: {e}", target=s.target.host)
         print(json.dumps({"error": str(e), "type": type(e).__name__}), file=sys.stderr)
         return 1
+    audit.record("cli", name, args, changes, "ok", result=out, target=s.target.host)
     print(json.dumps(out, indent=2))
     if a.command == "build" and not out["ok"]:
         return 2

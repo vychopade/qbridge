@@ -12,7 +12,7 @@ import sys
 import traceback
 from typing import Any, Callable
 
-from . import __version__, experiments, tools
+from . import __version__, audit, experiments, tools
 from .policy import Policy, PolicyError
 from .qnxenv import QnxEnvError
 from .target import Target, TargetError
@@ -157,6 +157,16 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         }),
         lambda s, program=None, seconds=6, snapshots=40, run_id=None:
             tools.diagnose(s, program, seconds, snapshots, run_id),
+        True,    # starts the workload when `program` is given
+    ),
+    "qnx_audit": (
+        "Show the audit log: every qbridge tool call (from the CLI or MCP) with its arguments, "
+        "whether it can change the target, its outcome (ok / refused by a guard rail / error) "
+        "and key results, plus experiment approvals. With verify=true (default) it checks the "
+        "hash chain that makes later edits to the log detectable.",
+        _schema({"limit": {"type": "integer", "description": "Most recent entries (default 30)"},
+                 "verify": {"type": "boolean"}}),
+        lambda s, limit=30, verify=True: tools.audit_log(s, limit, verify),
         False,
     ),
     "qnx_experiment_start": (
@@ -311,12 +321,21 @@ class Server:
     def call_tool(self, name: str, args: dict) -> dict:
         if name not in TOOLS:
             raise KeyError(name)
-        handler = TOOLS[name][2]
+        handler, writes = TOOLS[name][2], TOOLS[name][3]
         try:
             result = handler(self.session, **(args or {}))
         except _EXPECTED_ERRORS as e:
+            audit.record("mcp", name, args, writes,
+                         "refused" if isinstance(e, PolicyError) else "error",
+                         error=f"{type(e).__name__}: {e}", target=self.session.target.host)
             return {"content": [{"type": "text", "text": f"{type(e).__name__}: {e}"}],
                     "isError": True}
+        except Exception as e:
+            audit.record("mcp", name, args, writes, "error", error=f"{type(e).__name__}: {e}",
+                         target=self.session.target.host)
+            raise
+        audit.record("mcp", name, args, writes, "ok", result=result,
+                     target=self.session.target.host)
         return {"content": [{"type": "text", "text": json.dumps(result, indent=2)}],
                 "structuredContent": result, "isError": False}
 

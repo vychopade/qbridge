@@ -31,6 +31,7 @@ qbridge lets any MCP client (or you, from the command line) build, deploy, inspe
 | `qnx_measure` | `qbridge --allow-write measure` | yes (runs a program) | Run a periodic workload for a fixed time; deadline statistics with each cycle split into backlog, scheduling latency, lock wait, CPU time and preempted time; runs of consecutive misses attributed to what started them; saved as a run |
 | `qnx_diagnose` | `qbridge diagnose` | no (yes if it starts the workload) | Snapshot thread states while the workload runs and apply diagnosis rules; currently priority inversion on a mutex, with the holder and protocol read from the mutex in process memory. Each finding has evidence, a confidence level, what it could not determine, and a suggested fix |
 | `qnx_deadlines` | `qbridge deadlines` | no | Live deadline statistics that qbridged keeps for tasks registered with it by message passing (also tasks you start yourself) |
+| `qnx_audit` | `qbridge audit [--verify]` | no | The audit log of qbridge actions (including refusals and approvals) and a check of its hash chain |
 | `qnx_runs` / `qnx_run_report` | `qbridge runs` / `qbridge run-report` | no | List saved runs; show one (including the measured binary's sha256) |
 | `qnx_events` | `qbridge events` | no | Wait for process deaths and core dumps, pushed by `qbridged` (needs qbridged running) |
 | `qnx_crashes` | `qbridge crashes` | no | Core files written by QNX's `dumper` |
@@ -142,6 +143,21 @@ qbridge report <experiment_id>                  # ~/.qbridge/reports/<id>.html
 - **A person approves every source change.** Experiments apply a change only after `qbridge experiment approve`, which needs `yes` typed at an interactive terminal and has no MCP equivalent. Changes are limited to files inside the experiment's project folder, and rollback restores both source and binary.
 - **Only its own processes.** `kill` checks each process's program path and refuses anything outside the deploy folder, so the assistant cannot signal system services.
 - **Time limits.** Programs run under QNX's `timeout`, background ones included, so a hung program cannot hang the assistant or outlive the session.
+- **Command allowlist.** There is no free-form command tool, and every command qbridge sends to the target passes one check first ([commands.py](src/qbridge/commands.py), called by `Target.run`). The program must be on the list and its arguments must match that program's rule; for example, `cat` only reads `/dev/qbridge/*` or the deploy folder, `kill` only sends allowed signals to numeric pids, and `slog2info` can't clear the log. Shell scripts are allowed only as named templates with validated, quoted parameters. Uploads go only into the deploy folder. Anything else is refused before ssh starts.
+- **Audit log.** Every tool call, from the CLI or MCP, is appended to `~/.qbridge/audit.jsonl`: the tool and arguments, whether it can change the target, its outcome (`ok`, `refused` by a guard rail, or `error`), the target, and key results such as run ids, binary sha256, signals and approvals. Each entry carries the hash of the previous one, so `qbridge audit --verify` (MCP: `qnx_audit`) detects an edited or deleted entry. This is tamper-evident, not tamper-proof: someone who can rewrite the whole file can rebuild the chain.
+
+### How each safety requirement is enforced
+
+| Requirement | Where | Checked by |
+|---|---|---|
+| Read-only by default | `Policy.require_write` in every tool that changes the target | `tests/test_policy.py`, `test_audit.py` (refusals recorded) |
+| Approval for source or scheduling changes | `qbridge experiment approve`: CLI only, needs an interactive terminal, tied to the diff's sha256. Priorities and protocols live in the source, so they go through the same approval | `tests/test_experiments.py` (no MCP approve tool, non-interactive refused, new diff needs new approval) |
+| Command allowlist | `commands.check` at `Target.run`; upload check in `Target.put` | `tests/test_commands.py` (16 refused, 14 allowed forms) |
+| Timeouts | `timeout` wrapper on every program run; ssh and scp time limits | `tests/test_server.py`, `test_demos.py` |
+| Audit log | `audit.record` in `server.Server.call_tool` and `cli.main` | `tests/test_audit.py` (chain, edits, deletions, both interfaces) |
+| Rollback to the baseline build | `experiments.rollback`: restores sources, redeploys the saved baseline binary, checks the target's sha256 | `tests/test_experiments.py`; live on Nov 17, sha256 matched |
+
+Live check on Nov 21: the target refused writes in read-only mode, refused killing `qbridged` and running outside the deploy folder even with write access, and refused `slog2info -c`, `cat /etc/shadow` and a raw `sh -c` at the allowlist. All 14 actions were in the audit log, and the chain verified.
 
 ## Demo apps
 

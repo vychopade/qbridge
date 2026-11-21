@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import build as build_mod
-from . import analysis, crash, deadlines, runs
+from . import analysis, audit, commands, crash, deadlines, runs
 from .parsers import pidin, qbridged, slog2
 from .policy import Policy, PolicyError
 from .target import Target, TargetError
@@ -30,6 +30,10 @@ class Session:
     target: Target = field(default_factory=Target.from_env)
     policy: Policy = field(default_factory=Policy.from_env)
 
+    def __post_init__(self):
+        # The command allowlist and the policy use the same deploy folder.
+        self.target.deploy_root = self.policy.deploy_root
+
 
 def _clip(text: str) -> str:
     if len(text) <= MAX_OUTPUT:
@@ -38,7 +42,7 @@ def _clip(text: str) -> str:
 
 
 def info(s: Session) -> dict:
-    r = s.target.run(["sh", "-c", "uname -a; pidin info"])
+    r = s.target.run(commands.script("info", s.target.deploy_root))
     return {
         "host": s.target.resolve_host(),
         "write_allowed": s.policy.allow_write,
@@ -109,14 +113,14 @@ def deploy(s: Session, local_path: str, name: str | None = None) -> dict:
     # so copy beside it and rename over it; rename works while it runs.
     tmp = remote + ".new"
     s.target.put(local, tmp)
-    r = s.target.run(["sh", "-c", f"chmod +x {shlex.quote(tmp)} && mv -f {shlex.quote(tmp)} {shlex.quote(remote)}"])
+    r = s.target.run(commands.script("install", s.target.deploy_root, tmp=tmp, dest=remote))
     if not r.ok:
         raise TargetError(f"installing {remote} failed: {r.stderr.strip()}")
     return {"local": str(local), "remote": remote, "bytes": local.stat().st_size}
 
 
 MAX_BACKGROUND_S = 3600
-KILL_SIGNALS = {"TERM", "INT", "HUP", "KILL", "QUIT", "ABRT", "USR1", "USR2"}
+KILL_SIGNALS = commands.SIGNALS
 
 
 def run(s: Session, path: str, args: list[str] | None = None, timeout: int = 30,
@@ -150,8 +154,8 @@ def _run_background(s: Session, remote: str, args: list[str], timeout: int) -> d
     """
     t = max(1, min(int(timeout), MAX_BACKGROUND_S))
     log = remote + ".log"
-    cmd = " ".join(shlex.quote(a) for a in ["timeout", str(t), remote, *args])
-    r = s.target.run(["sh", "-c", f"{cmd} < /dev/null > {shlex.quote(log)} 2>&1 & echo $!"])
+    r = s.target.run(commands.script("start_background", s.target.deploy_root,
+                                     argv=["timeout", str(t), remote, *args], log=log))
     pid = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
     if not r.ok or not pid.isdigit():
         raise TargetError(f"could not start {remote} in the background: {r.stderr.strip()}")
@@ -167,9 +171,7 @@ def _run_background(s: Session, remote: str, args: list[str], timeout: int) -> d
 
 def _deployed_processes(s: Session) -> list[dict]:
     """Every process on the target with its program path, read from /proc/<pid>/exefile."""
-    script = ('for p in /proc/[0-9]*; do printf "%s|" "${p#/proc/}"; '
-              'cat "$p/exefile" 2>/dev/null; echo; done')
-    r = s.target.run(["sh", "-c", script])
+    r = s.target.run(commands.script("list_exefiles", s.target.deploy_root))
     procs = []
     for line in r.stdout.splitlines():
         pid, _, path = line.partition("|")
@@ -216,7 +218,7 @@ def kill(s: Session, pid: int | None = None, name: str | None = None,
         out["error"] = r.stderr.strip()
     logs = {}
     for path in sorted({p["path"] for p in match}):
-        lr = s.target.run(["sh", "-c", f"sleep 0.3; tail -c 4000 {shlex.quote(path + '.log')} 2>/dev/null"])
+        lr = s.target.run(commands.script("log_tail", s.target.deploy_root, log=path + ".log"))
         if lr.stdout.strip():
             logs[path + ".log"] = lr.stdout
     if logs:
@@ -429,6 +431,15 @@ def make_report(s: Session, experiment_id: str, diagnosis_id: str | None = None,
     return {"report": str(path), "bytes": len(html_text.encode()),
             "diagnosis_used": (diag or {}).get("diagnosis_id"),
             "timing_checks_used": [t["check_id"] for t in runs.latest_timing_checks()]}
+
+
+def audit_log(s: Session, limit: int = 30, verify: bool = True) -> dict:
+    """Recent audit entries, a count by outcome, and (optionally) a chain check."""
+    entries = audit.read(max(1, min(int(limit), 500)))
+    out = {"log": str(audit.log_path()), "recent": audit.summary(entries), "entries": entries}
+    if verify:
+        out["verify"] = audit.verify()
+    return out
 
 
 def list_runs(s: Session, limit: int = 20) -> dict:
