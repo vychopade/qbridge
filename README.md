@@ -1,234 +1,202 @@
 # qbridge RT
 
-Debugging tools tell you what happened. qbridge RT lets an AI assistant find out why a real-time task missed its deadline, test a fix, and measure whether it worked.
+**Debugging tools tell you what happened. qbridge RT lets an AI assistant find out why a real-time task missed its deadline, test a fix, and measure whether it worked, on a real QNX 8.0 target.**
 
-> Direction: qbridge started as general remote debugging for QNX (the tools below still work). It is now focused on real-time deadline analysis: detect, diagnose, propose, approve, test, measure, verify. The demo workload is [examples/rtdemo](examples/rtdemo/README.md). Deadline monitoring, the experiment loop and the report are in progress.
->
-> **Timing limitation:** all measurements so far come from a QNX 8.0 VirtualBox VM, where timers on virtual CPU 0 fire tens of milliseconds late (see [rtdemo's notes](examples/rtdemo/README.md#timing-on-a-virtual-machine-read-this) and `target/tools/vmjitter`). Finite runs show effects; they do not prove worst-case timing.
+Built for the QNX Global Hackathon (Developer Tooling & Host Tools). Open source under the MIT licence.
 
-AI assistants can write QNX code but can't see the target. qbridge gives them eyes and hands on QNX, with guard rails.
+## The problem
 
-qbridge lets any MCP client (or you, from the command line) build, deploy, inspect and debug software on a QNX 8.0 target.
+In a real-time system a periodic task, such as a control loop, has to finish every cycle before its deadline. When it sometimes doesn't, the cause is rarely in the task itself. It might be a lower-priority thread holding a lock, a medium-priority thread taking the CPU, a late wake-up, or the previous cycle overrunning. Finding out which takes per-cycle timing, knowledge of who holds what and who waits for whom, and an understanding of priorities. Then the fix has to be tested on the target and *measured*, because a fix that looks right can still miss deadlines.
 
-> Status: early work for the QNX Global Hackathon. Working today: MCP server and CLI with `info`, `ps`, `logs`, `build`, `deploy`, `run`, `events` and crash analysis, plus the `qbridged` resource manager on the target with pulse-driven events. Also: three demo apps with planted bugs, and deadlock / priority-inversion detection in `ps`.
+AI assistants can write QNX code, but they can't see the target, measure timing or run an experiment. qbridge RT gives them that, with a person approving every change.
 
-## Two halves
-
-- **Host side** (`src/qbridge`, Python): the MCP server and CLI. Talks to the target over ssh.
-- **Target side** ([target/qbridged](target/qbridged/README.md), C): a QNX resource manager that serves processes, threads, the blocked-on graph and crashes as JSON under `/dev/qbridge`, read straight from procfs. When it is running, `qnx_ps` uses it (and says `"source": "qbridged"`); otherwise it falls back to parsing `pidin`.
-
-## Tools
-
-| MCP tool | CLI | Changes the target? | What it does |
-|---|---|---|---|
-| `qnx_info` | `qbridge info` | no | Address, QNX version, CPUs, memory |
-| `qnx_ps` | `qbridge ps` | no | Processes and threads, priorities, states, the blocked-on graph, and plain-English **deadlock** and **priority inversion** findings |
-| `qnx_logs` | `qbridge logs` | no | slog2 entries filtered by process, pid, time, severity, text |
-| `qnx_build` | `qbridge build` | no (host only) | `make` in a folder or `qcc` on one file; errors and warnings with file/line/column |
-| `qnx_deploy` | `qbridge --allow-write deploy` | yes | Copy a file into `/data/qbridge` on the target |
-| `qnx_run` | `qbridge --allow-write run` | yes | Run a program from `/data/qbridge` with a timeout; reports the signal if it dies. `background` starts it and returns at once (output to `<program>.log`) |
-| `qnx_kill` | `qbridge --allow-write kill` | yes | Signal programs qbridge deployed (never system processes) and return their log; `ABRT` makes dumper write a core of a hung program |
-| `qnx_measure` | `qbridge --allow-write measure` | yes (runs a program) | Run a periodic workload for a fixed time; deadline statistics with each cycle split into backlog, scheduling latency, lock wait, CPU time and preempted time; runs of consecutive misses attributed to what started them; saved as a run |
-| `qnx_diagnose` | `qbridge diagnose` | no (yes if it starts the workload) | Snapshot thread states while the workload runs and apply diagnosis rules; currently priority inversion on a mutex, with the holder and protocol read from the mutex in process memory. Each finding has evidence, a confidence level, what it could not determine, and a suggested fix |
-| `qnx_deadlines` | `qbridge deadlines` | no | Live deadline statistics that qbridged keeps for tasks registered with it by message passing (also tasks you start yourself) |
-| `qnx_audit` | `qbridge audit [--verify]` | no | The audit log of qbridge actions (including refusals and approvals) and a check of its hash chain |
-| `qnx_runs` / `qnx_run_report` | `qbridge runs` / `qbridge run-report` | no | List saved runs; show one (including the measured binary's sha256) |
-| `qnx_events` | `qbridge events` | no | Wait for process deaths and core dumps, pushed by `qbridged` (needs qbridged running) |
-| `qnx_crashes` | `qbridge crashes` | no | Core files written by QNX's `dumper` |
-| `qnx_crash` | `qbridge crash` | no | Fetch a core and its binary, run gdb on the host: signal, fault address, backtrace with args and locals, source, and a plain-English summary |
-
-### Crash analysis example
-
-`examples/crash_null` is a small program with a planted NULL pointer bug. After building, deploying and running it:
+## What it does
 
 ```
-qbridge crash
+Detect  ->  Diagnose  ->  Propose  ->  (a person approves)  ->  Test  ->  Measure  ->  Verify
 ```
 
-returns, among the frames and locals:
-
-```
-"summary": "/data/qbridge/sensor died with SIGSEGV in apply_calibration() at sensor.c:38.
-            Fault address 0x8 is in the first page: a NULL pointer dereference (field at
-            offset 8). NULL pointer(s) in that frame: cal."
-```
-
-## Deadline monitoring
-
-```
-qbridge --allow-write measure rtdemo --seconds 10 --label baseline
-```
-
-runs the workload, fetches its per-cycle samples and computes the statistics on the host. They are cross-checked against the program's own summary and, when the workload reports to qbridged, against qbridged's statistics gathered by QNX message passing. All three agreed on every run so far. Measured on the reference target:
-
-> A-control: 299 of 999 cycles missed the 10 ms deadline (29.9%); worst response 37.4 ms, 99th percentile 36.5 ms, mean 10.10 ms. The misses form 99 run(s) of consecutive misses (longest 4); what started each run: waiting for a lock (98), late wake-up (scheduling latency) (1).
-
-Each run is saved under `~/.qbridge/runs/<run_id>/` (`meta.json` with the binary's sha256, the program's `summary.json`, the raw `samples.csv`, and qbridge's `report.json`), so comparisons and reports are built only from captured data.
-
-**Workload convention.** A program works with `measure` if it accepts `-d <seconds> -o <samples.csv>`, writes one CSV row per cycle with `release_us` and `response_us` (and optionally `backlog_us`, `latency_us`, `lock_wait_us`, `exec_us`), and prints a JSON summary line with `period_us` and `deadline_us`. [rtdemo](examples/rtdemo/README.md) is the reference.
-
-## Diagnosis
-
-```
-qbridge --allow-write diagnose rtdemo --seconds 8
-```
-
-starts the workload, takes `/dev/qbridge/threads` snapshots while it runs, reads that run's samples, and applies the rules. On the reference target, for the faulty rtdemo:
-
-> **Priority inversion on a mutex (high confidence).** 'A-control' (priority 30) waits for a mutex held by 'C-logger' (priority 10), while 'B-worker' (priority 20) keeps the CPU.
-> Evidence: A was blocked on the mutex in 9 of 25 snapshots, for up to 32 ms. The holder was C-logger at priority 10, read from the mutex's owner word in process memory (pid bits matched 9 of 9). B-worker had the holder's CPU in all 9. The protocol flags say PTHREAD_PRIO_NONE. 76 of 76 runs of consecutive misses in the same run started with a long lock wait.
-> Could not determine: these are instants, not totals; the owner-word layout is observed, not documented; which source line uses the mutex; other delays; a worst case.
-
-For the fixed build it reports no inversion ("this does not prove there is none; it was not observed"). It also reports priority inheritance seen working: the holder ran at priority 30 while its own priority is 10.
-
-Confidence is high when at least three independent pieces of evidence agree: holder below the waiter, a middle-priority thread running, the PRIO_NONE flag, and lock-rooted deadline misses. With fewer it is medium or low, and the fix suggestion becomes more cautious. Diagnoses are saved under `~/.qbridge/diagnoses/` with the snapshots that support them.
-
-## Experiments: test a fix and measure it
-
-```
-qbridge --allow-write experiment start rtdemo --project examples\rtdemo --repeats 3
-qbridge experiment propose <id> --file rtdemo.c --find "<old line>" --replace "<new line>" --description "<why>"
-qbridge experiment approve <id>          # a person, at an interactive prompt
-qbridge --allow-write experiment run <id>
-qbridge --allow-write experiment rollback <id>    # or: experiment keep <id>
-```
-
-The same steps are MCP tools (`qnx_experiment_start`, `_propose`, `_run`, `_rollback`, `_keep`, `_show`). The flow:
-
-- **Start** builds the current source as the baseline, deploys it, measures the workload N times, and keeps the baseline binary and source files for rollback.
-- **Propose** a single exact text replacement in one file of the project. It is shown as a diff and not applied.
-- **Approve** has no MCP tool. `qbridge experiment approve` shows the diff and accepts only `yes` typed at an interactive terminal, so an assistant cannot approve its own change. The approval is tied to the diff's sha256; changing the proposal needs a new approval.
-- **Run** applies the change, rebuilds (reverting the edit if the build fails), redeploys under the same name, and reruns the identical workload.
-- **Compare** puts misses and worst-case response first. "improved" or "worse" means *every* run on one side beat every run on the other; overlapping results are reported as **inconclusive**.
-- **Rollback** restores the source and redeploys the saved baseline binary, then checks the target's binary sha256 matches the baseline.
-
-Live on the reference target (Nov 17, 2026), with the change approved by a person at the prompt:
-
-| | Baseline (`PTHREAD_PRIO_NONE`) | Candidate (`PTHREAD_PRIO_INHERIT`) |
+| Step | Tool (MCP / CLI) | What happens |
 |---|---|---|
-| Misses (3 runs, 999 cycles each) | 310, 304, 302 | 0, 0, 0 |
-| Worst response | 37.0–37.1 ms | 4.1–5.4 ms |
+| Detect | `qnx_measure` / `qbridge measure` | Runs the workload for a fixed time. Every cycle's response is split into backlog, scheduling latency, lock wait, CPU time and preempted time, and each run of consecutive misses is attributed to what started it. The program's own numbers and qbridged's numbers are cross-checked. |
+| Diagnose | `qnx_diagnose` | Takes thread-state snapshots from qbridged while the workload runs. A deterministic rule finds a priority inversion on a mutex: the holder and the mutex protocol are read from the mutex in process memory. Each finding lists its evidence, a confidence level and what it could not determine. |
+| Propose | `qnx_experiment_propose` | One exact change to one source file, shown as a diff and not applied. |
+| Approve | `qbridge experiment approve` | **Only a person, at an interactive terminal.** There is no MCP tool for it. The approval is tied to the diff's sha256. |
+| Test | `qnx_experiment_run` | Applies the change, rebuilds with `qcc`, redeploys and reruns the identical workload. |
+| Measure and verify | `qnx_experiment_run`, `qnx_report` | Compares before and after, with misses and worst-case response first. "Improved" means every run after the change beat every run before it; otherwise the result is "inconclusive". A self-contained HTML report is built only from recorded data, and `qnx_experiment_rollback` restores the baseline. |
+
+### Result on the reference target
+
+The demo workload [rtdemo](examples/rtdemo/README.md) has a 10 ms control task (priority 30), a CPU-heavy worker (20) and a logger (10) that shares a lock with the control task. The lock is created with `PTHREAD_PRIO_NONE`, which turns off QNX's default priority inheritance. That's the planted fault.
+
+qbridge's diagnosis, live on the target:
+
+> **Priority inversion on a mutex (high confidence).** 'A-control' (priority 30) waits for a mutex held by 'C-logger' (priority 10), while 'B-worker' (priority 20) keeps the CPU. Evidence: blocked in 9 of 25 snapshots for up to 32 ms; holder read from the mutex's owner word; middle-priority thread running in all 9; protocol flags say PTHREAD_PRIO_NONE; 76 of 76 runs of misses started with a long lock wait.
+
+The fix it proposed (restore `PTHREAD_PRIO_INHERIT`), approved by a person at the prompt, then measured (3 runs of 10 s each way):
+
+| | Before | After |
+|---|---|---|
+| Missed deadlines (of 999 cycles per run) | 310, 304, 302 | **0, 0, 0** |
+| Worst response | 37.0–37.1 ms | **4.1–5.4 ms** |
 | 99th percentile | 36.3–36.9 ms | 3.7–3.9 ms |
 | Worst lock wait | 35.9–36.0 ms | 2.9 ms |
 
-> Verdict: improved. Every run after the change beat every run before it. ... No deadline was missed after the change. Based on 3 + 3 finite runs on this target; this does not prove a worst case, and virtual-machine timing adds noise.
+The verdict was "improved": every run after the change beat every run before it. It also stated its own limits: *based on 3 + 3 finite runs on this target; this does not prove a worst case, and virtual-machine timing adds noise.* The full report is [docs/example-report.html](docs/example-report.html) (download it and open it in a browser).
 
-The experiment was then rolled back (the target's binary matched the baseline sha256 again), so the demo keeps its planted fault. The full record is in `tests/fixtures/experiment_live/`.
+## How it uses QNX
 
-## Report
+The target side is native QNX 8.0 C code. These are the places to look:
 
-```
-qbridge --allow-write timing-check --cpu 1      # saves the target's timer noise floor
-qbridge report <experiment_id>                  # ~/.qbridge/reports/<id>.html
-```
-
-`qbridge report` (MCP: `qnx_report`) writes one self-contained HTML page, with no scripts and no external files. It is built only from saved data:
-
-- the verdict and before/after headline numbers;
-- per-run measurements;
-- per-cycle response charts with the deadline line, and a response-time distribution;
-- where the time went (each part of a cycle, and what started each run of misses);
-- the diagnosis with evidence, confidence and what it could not determine;
-- the change, who approved it and when, and a timeline;
-- a recommendation;
-- limitations: finite runs, VM timing, the measured timer lateness of the CPUs, the simulated-demo statement, and how many runs passed each cross-check;
-- provenance: run ids and binary sha256 hashes.
-
-[docs/example-report.html](docs/example-report.html) is the report for the live experiment above (download it and open it in a browser).
-
-## Guard rails
-
-- **Read-only by default.** `deploy` and `run` are refused unless qbridge was started with `--allow-write` (or `QBRIDGE_ALLOW_WRITE=1`). The assistant cannot switch this on itself.
-- **One deploy folder.** Files can only be copied to, and programs only run from, `/data/qbridge` on the target. Paths like `../../proc/boot/ksh` are rejected.
-- **A person approves every source change.** Experiments apply a change only after `qbridge experiment approve`, which needs `yes` typed at an interactive terminal and has no MCP equivalent. Changes are limited to files inside the experiment's project folder, and rollback restores both source and binary.
-- **Only its own processes.** `kill` checks each process's program path and refuses anything outside the deploy folder, so the assistant cannot signal system services.
-- **Time limits.** Programs run under QNX's `timeout`, background ones included, so a hung program cannot hang the assistant or outlive the session.
-- **Command allowlist.** There is no free-form command tool, and every command qbridge sends to the target passes one check first ([commands.py](src/qbridge/commands.py), called by `Target.run`). The program must be on the list and its arguments must match that program's rule; for example, `cat` only reads `/dev/qbridge/*` or the deploy folder, `kill` only sends allowed signals to numeric pids, and `slog2info` can't clear the log. Shell scripts are allowed only as named templates with validated, quoted parameters. Uploads go only into the deploy folder. Anything else is refused before ssh starts.
-- **Audit log.** Every tool call, from the CLI or MCP, is appended to `~/.qbridge/audit.jsonl`: the tool and arguments, whether it can change the target, its outcome (`ok`, `refused` by a guard rail, or `error`), the target, and key results such as run ids, binary sha256, signals and approvals. Each entry carries the hash of the previous one, so `qbridge audit --verify` (MCP: `qnx_audit`) detects an edited or deleted entry. This is tamper-evident, not tamper-proof: someone who can rewrite the whole file can rebuild the chain.
-
-### How each safety requirement is enforced
-
-| Requirement | Where | Checked by |
+| Where | What | QNX technology |
 |---|---|---|
-| Read-only by default | `Policy.require_write` in every tool that changes the target | `tests/test_policy.py`, `test_audit.py` (refusals recorded) |
-| Approval for source or scheduling changes | `qbridge experiment approve`: CLI only, needs an interactive terminal, tied to the diff's sha256. Priorities and protocols live in the source, so they go through the same approval | `tests/test_experiments.py` (no MCP approve tool, non-interactive refused, new diff needs new approval) |
-| Command allowlist | `commands.check` at `Target.run`; upload check in `Target.put` | `tests/test_commands.py` (16 refused, 14 allowed forms) |
-| Timeouts | `timeout` wrapper on every program run; ssh and scp time limits | `tests/test_server.py`, `test_demos.py` |
-| Audit log | `audit.record` in `server.Server.call_tool` and `cli.main` | `tests/test_audit.py` (chain, edits, deletions, both interfaces) |
-| Rollback to the baseline build | `experiments.rollback`: restores sources, redeploys the saved baseline binary, checks the target's sha256 | `tests/test_experiments.py`; live on Nov 17, sha256 matched |
+| [target/qbridged/qbridged.c](target/qbridged/qbridged.c) `main`, `qb_read`, `qb_ocb_calloc` | A resource manager serving live system state as files under `/dev/qbridge` | `resmgr_attach`, `iofunc_*` layer with a custom OCB, `dispatch_*` |
+| `walk_threads`, `emit_blocked`, `thread_name` | Every thread's state, priority, blocked-on details and how long it has been blocked | procfs `DCMD_PROC_INFO` / `DCMD_PROC_TIDSTATUS`, `ThreadCtlExt(_NTO_TCTL_NAME)` |
+| `read_sync` | The holder and protocol of the mutex a thread is blocked on, read from the `sync_t` in that process's memory | `/proc/<pid>/as` with `pread64`; `_NTO_SYNC_*` flags |
+| `setup_events`, `on_pulse`, `events_read`, `qb_unblock` | Process-death and core-dump events pushed by pulses; a read of `/dev/qbridge/events` blocks until something happens | `procmgr_event_notify_add`, `DCMD_DUMPER_NOTIFYEVENT`, `MsgRegisterEvent`, `pulse_attach`, held replies (`_RESMGR_NOREPLY`, `MsgReply`, `MsgError`) |
+| [target/qbridged/qbridge_task.h](target/qbridged/qbridge_task.h) `qbt_register`, `qbt_report` | A real-time task registers once, then reports every cycle without ever blocking | `devctl` (a `MsgSend`) to register; `MsgSendPulse` per cycle |
+| [target/qbridged/qb_deadlines.c](target/qbridged/qb_deadlines.c) `qbd_devctl`, `qbd_on_pulse` | Per-task deadline statistics in memory set aside at startup, served at `/dev/qbridge/deadlines`; pulses accepted only from the registering connection | resmgr devctl handler, pulse handler, kernel-supplied `scoid` |
+| [examples/rtdemo/rtdemo.c](examples/rtdemo/rtdemo.c) `LOCK_PROTOCOL`, `task_a`, `setup_thread` | The demo workload: periodic task, CPU pinning, FIFO priorities, the mutex protocol | `pthread_mutexattr_setprotocol`, `clock_nanosleep(TIMER_ABSTIME)`, `ThreadCtl(_NTO_TCTL_RUNMASK)`, `SCHED_FIFO` |
+| [target/tools/vmjitter.c](target/tools/vmjitter.c) `timer_mode` | Measures how late timers fire on each CPU (the environment's noise floor) | `clock_nanosleep`, run masks |
+| [target/image/snippets](target/image/snippets) | Builds qbridged into the target image and starts it at boot | `mkqnximage` snippets |
 
-Live check on Nov 21: the target refused writes in read-only mode, refused killing `qbridged` and running outside the deploy folder even with write access, and refused `slog2info -c`, `cat /etc/shadow` and a raw `sh -c` at the allowlist. All 14 actions were in the audit log, and the chain verified.
+The host side (Python, no dependencies beyond the standard library) builds with the SDP's `qcc`, talks to the target over ssh, and analyses gdb output when crash analysis is used. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the pieces fit together.
 
-## Demo apps
+## Build and run
 
-[examples/](examples/README.md) has three programs with planted bugs (a NULL dereference, a priority inversion and a message-passing deadlock) and what qbridge reports for each.
+### What you need
 
-## Use it from an MCP client
+| | Used and tested |
+|---|---|
+| Host | Windows 11 |
+| QNX | QNX SDP 8.0 (QNX Everywhere licence): `qcc` with gcc 12.2.0 (`gcc_ntox86_64`), GNU make 4.4.1, `ntox86_64-gdb` 14.2 |
+| Target | QNX 8.0 x86_64 image built with `mkqnximage`, running in VirtualBox 7.2 with 2 virtual CPUs |
+| Python | 3.10 or newer (tested with 3.14); no third-party packages, and `pytest` for the tests |
+| Other | Git, and Windows' built-in OpenSSH client |
 
-qbridge's MCP server has no dependencies beyond Python. For Claude Code:
+The host code also supports `qnxsdp-env.sh` on Linux, but only a Windows host has been tested. The commands below are for a Windows Command Prompt.
 
-```
-claude mcp add qbridge -- C:\path\to\qbridge\.venv\Scripts\qbridge.exe serve
-```
-
-Add `--allow-write` after `serve` to let the assistant deploy and run programs. Any MCP client that can start a stdio server works the same way: the command is `qbridge serve [--allow-write]`.
-
-## Requirements
-
-- QNX SDP 8.0 on the host (tested on Windows 11)
-- A QNX 8.0 x86_64 target, e.g. a VirtualBox image made with `mkqnximage`
-- Python 3.10+
-
-## Quick start
-
-1. Make an ssh key for the target and build the image with it (from a Command Prompt after running `qnxsdp-env.bat`):
-
-   ```
-   ssh-keygen -t ed25519 -f %USERPROFILE%\.ssh\qnx_target_ed25519 -N ""
-   mkdir %USERPROFILE%\qnx-target && cd %USERPROFILE%\qnx-target
-   mkqnximage --type=vbox --arch=x86_64 --ssh-ident=%USERPROFILE%/.ssh/qnx_target_ed25519.pub --run
-   ```
-
-2. Install qbridge and point it at the target:
-
-   ```
-   pip install -e .[dev]
-   set QBRIDGE_HOST=192.168.56.103
-   qbridge ps
-   qbridge logs --process io_sock --severity warning
-   qbridge build examples\hello
-   qbridge --allow-write deploy examples\hello\build\hello
-   qbridge --allow-write run --timeout 10 hello first "second arg"
-   ```
-
-   Options for `run` go before the program name; everything after it is passed to the program.
-
-   Without `QBRIDGE_HOST`, qbridge asks `mkqnximage --getip` in `QBRIDGE_IMAGE_DIR` (default `%USERPROFILE%\qnx-target`).
-
-## Configuration
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `QBRIDGE_HOST` | from `mkqnximage --getip` | Target address |
-| `QBRIDGE_USER` | `root` | ssh user |
-| `QBRIDGE_KEY` | `~/.ssh/qnx_target_ed25519` | ssh private key |
-| `QBRIDGE_IMAGE_DIR` | `~/qnx-target` | mkqnximage image folder |
-| `QNX_SDP` | `~/qnx800` | QNX SDP install folder |
-
-## Notes from the real target
-
-- Windows OpenSSH fails against the QNX 8.0 sshd with "Corrupted MAC on input" unless the MAC is forced to `hmac-sha2-256`; qbridge does this for you.
-- `dumper` runs as `dumper -U 30:30 -d /data/var/dumper -M 1000 -D cores`, so core files for root's processes land in `/data/var/dumper/<program>.core`, overwritten on each crash.
-- A process killed by a signal shows exit code 128+N in the target shell (SIGSEGV is 139).
-- gdb is the SDP's `ntox86_64-gdb` (14.2). Shared libraries are resolved from `$QNX_TARGET/x86_64/lib` and `usr/lib`.
-
-## Tests
-
-Tests run against output recorded from a real target (`tests/fixtures/`), so no target is needed:
+### 1. Create the target
 
 ```
+call %USERPROFILE%\qnx800\qnxsdp-env.bat
+ssh-keygen -t ed25519 -f %USERPROFILE%\.ssh\qnx_target_ed25519 -N ""
+mkdir %USERPROFILE%\qnx-target && cd %USERPROFILE%\qnx-target
+mkqnximage --type=vbox --arch=x86_64 --ssh-ident=%USERPROFILE%/.ssh/qnx_target_ed25519.pub --run
+```
+
+On Windows, `mkqnximage` supports VirtualBox or VMware; QEMU needs a Linux host. VirtualBox needs a host-only network with DHCP, and the default one works.
+
+### 2. Install qbridge on the host
+
+```
+git clone https://github.com/vychopade/qbridge.git
+cd qbridge
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev]"
 pytest
 ```
+
+The tests use output recorded on a real target, so they need no target.
+
+qbridge finds the target's address with `mkqnximage --getip` in `%USERPROFILE%\qnx-target` and remembers it. Set `QBRIDGE_HOST` to skip that. Other settings are in [docs/TOOLS.md](docs/TOOLS.md#configuration).
+
+### 3. Build the target programs and start qbridged at boot
+
+```
+qbridge build target\qbridged
+qbridge image install
+pushd %USERPROFILE%\qnx-target
+mkqnximage --stop
+mkqnximage --build --run
+popd
+qbridge ps --process qbridged
+```
+
+`qbridge build` runs `make` with the SDP environment loaded. Plain `make -C target\qbridged` works too, after `qnxsdp-env.bat`. `qbridge image install` copies qbridged and two `mkqnximage` snippets into the image folder; rebuilding the image puts qbridged at `/system/bin/qbridged` and starts it at boot. Rebuilding resets the target's `/data` partition.
+
+Then build and copy the workload and the timing check to the target:
+
+```
+qbridge build examples\rtdemo
+qbridge build target\tools
+qbridge --allow-write deploy examples\rtdemo\build\rtdemo
+qbridge --allow-write deploy target\tools\build\vmjitter
+```
+
+### 4. Check the target's timing first
+
+```
+qbridge --allow-write timing-check --cpu 1
+qbridge --allow-write timing-check --cpu 0
+```
+
+This measures how late a high-priority 1 ms timer fires with nothing else running. **On the reference VirtualBox VM, CPU 0's timers were 15–18 ms late on average (worst about 55 ms), while CPU 1 stayed within a few ms.** That's why rtdemo runs on CPU 1 (`-c` to change it). The report quotes these checks.
+
+### 5. Run the workflow
+
+```
+qbridge --allow-write measure rtdemo --seconds 10 --label baseline
+qbridge --allow-write diagnose rtdemo --seconds 8
+
+qbridge --allow-write experiment start rtdemo --project examples\rtdemo --repeats 3
+qbridge experiment propose <id> --file rtdemo.c --find "#define LOCK_PROTOCOL PTHREAD_PRIO_NONE" --replace "#define LOCK_PROTOCOL PTHREAD_PRIO_INHERIT" --description "Restore priority inheritance on the shared lock"
+qbridge experiment approve <id>
+qbridge --allow-write experiment run <id>
+qbridge report <id>
+qbridge --allow-write experiment rollback <id>
+```
+
+`experiment approve` shows the diff and waits for you to type `yes`. Run it in a normal terminal window. `report` writes `%USERPROFILE%\.qbridge\reports\<id>.html`. `rollback` puts the original source and binary back, which keeps the demo's fault in place.
+
+### 6. Let an AI assistant drive it
+
+qbridge is also an MCP server on stdio. For Claude Code:
+
+```
+claude mcp add qbridge -- C:\path\to\qbridge\.venv\Scripts\qbridge.exe serve --allow-write
+```
+
+Leave out `--allow-write` to give the assistant read-only access. Any MCP client that can start a stdio server works the same way. The assistant can measure, diagnose, propose and run experiments, but it cannot approve its own change.
+
+## Safety
+
+- **Read-only by default.** Anything that changes the target needs `--allow-write`, and the assistant cannot switch that on.
+- **A person approves every source change** at an interactive prompt, tied to the exact diff.
+- **Command allowlist.** There is no free-form command tool. Every command sent to the target is checked against a list of programs and argument rules, and scripts are allowed only as fixed templates. Uploads and program runs are confined to `/data/qbridge`, and only programs qbridge deployed can be signalled.
+- **Timeouts on everything; rollback** to the saved baseline binary, checked by sha256.
+- **Audit log** of every action, including refusals and approvals, in a hash chain (`qbridge audit --verify`). It is tamper-evident, not tamper-proof.
+
+[docs/TOOLS.md](docs/TOOLS.md#guard-rails) shows where each guard rail is enforced and which tests check it.
+
+## What the measurements do and do not show
+
+- They come from **finite runs on a QNX 8.0 virtual machine**. They show the effect of a change on this workload; they do not prove a worst-case response time or that a deadline can never be missed.
+- Virtual-machine timing is noisier than real hardware, and absolute numbers vary between boots (the faulty build missed about 300 deadlines in one boot and 384 in another). Only runs from the same session are compared.
+- rtdemo is an **educational, simulated** workload. Nothing here is a claim about any automotive, medical or other safety-certified system.
+- The mutex owner's layout in memory was **observed** on QNX 8.0, not taken from documentation. qbridged checks it against the process ID on every read, and findings say so.
+
+## Also included
+
+The general QNX debugging tools from the project's first phase still work and are documented in [docs/TOOLS.md](docs/TOOLS.md):
+- process and thread listing with deadlock and message-passing inversion detection;
+- slog2 logs and process-death and core-dump events;
+- crash analysis with gdb;
+- three more demo programs with planted bugs ([examples/](examples/README.md)).
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `src/qbridge/` | Host side: MCP server (`server.py`), CLI (`cli.py`), tools, measurement and analysis, experiments, report, safety |
+| `target/qbridged/` | The QNX resource manager and the task reporting header ([README](target/qbridged/README.md)) |
+| `target/tools/` | `vmjitter`, the timing check |
+| `target/image/` | `mkqnximage` snippets to build qbridged into the image |
+| `examples/rtdemo/` | The real-time demo workload ([README](examples/rtdemo/README.md)) |
+| `examples/` | Other demo programs |
+| `tests/` | 190 tests; `tests/fixtures/` holds output recorded on the real target |
+| `docs/` | [ARCHITECTURE.md](docs/ARCHITECTURE.md), [TOOLS.md](docs/TOOLS.md), [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md), [SUBMISSION.md](docs/SUBMISSION.md), the example report |
 
 ## Licence
 

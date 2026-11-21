@@ -20,11 +20,18 @@ from .target import Target, TargetError
 SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
 
 INSTRUCTIONS = (
-    "qbridge connects you to a QNX 8.0 target. Use qnx_ps and qnx_logs to see what is "
-    "running and why it is stuck (blocked_on shows which process each thread waits on; "
-    "cycles are likely deadlocks). When a program dies from a signal, use qnx_crash to get "
-    "the backtrace from its core file. Use qnx_build to compile on the host. qnx_deploy and "
-    "qnx_run change the target and only work if the user started qbridge with --allow-write."
+    "qbridge RT connects you to a QNX 8.0 target to find out why a real-time task misses its "
+    "deadline, test a fix and measure it. Typical order: qnx_timing_check (how noisy the "
+    "target's timers are), qnx_measure (deadline statistics, misses attributed to lock wait, "
+    "latency, CPU time), qnx_diagnose (evidence-based findings with confidence), "
+    "qnx_experiment_start, qnx_experiment_propose (one exact change), then ask the user to "
+    "approve it by running 'qbridge experiment approve <id>' in a terminal (you cannot approve "
+    "it), qnx_experiment_run (rebuild, rerun, compare), qnx_report, and qnx_experiment_rollback "
+    "or _keep. Report results as measured: finite runs do not prove a worst case, and say "
+    "'inconclusive' when the tools do. General tools: qnx_ps and qnx_logs (what is running, "
+    "who is blocked on whom), qnx_crash (backtrace from a core file), qnx_build. Tools that "
+    "change the target only work if the user started qbridge with --allow-write; every call is "
+    "recorded in an audit log (qnx_audit)."
 )
 
 
