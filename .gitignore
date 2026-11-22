@@ -20,3 +20,7 @@ target/**/build/
 
 # Raw kernel traces (qbridge keeps them in ~/.qbridge/traces)
 *.kev
+
+# Codelab binaries
+docs/codelab/livedata/livedata1
+docs/codelab/livedata/livedata2
