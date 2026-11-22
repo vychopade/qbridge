@@ -161,7 +161,7 @@ qbridge --allow-write timing-check --cpu 1
 qbridge --allow-write timing-check --cpu 0
 ```
 
-This measures how late a high-priority 1 ms timer fires with nothing else running. **On the reference VirtualBox VM, CPU 0's timers were 15–18 ms late on average (worst about 55 ms), while CPU 1 stayed within a few ms.** That's why rtdemo runs on CPU 1 (`-c` to change it). The report quotes these checks.
+This measures how late a high-priority 1 ms timer fires with nothing else running. **On the reference VirtualBox VM, CPU 0's timers were 15–19 ms late on average (worst about 55–63 ms), while CPU 1 usually stayed within a few ms (worst 1.9–2.3 ms; one noisier session on Nov 22 reached 28 ms).** That's why rtdemo runs on CPU 1 (`-c` to change it). The report quotes these checks.
 
 ### 5. Run the workflow
 
