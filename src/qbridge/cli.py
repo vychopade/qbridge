@@ -82,6 +82,10 @@ def build_parser() -> argparse.ArgumentParser:
                     help="thread name to report (repeatable); default: the program's threads")
     tc.add_argument("args", nargs="*", help="extra workload arguments, after --")
 
+    rp_ = sub.add_parser("replay", help="no target needed: rerun the analysis on data recorded "
+                                        "on the reference target and compare with its results")
+    rp_.add_argument("--json", action="store_true", help="print JSON instead of text")
+
     ru = sub.add_parser("runs", help="list saved measurement runs")
     ru.add_argument("--limit", type=int, default=20)
     rs = sub.add_parser("run-report", help="show one saved measurement run")
@@ -279,6 +283,14 @@ def main(argv: list[str] | None = None) -> int:
         from .server import serve
         serve(allow_write=a.allow_write or a.serve_allow_write)
         return 0
+    if a.command == "replay":                 # offline: no target, no audit entry
+        from . import replay
+        out = replay.run()
+        if a.json:
+            print(json.dumps(out, indent=2))
+        else:
+            print(replay.text(out), end="")
+        return 0 if out["all_match"] else 1
     s = tools.Session(Target.from_env(), Policy.from_env(a.allow_write))
     name, changes = _audit_name(a)
     args = {k: v for k, v in vars(a).items() if k not in _NOT_ARGS}

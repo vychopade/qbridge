@@ -65,6 +65,32 @@ The target side is native QNX 8.0 C code. These are the places to look:
 
 The host side (Python, no dependencies beyond the standard library) builds with the SDP's `qcc`, talks to the target over ssh, and analyses gdb output when crash analysis is used. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the pieces fit together.
 
+## Quick check without a target
+
+You can check the analysis on any computer with Python 3.10 or newer, without QNX or a target:
+
+```
+git clone https://github.com/vychopade/qbridge.git
+cd qbridge
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e .
+qbridge replay
+```
+
+`qbridge replay` runs qbridge's diagnosis rules, kernel-trace checks and experiment verdicts on data recorded on the reference target (thread snapshots, deadline reports, kernel traces and per-run reports, kept in `tests/fixtures/`). It then compares each result with what qbridge reported on the target at the time. It ends with:
+
+```
+7 of 7 results are the same as qbridge reported on the target.
+```
+
+It measures nothing new. It shows that the analysis is deterministic and reproduces the recorded results. On Linux or macOS, activate the venv with `source .venv/bin/activate`.
+
+Then:
+- `pip install -e ".[dev]"` and `pytest` run the full test suite, which also uses recorded target output.
+- Open [docs/example-report.html](docs/example-report.html) (priority inversion, fixed in the source) and [docs/example-report-overload.html](docs/example-report-overload.html) (CPU preemption, fixed by a priority change) in a browser. These are the HTML reports from the recorded experiments, with the kernel trace timelines.
+- The codelab, [docs/codelab](docs/codelab/README.md), walks through writing a small QNX resource manager; that part needs the QNX SDP and a target.
+
 ## Build and run
 
 ### What you need
@@ -198,8 +224,9 @@ The general QNX debugging tools from the project's first phase still work and ar
 | `target/image/` | `mkqnximage` snippets to build qbridged into the image |
 | `examples/rtdemo/` | The real-time demo workload ([README](examples/rtdemo/README.md)) |
 | `examples/` | Other demo programs |
-| `tests/` | 190 tests; `tests/fixtures/` holds output recorded on the real target |
-| `docs/` | [ARCHITECTURE.md](docs/ARCHITECTURE.md), [TOOLS.md](docs/TOOLS.md), [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md), [SUBMISSION.md](docs/SUBMISSION.md), the example report |
+| `tests/` | The tests; `tests/fixtures/` holds output recorded on the real target (also used by `qbridge replay`) |
+| `docs/` | [ARCHITECTURE.md](docs/ARCHITECTURE.md), [TOOLS.md](docs/TOOLS.md), [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md), [SUBMISSION.md](docs/SUBMISSION.md), the two example reports |
+| `docs/codelab/` | The codelab "Write a QNX resource manager that serves live data as files" and its example |
 
 ## Licence
 
