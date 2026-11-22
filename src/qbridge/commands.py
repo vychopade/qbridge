@@ -151,7 +151,28 @@ def _rule_slog2info(args, root):
     return None if all(a in ("-f", "-S", "-t") for a in args) else "unexpected slog2info arguments"
 
 
+TRACE_MAX_SECONDS = 5
+
+
+def _rule_tracelogger(args, root):
+    """Only the capture qbridge uses: wide events, a short timed run with the
+    kernel-call, interrupt and communication classes off, into the deploy folder."""
+    shape = ["-w", "-n", "0", "-s", None, "-F1", "-F2", "-F6", "-f", None]
+    if len(args) != len(shape) or any(s is not None and a != s for a, s in zip(args, shape)):
+        return "tracelogger is only used as 'tracelogger -w -n 0 -s <secs> -F1 -F2 -F6 -f <file>'"
+    try:
+        secs = float(args[4])
+    except ValueError:
+        return "tracelogger -s needs a number of seconds"
+    if not 0 < secs <= TRACE_MAX_SECONDS:
+        return f"trace length must be 0-{TRACE_MAX_SECONDS} s"
+    if not (_under(args[9], root) and args[9].endswith(".kev")):
+        return "the trace file must be a .kev file in the deploy folder"
+    return None
+
+
 RULES = {
+    "tracelogger": _rule_tracelogger,
     "pidin": _rule_pidin,
     "slog2info": _rule_slog2info,
     "uname": _rule_any,

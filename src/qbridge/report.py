@@ -131,6 +131,70 @@ def _cdf_chart(before: list[float], after: list[float], deadline_us: float) -> s
               '<span class="key after"></span>after<span class="key deadline"></span>deadline</div></figure>')
 
 
+_STATE_CLASS = {"RUNNING": "st-run", "READY": "st-ready", "MUTEX": "st-mutex"}
+
+
+def _trace_timeline(tl: dict) -> str:
+    """One lane per thread across the window around the longest wait."""
+    lanes = tl.get("lanes") or []
+    if not lanes:
+        return ""
+    w, left, right, top, lane_h, gap = 760, 150, 12, 10, 22, 10
+    plot_w = w - left - right
+    h = top + len(lanes) * (lane_h + gap) + 34
+    span = max(tl["window_ms"], 0.001)
+    x = lambda ms: left + plot_w * ms / span
+    axis_y = top + len(lanes) * (lane_h + gap) + 4
+    out = []
+    for t in _nice_ticks(span):           # grid first, so the bars sit on top
+        if t <= span:
+            out.append(f'<line class="grid" x1="{x(t):.1f}" x2="{x(t):.1f}" y1="{top}" y2="{axis_y}"/>'
+                       f'<text class="tick" x="{x(t):.1f}" y="{axis_y + 14}" text-anchor="middle">'
+                       f'{t:g}</text>')
+    for i, ln in enumerate(lanes):
+        y = top + i * (lane_h + gap)
+        out.append(f'<text class="lane" x="{left - 8}" y="{y + lane_h / 2 + 4}" text-anchor="end">'
+                   f'{e_(ln["lane"])}: {e_(ln["thread"].split(" ", 1)[-1].strip(chr(39)))}</text>')
+        out.append(f'<rect class="st-bg" x="{left}" y="{y + lane_h / 2 - 1}" width="{plot_w}" height="2"/>')
+        for sp in ln["spans"]:
+            cls = _STATE_CLASS.get(sp["state"])
+            if not cls:
+                continue                  # sleeping / other states: just the thin baseline
+            x0, x1 = x(sp["start"]), x(sp["end"])
+            out.append(f'<rect class="{cls}" x="{x0:.1f}" y="{y}" width="{max(x1 - x0, 0.8):.1f}" '
+                       f'height="{lane_h}"><title>{e_(sp["state"])} at priority {sp["priority"]}, '
+                       f'{sp["end"] - sp["start"]:.2f} ms, CPU {sp["cpu"]}</title></rect>')
+    out.append(f'<text class="axis" x="{left + plot_w / 2}" y="{h - 2}" text-anchor="middle">'
+               f'ms from {tl["window_start_ms"]:.1f} ms into the trace</text>')
+    return (f'<figure class="chart"><figcaption>Kernel trace around the longest wait</figcaption>'
+            f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="thread states from the kernel trace">'
+            + "".join(out) + '</svg><div class="legend"><span class="key st-run"></span>running'
+            '<span class="key st-ready"></span>ready (waiting for the CPU)'
+            '<span class="key st-mutex"></span>blocked on a mutex'
+            '<span class="key st-bg"></span>sleeping or other</div></figure>')
+
+
+def _trace_block(f: dict) -> str:
+    t = f.get("trace")
+    if not t:
+        return ""
+    ok = t.get("status") == "confirmed"
+    steps = "".join(
+        f'<li class="{"ok" if st["supported"] else "no"}"><strong>'
+        f'{"Seen" if st["supported"] else "Not shown"}:</strong> {e_(st["claim"])}. '
+        f'<span class="muted">{e_(st["detail"])}</span></li>' for st in t.get("steps", []))
+    limits = "".join(f"<li>{e_(x)}</li>" for x in t.get("limits", []))
+    head = ("Confirmed by kernel trace: every step was seen." if ok else
+            "Not confirmed by the kernel trace; the confidence above is unchanged. Steps not shown: "
+            + "; ".join(t.get("not_shown", [])) + ".")
+    return (f'<h4>Kernel trace check</h4><p class="{"trace-ok" if ok else "trace-no"}">{e_(head)}</p>'
+            f'<ul class="steps">{steps}</ul>{_trace_timeline(t.get("timeline") or {})}'
+            f'<ul class="muted">{limits}</ul>'
+            f'<p class="note">Trace <code>{e_(t.get("trace_id") or "")}</code>, '
+            f'{t.get("trace_ms", "?")} ms, recorded with tracelogger in the same run as the '
+            f'snapshots.</p>')
+
+
 def _nice_ticks(vmax: float) -> list[float]:
     for step in (1, 2, 5, 10, 20, 50, 100, 200, 500):
         if vmax / step <= 8:
@@ -287,7 +351,7 @@ def build(experiment: dict, load_run: Callable[[str], dict], diagnosis: dict | N
   <p>{e_(f['explanation'])}</p>
   <h4>Evidence</h4><ul>{ev}</ul>
   <h4>Could not determine</h4><ul class="muted">{un}</ul>
-  <p><strong>Suggested fix:</strong> {e_(f['suggested_fix'])}</p></div>""")
+  <p><strong>Suggested fix:</strong> {e_(f['suggested_fix'])}</p>{_trace_block(f)}</div>""")
         inh = res.get("inheritance_observed") or []
         parts.append(f"""
 <section>
@@ -451,6 +515,14 @@ svg .line { fill:none; stroke-width:2.2; } svg .line.before { stroke:var(--befor
 .finding-head { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
 .finding-head h3 { margin:6px 0; }
 .conf { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:999px; background:var(--code); }
+svg .st-run, .key.st-run { fill:var(--after); background:var(--after); }
+svg .st-ready, .key.st-ready { fill:var(--warn); background:var(--warn); }
+svg .st-mutex, .key.st-mutex { fill:var(--miss); background:var(--miss); }
+svg .st-bg, .key.st-bg { fill:var(--line); background:var(--line); }
+svg .lane { fill:var(--ink); font-size:12px; }
+.key.st-run, .key.st-ready, .key.st-mutex { height:10px; }
+ul.steps li.ok strong { color:var(--good); } ul.steps li.no strong { color:var(--bad); }
+.trace-ok { color:var(--good); font-weight:600; } .trace-no { color:var(--warn); font-weight:600; }
 .c-high { color:var(--good); } .c-medium { color:var(--warn); } .c-low { color:var(--muted); }
 pre.diff { background:var(--code); padding:12px; border-radius:8px; overflow-x:auto; font-size:13px; }
 pre.diff .add { color:var(--good); } pre.diff .del { color:var(--bad); } pre.diff .hunk { color:var(--accent); }

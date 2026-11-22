@@ -23,12 +23,12 @@ INSTRUCTIONS = (
     "qbridge RT connects you to a QNX 8.0 target to find out why a real-time task misses its "
     "deadline, test a fix and measure it. Typical order: qnx_timing_check (how noisy the "
     "target's timers are), qnx_measure (deadline statistics, misses attributed to lock wait, "
-    "latency, CPU time), qnx_diagnose (evidence-based findings with confidence), "
+    "latency, CPU time), qnx_diagnose (evidence-based findings with confidence; trace=true checks each finding against a kernel trace from the same run), "
     "qnx_experiment_start, qnx_experiment_propose (one exact change), then ask the user to "
     "approve it by running 'qbridge experiment approve <id>' in a terminal (you cannot approve "
     "it), qnx_experiment_run (rebuild, rerun, compare), qnx_report, and qnx_experiment_rollback "
     "or _keep. Report results as measured: finite runs do not prove a worst case, and say "
-    "'inconclusive' when the tools do. General tools: qnx_ps and qnx_logs (what is running, "
+    "'inconclusive' when the tools do. General tools: qnx_trace (what each thread did, from a short kernel trace), qnx_ps and qnx_logs (what is running, "
     "who is blocked on whom), qnx_crash (backtrace from a core file), qnx_build. Tools that "
     "change the target only work if the user started qbridge with --allow-write; every call is "
     "recorded in an audit log (qnx_audit)."
@@ -156,7 +156,10 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         "rules: priority inversion on a mutex (reads the mutex's holder and protocol from process "
         "memory) and CPU preemption (the deadline task is ready but a higher-priority thread "
         "holds its CPU). Each finding lists its evidence with numbers, a confidence level, what "
-        "it could not determine, and a suggested fix. Starting a program needs write access.",
+        "it could not determine, and a suggested fix. With trace=true it also records a short "
+        "kernel trace (tracelogger) in the same run and checks each step of each finding against "
+        "the thread state changes; a finding is 'confirmed' only if every step is seen, otherwise "
+        "the unsupported steps are listed. Starting a program or tracing needs write access.",
         _schema({
             "program": {"type": "string", "description": "Workload to start, e.g. 'rtdemo'"},
             "seconds": {"type": "integer", "description": "Workload length, 3-60 (default 6)"},
@@ -164,10 +167,31 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
             "run_id": {"type": "string", "description": "Use this saved run's deadline report"},
             "args": {"type": "array", "items": {"type": "string"},
                      "description": "Extra workload arguments, e.g. ['-s', 'overload', '-a', '15']"},
+            "trace": {"type": "boolean", "description": "Confirm findings with a kernel trace"},
+            "trace_seconds": {"type": "number", "description": "Trace length, up to 5 s (default 1)"},
         }),
-        lambda s, program=None, seconds=6, snapshots=40, run_id=None, args=None:
-            tools.diagnose(s, program, seconds, snapshots, run_id, args),
+        lambda s, program=None, seconds=6, snapshots=40, run_id=None, args=None, trace=False,
+               trace_seconds=1.0:
+            tools.diagnose(s, program, seconds, snapshots, run_id, args, trace, trace_seconds),
         True,    # starts the workload when `program` is given
+    ),
+    "qnx_trace": (
+        "Record a short QNX kernel trace (tracelogger on the instrumented kernel; thread, process "
+        "and system events) and decode it on the host with traceprinter. Reports, per thread, the "
+        "time spent in each state (RUNNING, READY, MUTEX, NANOSLEEP, ...) and, for its longest "
+        "waits, which threads ran on its CPU instead and at what priority. Optionally starts a "
+        "workload first. Raw files stay in the qbridge home folder. Needs write access.",
+        _schema({
+            "program": {"type": "string", "description": "Workload to start first, e.g. 'rtdemo'"},
+            "args": {"type": "array", "items": {"type": "string"}},
+            "seconds": {"type": "integer", "description": "Workload length (default 6)"},
+            "trace_seconds": {"type": "number", "description": "Trace length, up to 5 s (default 1)"},
+            "threads": {"type": "array", "items": {"type": "string"},
+                        "description": "Thread names to report (default: the program's threads)"},
+        }),
+        lambda s, program=None, args=None, seconds=6, trace_seconds=1.0, threads=None:
+            tools.trace(s, program, args, seconds, trace_seconds, threads),
+        True,
     ),
     "qnx_audit": (
         "Show the audit log: every qbridge tool call (from the CLI or MCP) with its arguments, "

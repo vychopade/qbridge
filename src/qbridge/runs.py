@@ -99,16 +99,35 @@ def save_timing_check(result: dict) -> str:
     return check_id
 
 
-def latest_timing_checks() -> list[dict]:
-    """The most recent saved timing check per CPU."""
+def _stamp_seconds(stamp: str) -> float | None:
+    """'YYYYMMDD-HHMMSS...' (the start of every qbridge id) -> epoch seconds."""
+    try:
+        return time.mktime(time.strptime(stamp[:15], "%Y%m%d-%H%M%S"))
+    except ValueError:
+        return None
+
+
+def latest_timing_checks(near: str | None = None) -> list[dict]:
+    """The saved timing check per CPU: the most recent one, or with `near` (an
+    id such as an experiment id) the one taken closest in time to it, so a
+    report on old measurements quotes the timer noise of that day."""
     d = home() / "timing"
     if not d.is_dir():
         return []
-    latest: dict = {}
+    target = _stamp_seconds(near) if near else None
+    best: dict = {}
     for f in sorted(d.glob("*.json")):
         r = json.loads(f.read_text(encoding="utf-8"))
-        latest[r.get("cpu")] = {**r, "check_id": f.stem}
-    return [latest[k] for k in sorted(latest, key=lambda c: (c is None, c))]
+        cpu = r.get("cpu")
+        if target is not None:
+            t = _stamp_seconds(f.stem)
+            dist = abs(t - target) if t is not None else float("inf")
+            if cpu in best and best[cpu][0] <= dist:
+                continue
+            best[cpu] = (dist, {**r, "check_id": f.stem})
+        else:
+            best[cpu] = (0, {**r, "check_id": f.stem})
+    return [best[k][1] for k in sorted(best, key=lambda c: (c is None, c))]
 
 
 def load_diagnosis(diag_id: str) -> dict:

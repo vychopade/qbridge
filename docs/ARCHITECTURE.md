@@ -37,7 +37,7 @@ flowchart LR
 |---|---|---|---|
 | Detect | `tools.measure` runs the workload under `timeout`, fetches its per-cycle CSV, and `deadlines.analyse` computes statistics and attributes misses | rtdemo records each cycle itself and also reports it to qbridged by pulses | `runs/<id>/` with meta (binary sha256), the program's summary, samples and report |
 | Cross-check | `deadlines.cross_check` against the program's summary; `qbridged.cross_check` against `/dev/qbridge/deadlines` | qbridged's own statistics, gathered by message passing | stored in the run's report |
-| Diagnose | `tools.diagnose` takes snapshots of `/dev/qbridge/threads` while the workload runs; `analysis.mutex_inversion` applies the rule | qbridged reads thread state from procfs and the mutex from process memory | `diagnoses/<id>.json` with the supporting snapshots |
+| Diagnose | `tools.diagnose` takes snapshots of `/dev/qbridge/threads` while the workload runs; `analysis.mutex_inversion` and `analysis.cpu_preemption` apply the rules; with `trace`, `tools.capture_trace` and `traceconfirm.confirm_all` check the findings | qbridged reads thread state from procfs and the mutex from process memory; `tracelogger` records kernel events | `diagnoses/<id>.json` with the supporting snapshots and trace checks; raw traces in `traces/<id>/` |
 | Propose | `experiments.propose`: one exact replacement, diff only | none | `experiments/<id>/experiment.json` |
 | Approve | `cli.approve_interactively`: interactive terminal only, tied to the diff's sha256 | none | approval in the experiment record and the audit log |
 | Test | `experiments.run`: apply, `qcc` build, deploy, rerun N times | new binary under `/data/qbridge` | candidate runs |
@@ -133,6 +133,8 @@ The workload has fixed phases, so before and after runs are comparable. The faul
 | `tools.py` | The tool implementations: `measure`, `diagnose`, `deadline_stats`, `timing_check`, `make_report`, `deploy`, `run`, `kill` and the rest. |
 | `deadlines.py` | Statistics, miss attribution, `compare` and `compare_sets` (strict: every run must beat every run), and cross-checks. |
 | `analysis.py` | Deterministic rules over snapshots and deadline reports: findings with evidence, confidence and unknowns. |
+| `parsers/kev.py` | Decoded kernel traces (`traceprinter` output) to per-thread state spans, with the 32-bit time-stamp wrap handled. |
+| `traceconfirm.py` | Checks each step of a finding against a kernel trace from the same run; "confirmed" only if every step is seen. |
 | `experiments.py` | Experiment states: baseline, proposed, approved, measured, then kept or rolled back. |
 | `report.py` | The self-contained HTML report: inline CSS and SVG, no scripts. |
 | `target.py` | ssh and scp with the options this setup needs, and the cached target address. |
@@ -160,7 +162,7 @@ stateDiagram-v2
 
 - **Measure inside the task as well as from outside.** The task's own per-cycle timestamps are the most direct measurement. qbridged's copy, gathered by message passing, and the host's recomputation from raw samples are cross-checks, and all three agreed on every run.
 - **Split each cycle into parts.** A miss caused by a lock wait needs a different fix from one caused by a late wake-up. On this VM, late wake-ups do happen (see vmjitter), and the analysis keeps them apart from the lock problem.
-- **Snapshots, not tracing, for diagnosis.** Thread-state snapshots are cheap and show the holder, the waiter and the middle-priority thread at the same instant. They are instants, not a timeline, and findings say so. Kernel tracing (`tracelogger`) is a stretch goal.
+- **Snapshots to find, a kernel trace to confirm.** Thread-state snapshots are cheap and show the holder, the waiter and the middle-priority thread at the same instant, including the mutex owner, which the trace does not record. They are instants, not a timeline, and findings say so. An optional one-second kernel trace (`tracelogger`), taken in the same run so process and thread ids match, adds the timeline: every state change, so each step of a finding can be checked and timed.
 - **Strict verdicts.** "Improved" needs every candidate run to beat every baseline run on both misses and worst case; overlap is "inconclusive". This favours saying "not shown" over a false "fixed".
 - **A person approves changes, outside MCP.** An assistant proposes; only an interactive terminal can approve. Approval binds to the diff's hash.
 - **One place where commands leave the host.** `Target.run` is the only way to execute on the target, so the allowlist and the audit cover everything.

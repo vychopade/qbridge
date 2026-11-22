@@ -17,3 +17,6 @@ qbridge.local.toml
 # QNX build output
 target/**/build/
 *.o
+
+# Raw kernel traces (qbridge keeps them in ~/.qbridge/traces)
+*.kev

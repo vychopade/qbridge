@@ -1,0 +1,59 @@
+{
+ "diagnosis_id": "20261122-135354-diagnose-rtdemo",
+ "trace_id": "20261122-135348-trace",
+ "workload_args": [
+  "-s",
+  "overload",
+  "-a",
+  "15"
+ ],
+ "rtdemo_pids": [
+  8536085
+ ],
+ "threads": {
+  "(8536085, 1)": [
+   8536085,
+   1
+  ],
+  "B-worker": [
+   8536085,
+   2
+  ],
+  "A-control": [
+   8536085,
+   3
+  ]
+ },
+ "findings": [
+  {
+   "rule": "cpu_preemption",
+   "confidence": "high",
+   "subject": {
+    "pid": 8536085,
+    "cpu": 1,
+    "task": {
+     "tid": 3,
+     "thread_name": "A-control",
+     "priority": 15
+    },
+    "runner": {
+     "pid": 8536085,
+     "tid": 2,
+     "thread_name": "B-worker",
+     "priority": 20
+    },
+    "middle": [
+     {
+      "pid": 8536085,
+      "tid": 2,
+      "thread_name": "B-worker",
+      "priority": 20
+     }
+    ]
+   }
+  }
+ ],
+ "live_status": [
+  "confirmed"
+ ]
+}

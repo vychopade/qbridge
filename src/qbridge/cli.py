@@ -68,8 +68,19 @@ def build_parser() -> argparse.ArgumentParser:
     dg.add_argument("--seconds", type=int, default=6)
     dg.add_argument("--snapshots", type=int, default=40)
     dg.add_argument("--run-id", help="use this saved run's deadline report")
+    dg.add_argument("--trace", action="store_true",
+                    help="also capture a kernel trace and check each finding against it")
+    dg.add_argument("--trace-seconds", type=float, default=1.0)
     dg.add_argument("args", nargs="*",
                     help="extra workload arguments, after --  (e.g. diagnose rtdemo -- -s overload)")
+
+    tc = sub.add_parser("trace", help="capture a short kernel trace and show what threads did")
+    tc.add_argument("program", nargs="?", help="workload to start first (needs --allow-write)")
+    tc.add_argument("--seconds", type=int, default=6, help="workload length")
+    tc.add_argument("--trace-seconds", type=float, default=1.0)
+    tc.add_argument("--thread", action="append", dest="threads",
+                    help="thread name to report (repeatable); default: the program's threads")
+    tc.add_argument("args", nargs="*", help="extra workload arguments, after --")
 
     ru = sub.add_parser("runs", help="list saved measurement runs")
     ru.add_argument("--limit", type=int, default=20)
@@ -161,7 +172,10 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
         case "deadlines":
             return tools.deadline_stats(s)
         case "diagnose":
-            return tools.diagnose(s, a.program, a.seconds, a.snapshots, a.run_id, a.args)
+            return tools.diagnose(s, a.program, a.seconds, a.snapshots, a.run_id, a.args,
+                                  a.trace, a.trace_seconds)
+        case "trace":
+            return tools.trace(s, a.program, a.args, a.seconds, a.trace_seconds, a.threads)
         case "runs":
             return tools.list_runs(s, a.limit)
         case "run-report":
@@ -237,7 +251,8 @@ def experiment_command(s: tools.Session, a: argparse.Namespace) -> dict:
 _CLI_TOOL = {
     "info": "qnx_info", "ps": "qnx_ps", "logs": "qnx_logs", "build": "qnx_build",
     "deploy": "qnx_deploy", "run": "qnx_run", "kill": "qnx_kill", "measure": "qnx_measure",
-    "deadlines": "qnx_deadlines", "diagnose": "qnx_diagnose", "runs": "qnx_runs",
+    "deadlines": "qnx_deadlines", "diagnose": "qnx_diagnose", "trace": "qnx_trace",
+    "runs": "qnx_runs",
     "run-report": "qnx_run_report", "events": "qnx_events", "crashes": "qnx_crashes",
     "crash": "qnx_crash", "timing-check": "qnx_timing_check", "report": "qnx_report",
     "audit": "qnx_audit",

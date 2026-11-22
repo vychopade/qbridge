@@ -19,7 +19,7 @@ Detect  ->  Diagnose  ->  Propose  ->  (a person approves)  ->  Test  ->  Measur
 | Step | Tool (MCP / CLI) | What happens |
 |---|---|---|
 | Detect | `qnx_measure` / `qbridge measure` | Runs the workload for a fixed time. Every cycle's response is split into backlog, scheduling latency, lock wait, CPU time and preempted time, and each run of consecutive misses is attributed to what started it. The program's own numbers and qbridged's numbers are cross-checked. |
-| Diagnose | `qnx_diagnose` | Takes thread-state snapshots from qbridged while the workload runs. A deterministic rule finds a priority inversion on a mutex: the holder and the mutex protocol are read from the mutex in process memory. Each finding lists its evidence, a confidence level and what it could not determine. |
+| Diagnose | `qnx_diagnose` | Takes thread-state snapshots from qbridged while the workload runs. Deterministic rules find a priority inversion on a mutex (the holder and the mutex protocol are read from the mutex in process memory) or CPU preemption (the deadline task is ready while a higher-priority thread has its CPU). Each finding lists its evidence, a confidence level and what it could not determine. With `trace`, a kernel trace from the same run checks every step of each finding; it is marked confirmed only if all of them are seen. |
 | Propose | `qnx_experiment_propose` | One exact change to one source file, shown as a diff and not applied. |
 | Approve | `qbridge experiment approve` | **Only a person, at an interactive terminal.** There is no MCP tool for it. The approval is tied to the diff's sha256. |
 | Test | `qnx_experiment_run` | Applies the change, rebuilds with `qcc`, redeploys and reruns the identical workload. |
@@ -59,6 +59,8 @@ The target side is native QNX 8.0 C code. These are the places to look:
 | [examples/rtdemo/rtdemo.c](examples/rtdemo/rtdemo.c) `LOCK_PROTOCOL`, `task_a`, `setup_thread` | The demo workload: periodic task, CPU pinning, FIFO priorities, the mutex protocol | `pthread_mutexattr_setprotocol`, `clock_nanosleep(TIMER_ABSTIME)`, `ThreadCtl(_NTO_TCTL_RUNMASK)`, `SCHED_FIFO` |
 | [target/tools/vmjitter.c](target/tools/vmjitter.c) `timer_mode` | Measures how late timers fire on each CPU (the environment's noise floor) | `clock_nanosleep`, run masks |
 | [target/image/snippets](target/image/snippets) | Builds qbridged into the target image and starts it at boot | `mkqnximage` snippets |
+| [src/qbridge/tools.py](src/qbridge/tools.py) `capture_trace`; [commands.py](src/qbridge/commands.py) `_rule_tracelogger` | Records a short kernel trace on the target in the same run as the diagnosis and decodes it on the host | instrumented kernel `procnto-smp-instr`, `tracelogger` (wide mode, class filters), SDP `traceprinter` |
+| [src/qbridge/parsers/kev.py](src/qbridge/parsers/kev.py) `parse`; [src/qbridge/traceconfirm.py](src/qbridge/traceconfirm.py) `confirm_preemption`, `confirm_inversion` | Turns kernel events into per-thread state spans and checks each step of a finding against them | `THREAD` class events (`THRUNNING`, `THREADY`, `THMUTEX`, ...), `PROCTHREAD_NAME`, `CONTROL TIME` |
 
 The host side (Python, no dependencies beyond the standard library) builds with the SDP's `qcc`, talks to the target over ssh, and analyses gdb output when crash analysis is used. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the pieces fit together.
 
@@ -138,7 +140,7 @@ This measures how late a high-priority 1 ms timer fires with nothing else runnin
 
 ```
 qbridge --allow-write measure rtdemo --seconds 10 --label baseline
-qbridge --allow-write diagnose rtdemo --seconds 8
+qbridge --allow-write diagnose rtdemo --seconds 8 --trace
 
 qbridge --allow-write experiment start rtdemo --project examples\rtdemo --repeats 3
 qbridge experiment propose <id> --file rtdemo.c --find "#define LOCK_PROTOCOL PTHREAD_PRIO_NONE" --replace "#define LOCK_PROTOCOL PTHREAD_PRIO_INHERIT" --description "Restore priority inheritance on the shared lock"

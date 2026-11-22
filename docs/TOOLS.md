@@ -16,7 +16,8 @@ Paths in this page are relative to the repository root.
 | `qnx_run` | `qbridge --allow-write run` | yes | Run a program from `/data/qbridge` with a timeout; reports the signal if it dies. `background` starts it and returns at once (output to `<program>.log`) |
 | `qnx_kill` | `qbridge --allow-write kill` | yes | Signal programs qbridge deployed (never system processes) and return their log; `ABRT` makes dumper write a core of a hung program |
 | `qnx_measure` | `qbridge --allow-write measure` | yes (runs a program) | Run a periodic workload for a fixed time; deadline statistics with each cycle split into backlog, scheduling latency, lock wait, CPU time and preempted time; runs of consecutive misses attributed to what started them; saved as a run |
-| `qnx_diagnose` | `qbridge diagnose` | no (yes if it starts the workload) | Snapshot thread states while the workload runs and apply diagnosis rules; currently priority inversion on a mutex, with the holder and protocol read from the mutex in process memory. Each finding has evidence, a confidence level, what it could not determine, and a suggested fix |
+| `qnx_diagnose` | `qbridge diagnose [--trace]` | no (yes if it starts the workload or traces) | Snapshot thread states while the workload runs and apply diagnosis rules: priority inversion on a mutex (holder and protocol read from the mutex in process memory) and CPU preemption (the deadline task is ready while a higher-priority thread has its CPU). Each finding has evidence, a confidence level, what it could not determine, and a suggested fix. With `--trace`, each finding is also checked step by step against a kernel trace from the same run |
+| `qnx_trace` | `qbridge --allow-write trace` | yes (runs `tracelogger`) | Record a short kernel trace and report, per thread, time in each state and who ran on its CPU during its longest waits |
 | `qnx_deadlines` | `qbridge deadlines` | no | Live deadline statistics that qbridged keeps for tasks registered with it by message passing (also tasks you start yourself) |
 | `qnx_audit` | `qbridge audit [--verify]` | no | The audit log of qbridge actions (including refusals and approvals) and a check of its hash chain |
 | `qnx_runs` / `qnx_run_report` | `qbridge runs` / `qbridge run-report` | no | List saved runs; show one (including the measured binary's sha256) |
@@ -123,6 +124,33 @@ qbridge report <experiment_id>                  # ~/.qbridge/reports/<id>.html
 
 [docs/example-report.html](example-report.html) is the report for the live experiment above (download it and open it in a browser).
 
+## Kernel trace confirmation
+
+Snapshots are instants. A kernel trace records every thread state change for a short window, so it can show whether a finding's story actually happens, and for how long. It needs the instrumented kernel (`procnto-smp-instr`, which the `mkqnximage` image uses) and `tracelogger` on the target; `traceprinter` from the SDP decodes the trace on the host.
+
+```
+qbridge --allow-write diagnose rtdemo --trace -- -s overload -a 15
+```
+
+runs the diagnosis as usual, then, while the same processes are still running, records one second with `tracelogger -w -n 0 -s 1 -F1 -F2 -F6` (wide events; kernel-call, interrupt and communication classes off, about 120 KB per second). The trace is fetched, decoded with `traceprinter`, and turned into per-thread state spans ([parsers/kev.py](../src/qbridge/parsers/kev.py)). Each finding is then broken into steps ([traceconfirm.py](../src/qbridge/traceconfirm.py)):
+
+| Finding | Steps that must all be seen in the trace |
+|---|---|
+| CPU preemption | the task is READY (not blocked on a lock); the named higher-priority thread is RUNNING on the task's CPU for at least half of that READY time; it runs at a priority above the task's |
+| Priority inversion | the waiter is MUTEX-blocked; the holder is READY below the waiter's priority for at least half of the wait (no inheritance); threads between the two priorities run on the holder's CPU for at least half of the holder's READY time; every completed wait ends while the holder is RUNNING (it released the mutex) |
+
+Only if every step is seen is the finding marked **confirmed by kernel trace**; otherwise its confidence stays as it was and the report lists the steps the trace did not show. The trace covers about a second, so a pattern outside that window is "not shown", not disproved. QNX's `THMUTEX` event names the waiting thread but not the mutex or its owner, so the holder's identity still comes from the snapshot's mutex owner word.
+
+Live results on Nov 22 (2-CPU VirtualBox VM, rtdemo on CPU 1, 1 s traces):
+
+- **Overload (`-s overload -a 15`).** Confirmed. A-control was READY 334.4 ms in 71 spans with no MUTEX time; B-worker (priority 20) was RUNNING on that CPU for 319.2 ms of it (95%).
+- **Inversion (`-s inversion`).** Confirmed. A-control was MUTEX-blocked 351.9 ms in 10 spans; C-logger was READY at priority 10 for 330.7 ms of that (94%), never raised to 30; B-worker (priority 20) ran for 330.5 ms of C-logger's READY time; 10 of 10 waits ended while C-logger was running.
+- **Fixed overload (`-a 30`).** No finding, so nothing to confirm; the tests also point the fault's finding at this trace and check it is *not* confirmed.
+
+The report draws the window around the longest wait: one lane per thread, coloured running / ready / blocked on a mutex. Raw `.kev` and decoded files stay in `~/.qbridge/traces/<id>/` (git ignores `*.kev`); the tests use small filtered, gzipped copies in `tests/fixtures/traces/`.
+
+`qbridge --allow-write trace rtdemo -- -s overload -a 15` gives the same per-thread view without the diagnosis: time per state, and who ran instead during each thread's longest waits.
+
 ## Guard rails
 
 - **Read-only by default.** `deploy` and `run` are refused unless qbridge was started with `--allow-write` (or `QBRIDGE_ALLOW_WRITE=1`). The assistant cannot switch this on itself.
@@ -139,7 +167,7 @@ qbridge report <experiment_id>                  # ~/.qbridge/reports/<id>.html
 |---|---|---|
 | Read-only by default | `Policy.require_write` in every tool that changes the target | `tests/test_policy.py`, `test_audit.py` (refusals recorded) |
 | Approval for source or scheduling changes | `qbridge experiment approve`: CLI only, needs an interactive terminal, tied to the diff's sha256. Priorities and protocols live in the source, so they go through the same approval | `tests/test_experiments.py` (no MCP approve tool, non-interactive refused, new diff needs new approval) |
-| Command allowlist | `commands.check` at `Target.run`; upload check in `Target.put` | `tests/test_commands.py` (16 refused, 14 allowed forms) |
+| Command allowlist | `commands.check` at `Target.run`; upload check in `Target.put` | `tests/test_commands.py` (22 refused, 16 allowed forms) |
 | Timeouts | `timeout` wrapper on every program run; ssh and scp time limits | `tests/test_server.py`, `test_demos.py` |
 | Audit log | `audit.record` in `server.Server.call_tool` and `cli.main` | `tests/test_audit.py` (chain, edits, deletions, both interfaces) |
 | Rollback to the baseline build | `experiments.rollback`: restores sources, redeploys the saved baseline binary, checks the target's sha256 | `tests/test_experiments.py`; live on Nov 17, sha256 matched |
@@ -175,4 +203,5 @@ Add `--allow-write` after `serve` to let the assistant deploy and run programs. 
 - Windows OpenSSH fails against the QNX 8.0 sshd with "Corrupted MAC on input" unless the MAC is forced to `hmac-sha2-256`; qbridge does this for you.
 - `dumper` runs as `dumper -U 30:30 -d /data/var/dumper -M 1000 -D cores`, so core files for root's processes land in `/data/var/dumper/<program>.core`, overwritten on each crash.
 - A process killed by a signal shows exit code 128+N in the target shell (SIGSEGV is 139).
+- Kernel tracing: the target has `/system/bin/tracelogger` and runs the instrumented kernel `procnto-smp-instr`; `traceprinter` is not on the target, so traces are decoded on the host with the SDP's `traceprinter`. Its time stamps are the low 32 bits of the cycle counter (3,901,841,142 cycles per second here), which wrap about every 1.1 s; `CONTROL TIME` events carry the high bits.
 - gdb is the SDP's `ntox86_64-gdb` (14.2). Shared libraries are resolved from `$QNX_TARGET/x86_64/lib` and `usr/lib`.

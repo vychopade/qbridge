@@ -1,0 +1,61 @@
+{
+ "diagnosis_id": "20261122-135413-diagnose-rtdemo",
+ "trace_id": "20261122-135407-trace",
+ "workload_args": [
+  "-s",
+  "inversion"
+ ],
+ "rtdemo_pids": [
+  9490453
+ ],
+ "threads": {
+  "(9490453, 1)": [
+   9490453,
+   1
+  ],
+  "C-logger": [
+   9490453,
+   2
+  ],
+  "B-worker": [
+   9490453,
+   3
+  ],
+  "A-control": [
+   9490453,
+   4
+  ]
+ },
+ "findings": [
+  {
+   "rule": "mutex_priority_inversion",
+   "confidence": "high",
+   "subject": {
+    "pid": 9490453,
+    "sync": "0x5c9a6c2060",
+    "protocol": "PTHREAD_PRIO_NONE",
+    "waiter": {
+     "tid": 4,
+     "thread_name": "A-control",
+     "priority": 30
+    },
+    "holder": {
+     "tid": 2,
+     "thread_name": "C-logger",
+     "priority": 10
+    },
+    "middle": [
+     {
+      "pid": 9490453,
+      "tid": 3,
+      "thread_name": "B-worker",
+      "priority": 20
+     }
+    ]
+   }
+  }
+ ],
+ "live_status": [
+  "confirmed"
+ ]
+}

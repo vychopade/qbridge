@@ -10,13 +10,14 @@ import json
 import posixpath
 import re
 import shlex
+import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import build as build_mod
-from . import analysis, audit, commands, crash, deadlines, runs
-from .parsers import pidin, qbridged, slog2
+from . import analysis, audit, commands, crash, deadlines, qnxenv, runs, traceconfirm
+from .parsers import kev, pidin, qbridged, slog2
 from .policy import Policy, PolicyError
 from .target import Target, TargetError
 
@@ -306,7 +307,8 @@ def _qbridged_check(s: Session, report: dict, summary: dict | None) -> dict:
 
 
 def diagnose(s: Session, program: str | None = None, seconds: int = 6, snapshots: int = 40,
-             run_id: str | None = None, args: list[str] | None = None) -> dict:
+             run_id: str | None = None, args: list[str] | None = None,
+             trace: bool = False, trace_seconds: float = 1.0) -> dict:
     """Snapshot thread states while a workload runs and apply the analysis rules.
 
     With `program`, it starts the workload (background, fixed length), takes
@@ -314,17 +316,26 @@ def diagnose(s: Session, program: str | None = None, seconds: int = 6, snapshots
     the run's samples so the rule also has deadline evidence from the same run.
     Without `program`, it snapshots whatever is running now. `run_id` adds the
     deadline report of a saved run instead.
+
+    With `trace`, a kernel trace is captured after the snapshots while the same
+    processes are still running (the workload runs a few seconds longer for
+    it), and every finding is checked against it step by step
+    (traceconfirm.py).
     """
     seconds = max(3, min(int(seconds), 60))
     snapshots = max(1, min(int(snapshots), 200))
+    trace_seconds = max(0.1, min(float(trace_seconds), commands.TRACE_MAX_SECONDS))
+    run_for = seconds + (int(trace_seconds) + 4 if trace else 0)
     csv_remote = None
     log = None
+    if trace:
+        s.policy.require_write("diagnose with a kernel trace")
     if program:
         s.policy.require_write("diagnose (starts the workload)")
         remote = s.policy.deploy_path(program)
         csv_remote = remote + ".diagnose.csv"
-        started = run(s, program, ["-d", str(seconds), "-o", csv_remote, *(args or [])],
-                      timeout=seconds + 30, background=True)
+        started = run(s, program, ["-d", str(run_for), "-o", csv_remote, *(args or [])],
+                      timeout=run_for + 30, background=True)
         log = started["log"]
         time.sleep(1.0)   # let the workload reach its steady state
 
@@ -336,6 +347,10 @@ def diagnose(s: Session, program: str | None = None, seconds: int = 6, snapshots
             raise TargetError(f"cannot read {qbridged.THREADS_PATH}: is qbridged running?")
         snaps.append(json.loads(r.stdout)["threads"])
 
+    tr = trace_id = None
+    if trace:
+        trace_id, tr = capture_trace(s, trace_seconds)
+
     report = None
     source = None
     if run_id:
@@ -343,7 +358,7 @@ def diagnose(s: Session, program: str | None = None, seconds: int = 6, snapshots
         source = f"saved run {run_id}"
     elif program:
         # Wait for the workload to finish, then analyse its own samples.
-        end = time.monotonic() + seconds + 20
+        end = time.monotonic() + run_for + 20
         summary = None
         while time.monotonic() < end:
             tail = s.target.run(["tail", "-1", log]).stdout.strip()
@@ -362,6 +377,9 @@ def diagnose(s: Session, program: str | None = None, seconds: int = 6, snapshots
 
     checks = runs.latest_timing_checks()
     result = analysis.diagnose(snaps, report, checks)
+    if tr is not None:
+        traceconfirm.confirm_all(result, tr, trace_id)
+        result["trace_files"] = str(runs.home() / "traces" / trace_id)
     result["deadline_evidence_from"] = source
     result["workload_args"] = args or []
     result["timing_checks_used"] = [t.get("check_id") for t in checks]
@@ -370,6 +388,86 @@ def diagnose(s: Session, program: str | None = None, seconds: int = 6, snapshots
     diag_id = runs.save_diagnosis(program, result, snaps)
     result["diagnosis_id"] = diag_id
     return result
+
+
+TRACE_FILE = "qbridge_trace.kev"
+
+
+def _traceprinter() -> str:
+    """The SDP's host traceprinter (decodes .kev files on the host)."""
+    exe = build_mod._which("traceprinter", qnxenv.load())
+    if not exe:
+        raise TargetError("traceprinter not found in the QNX SDP's host tools")
+    return exe
+
+
+def capture_trace(s: Session, seconds: float = 1.0) -> tuple[str, kev.Trace]:
+    """Record a short kernel trace on the target with tracelogger, fetch it and
+    decode it on the host. Thread, process and system classes are kept;
+    kernel calls, interrupts and communication are off to keep it small.
+    Raw files go to <home>/traces/<id>/ (trace.kev, trace.txt)."""
+    s.policy.require_write("kernel trace (runs tracelogger)")
+    seconds = max(0.1, min(float(seconds), commands.TRACE_MAX_SECONDS))
+    remote = s.policy.deploy_path(TRACE_FILE)
+    argv = ["tracelogger", "-w", "-n", "0", "-s", f"{seconds:g}", "-F1", "-F2", "-F6", "-f", remote]
+    r = s.target.run(argv, timeout=seconds + 30)
+    if not r.ok:
+        raise TargetError(f"tracelogger failed ({r.returncode}): {(r.stderr or r.stdout).strip()[-300:]}")
+    trace_id = runs.new_run_id("trace")
+    d = runs.home() / "traces" / trace_id
+    d.mkdir(parents=True, exist_ok=True)
+    s.target.get(remote, d / "trace.kev")
+    p = subprocess.run([_traceprinter(), "-f", str(d / "trace.kev"), "-o", str(d / "trace.txt")],
+                       env=qnxenv.load(), capture_output=True, text=True, errors="replace", timeout=120)
+    if p.returncode != 0 or not (d / "trace.txt").is_file():
+        raise TargetError(f"traceprinter failed: {(p.stderr or p.stdout).strip()[-300:]}")
+    return trace_id, kev.parse((d / "trace.txt").read_text(encoding="utf-8", errors="replace"))
+
+
+def _thread_report(tr: kev.Trace, key: tuple[int, int]) -> dict:
+    """What a thread did in the trace, and who held its CPU while it waited."""
+    spans = tr.spans.get(key, [])
+    out = {"thread": tr.label(key), "pid": key[0], "tid": key[1],
+           "state_ms": {k: round(v, 2) for k, v in tr.state_totals(key).items()},
+           "longest_waits": []}
+    waits = sorted((sp for sp in spans if sp.state in ("READY", "MUTEX")), key=lambda sp: -sp.ms)[:3]
+    for sp in waits:
+        ran = tr.running_during(sp.cpu, sp.start, sp.end, exclude=key)
+        top = sorted(ran.items(), key=lambda kv: -kv[1])[:3]
+        out["longest_waits"].append({
+            "state": sp.state, "start_ms": round(sp.start, 2), "ms": round(sp.ms, 2), "cpu": sp.cpu,
+            "priority": sp.priority,
+            "ran_instead": [{"thread": tr.label(k), "priority": p, "ms": round(v, 2)}
+                            for (k, p), v in top]})
+    return out
+
+
+def trace(s: Session, program: str | None = None, args: list[str] | None = None,
+          seconds: int = 6, trace_seconds: float = 1.0, threads: list[str] | None = None) -> dict:
+    """Capture a kernel trace (optionally while starting a workload) and report
+    what the named threads did: time per state, and who ran instead while they
+    waited."""
+    if program:
+        s.policy.require_write("trace (starts the workload)")
+        remote = s.policy.deploy_path(program)
+        run(s, program, ["-d", str(max(3, int(seconds))), "-o", remote + ".trace.csv", *(args or [])],
+            timeout=int(seconds) + 30, background=True)
+        time.sleep(1.5)                     # past start-up, into the steady state
+    trace_id, tr = capture_trace(s, trace_seconds)
+    names = threads or []
+    keys = []
+    for n in names:
+        k = tr.find_thread(n)
+        if k:
+            keys.append(k)
+    if program and not names:
+        pids = {p for p, path in tr.proc_names.items() if path.rsplit("/", 1)[-1] == program}
+        keys = sorted(k for k in tr.spans if k[0] in pids)
+    return {"trace_id": trace_id, "duration_ms": round(tr.duration_ms, 1),
+            "events": sum(tr.event_counts.values()),
+            "threads": [_thread_report(tr, k) for k in keys],
+            "not_found": [n for n in names if not tr.find_thread(n)],
+            "files": str(runs.home() / "traces" / trace_id)}
 
 
 def deadline_stats(s: Session) -> dict:
@@ -427,13 +525,14 @@ def make_report(s: Session, experiment_id: str, diagnosis_id: str | None = None,
         return {"report": saved["report"], "samples": runs.samples_text(run_id),
                 "summary": saved.get("summary")}
 
-    html_text = report.build(e, load_run, diag, runs.latest_timing_checks())
+    checks = runs.latest_timing_checks(near=experiment_id)
+    html_text = report.build(e, load_run, diag, checks)
     path = Path(out) if out else runs.home() / "reports" / f"{experiment_id}.html"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(html_text, encoding="utf-8", newline="\n")
     return {"report": str(path), "bytes": len(html_text.encode()),
             "diagnosis_used": (diag or {}).get("diagnosis_id"),
-            "timing_checks_used": [t["check_id"] for t in runs.latest_timing_checks()]}
+            "timing_checks_used": [t["check_id"] for t in checks]}
 
 
 def audit_log(s: Session, limit: int = 30, verify: bool = True) -> dict:

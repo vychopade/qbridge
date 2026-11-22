@@ -24,6 +24,8 @@ ALLOWED = [
     ["timeout", "30", "/data/qbridge/rtdemo", "-d", "10", "-o", "/data/qbridge/x.csv"],
     ["timeout", "10", "cat", "/dev/qbridge/events"],
     ["/data/qbridge/rtdemo", "-d", "5"],
+    ["tracelogger", "-w", "-n", "0", "-s", "1", "-F1", "-F2", "-F6", "-f", "/data/qbridge/t.kev"],
+    ["tracelogger", "-w", "-n", "0", "-s", "0.5", "-F1", "-F2", "-F6", "-f", "/data/qbridge/t.kev"],
 ]
 
 REFUSED = [
@@ -42,6 +44,12 @@ REFUSED = [
     ["slog2info", "-c"],                               # would clear the system log
     ["pidin", "-p", "1", "kill"],
     ["slay", "qbridged"],
+    ["tracelogger"],                                   # default: endless ring buffer
+    ["tracelogger", "-w", "-n", "0", "-s", "60", "-F1", "-F2", "-F6", "-f", "/data/qbridge/t.kev"],
+    ["tracelogger", "-w", "-n", "0", "-s", "1", "-F1", "-F2", "-F6", "-f", "/etc/t.kev"],
+    ["tracelogger", "-w", "-n", "0", "-s", "1", "-F1", "-F2", "-F6", "-f", "/data/qbridge/t.sh"],
+    ["tracelogger", "-w", "-n", "0", "-s", "x", "-F1", "-F2", "-F6", "-f", "/data/qbridge/t.kev"],
+    ["tracelogger", "-w", "-n", "0", "-s", "1", "-F1", "-F2", "-F6", "-f", "/data/qbridge/t.kev", "-d1"],
     [],
 ]
 
