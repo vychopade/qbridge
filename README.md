@@ -20,7 +20,7 @@ Detect  ->  Diagnose  ->  Propose  ->  (a person approves)  ->  Test  ->  Measur
 |---|---|---|
 | Detect | `qnx_measure` / `qbridge measure` | Runs the workload for a fixed time. Every cycle's response is split into backlog, scheduling latency, lock wait, CPU time and preempted time, and each run of consecutive misses is attributed to what started it. The program's own numbers and qbridged's numbers are cross-checked. |
 | Diagnose | `qnx_diagnose` | Takes thread-state snapshots from qbridged while the workload runs. Deterministic rules find a priority inversion on a mutex (the holder and the mutex protocol are read from the mutex in process memory) or CPU preemption (the deadline task is ready while a higher-priority thread has its CPU). Each finding lists its evidence, a confidence level and what it could not determine. With `trace`, a kernel trace from the same run checks every step of each finding; it is marked confirmed only if all of them are seen. |
-| Propose | `qnx_experiment_propose` | One exact change to one source file, shown as a diff and not applied. |
+| Propose | `qnx_experiment_propose` | One exact change, shown as a diff and not applied: an edit to one source file, or new workload arguments (a scheduling change such as a thread priority, with the same binary). |
 | Approve | `qbridge experiment approve` | **Only a person, at an interactive terminal.** There is no MCP tool for it. The approval is tied to the diff's sha256. |
 | Test | `qnx_experiment_run` | Applies the change, rebuilds with `qcc`, redeploys and reruns the identical workload. |
 | Measure and verify | `qnx_experiment_run`, `qnx_report` | Compares before and after, with misses and worst-case response first. "Improved" means every run after the change beat every run before it; otherwise the result is "inconclusive". A self-contained HTML report is built only from recorded data, and `qnx_experiment_rollback` restores the baseline. |
@@ -44,6 +44,18 @@ The fix it proposed (restore `PTHREAD_PRIO_INHERIT`), approved by a person at th
 
 The verdict was "improved": every run after the change beat every run before it. It also stated its own limits: *based on 3 + 3 finite runs on this target; this does not prove a worst case, and virtual-machine timing adds noise.* The full report is [docs/example-report.html](docs/example-report.html) (download it and open it in a browser).
 
+A kernel trace from the same kind of run confirmed each step of the finding: in one second, 'A-control' was blocked on the mutex for 351.9 ms. For 94% of that time 'C-logger' was ready but not running, still at priority 10, while 'B-worker' ran on its CPU. All 10 waits ended while 'C-logger' was running, which is when it released the lock.
+
+**Second scenario: CPU overload with the wrong priorities.** `rtdemo -s overload -a 15` uses no lock; the control task runs at priority 15, below the CPU-heavy worker at 20. qbridge found **CPU preemption (high confidence)**: the control task was ready while 'B-worker' held its CPU, and every run of misses started with waiting for the CPU, none with a lock. The kernel trace confirmed it: the control task was ready for 334.4 ms of one second, and 'B-worker' ran on its CPU for 95% of that time. The proposed fix was a scheduling change with the same binary (`-a 30`), approved at the prompt and measured the same way:
+
+| | Before (`-a 15`) | After (`-a 30`) |
+|---|---|---|
+| Missed deadlines (of 999 cycles per run) | 301, 309, 305 | **0, 1, 0** |
+| Worst response | 36.1–46.2 ms | **5.0–10.6 ms** |
+| 99th percentile | 35.5–36.1 ms | 3.0 ms |
+
+Verdict "improved". The one miss after the change started with a late wake-up (9.2 ms), not with preemption; that day's timer check measured CPU 1's wake-ups up to 28.4 ms late. Report: [docs/example-report-overload.html](docs/example-report-overload.html).
+
 ## How it uses QNX
 
 The target side is native QNX 8.0 C code. These are the places to look:
@@ -56,7 +68,7 @@ The target side is native QNX 8.0 C code. These are the places to look:
 | `setup_events`, `on_pulse`, `events_read`, `qb_unblock` | Process-death and core-dump events pushed by pulses; a read of `/dev/qbridge/events` blocks until something happens | `procmgr_event_notify_add`, `DCMD_DUMPER_NOTIFYEVENT`, `MsgRegisterEvent`, `pulse_attach`, held replies (`_RESMGR_NOREPLY`, `MsgReply`, `MsgError`) |
 | [target/qbridged/qbridge_task.h](target/qbridged/qbridge_task.h) `qbt_register`, `qbt_report` | A real-time task registers once, then reports every cycle without ever blocking | `devctl` (a `MsgSend`) to register; `MsgSendPulse` per cycle |
 | [target/qbridged/qb_deadlines.c](target/qbridged/qb_deadlines.c) `qbd_devctl`, `qbd_on_pulse` | Per-task deadline statistics in memory set aside at startup, served at `/dev/qbridge/deadlines`; pulses accepted only from the registering connection | resmgr devctl handler, pulse handler, kernel-supplied `scoid` |
-| [examples/rtdemo/rtdemo.c](examples/rtdemo/rtdemo.c) `LOCK_PROTOCOL`, `task_a`, `setup_thread` | The demo workload: periodic task, CPU pinning, FIFO priorities, the mutex protocol | `pthread_mutexattr_setprotocol`, `clock_nanosleep(TIMER_ABSTIME)`, `ThreadCtl(_NTO_TCTL_RUNMASK)`, `SCHED_FIFO` |
+| [examples/rtdemo/rtdemo.c](examples/rtdemo/rtdemo.c) `LOCK_PROTOCOL`, `task_a`, `setup_thread`, `scenario`, `a_prio` | The demo workload: periodic task, CPU pinning, FIFO priorities, the mutex protocol; two scenarios (`-s inversion`, `-s overload`) and the control task's priority (`-a`) | `pthread_mutexattr_setprotocol`, `clock_nanosleep(TIMER_ABSTIME)`, `ThreadCtl(_NTO_TCTL_RUNMASK)`, `SCHED_FIFO` |
 | [target/tools/vmjitter.c](target/tools/vmjitter.c) `timer_mode` | Measures how late timers fire on each CPU (the environment's noise floor) | `clock_nanosleep`, run masks |
 | [target/image/snippets](target/image/snippets) | Builds qbridged into the target image and starts it at boot | `mkqnximage` snippets |
 | [docs/codelab/livedata](docs/codelab/livedata) `live_read`, `live_write`, `live_ocb_calloc` | The codelab's stand-alone example: a resource manager serving `/dev/livedata/uptime` (live, read-only) and `/dev/livedata/message` (writable) | `resmgr_attach`, custom attribute and OCB, `iofunc_read_verify` / `iofunc_write_verify`, `resmgr_msgget` |
