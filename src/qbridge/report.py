@@ -217,6 +217,13 @@ def build(experiment: dict, load_run: Callable[[str], dict], diagnosis: dict | N
     cpus = sorted({(r.get("summary") or {}).get("cpu") for r in base + cand} - {None})
     cpu_text = (f" All threads ran on CPU {', '.join(str(c) for c in cpus)} (see the timing check in "
                 "Limitations)." if cpus else "")
+    before_args = " ".join(w.get("args") or []) or "(none)"
+    after_args = " ".join((e.get("candidate") or {}).get("args", w.get("args")) or []) or "(none)"
+    if e.get("candidate") and before_args != after_args:
+        cpu_text += (f" Program arguments before: {before_args}; after: {after_args}. "
+                     "The binary was the same on both sides, so only the arguments differ.")
+    elif w.get("args"):
+        cpu_text += f" Program arguments: {before_args}."
     parts.append(f"""
 <section>
   <h2>Measurements</h2>

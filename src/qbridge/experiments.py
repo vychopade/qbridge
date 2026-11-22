@@ -2,14 +2,17 @@
 
     start     build the current source (baseline), deploy, measure N times,
               keep copies of the baseline binary and source files
-    propose   one exact text replacement in one source file; shown as a diff,
-              not applied
+    propose   ONE change, shown as a diff and not applied: either an exact
+              text replacement in one source file, or new workload arguments
+              (a scheduling parameter such as a thread priority, no source
+              edit); -d and -o stay fixed so the workload is the same
     approve   ONLY from the qbridge CLI, by a person typing "yes" at a prompt
               (see cli.py). The MCP server has no approve tool, so an AI
               assistant cannot approve its own change. The approval records
               the diff's sha256; a different proposal needs a new approval.
-    run       check approval, apply, rebuild, redeploy under the same name,
-              rerun the identical workload N times, compare
+    run       check approval; for a source edit apply, rebuild and redeploy;
+              for new arguments redeploy the baseline binary (sha256 checked);
+              rerun the workload N times, compare
     rollback  restore the source files and redeploy the saved baseline binary;
               checks the target's binary sha256 matches the baseline
     keep      leave the change applied
@@ -23,6 +26,7 @@ from __future__ import annotations
 import difflib
 import hashlib
 import json
+import shlex
 import shutil
 import time
 from pathlib import Path
@@ -143,11 +147,50 @@ def start(s, program: str, project_dir: str, binary: str | None = None, seconds:
             "next": "Propose one change with qnx_experiment_propose."}
 
 
-def propose(s, exp_id: str, file: str, find: str, replace: str, description: str,
-            diagnosis_id: str | None = None) -> dict:
+def _args_line(program: str, args: list[str]) -> str:
+    return " ".join([program, *(shlex.quote(a) for a in args)]) + "\n"
+
+
+# measure sets these itself; a proposal may not change them, or the before and
+# after runs would no longer be the same workload.
+_RESERVED_ARGS = ("-d", "-o")
+
+
+def _propose_args(e: dict, args: list[str], description: str, diagnosis_id: str | None) -> dict:
+    if not isinstance(args, list) or not all(isinstance(a, str) for a in args) or len(args) > 32:
+        raise ExperimentError("args must be a list of at most 32 strings")
+    for a in args:
+        if any(a == r or a.startswith(r) and len(a) > 2 for r in _RESERVED_ARGS) or "\x00" in a:
+            raise ExperimentError(f"{a!r} cannot be changed by an experiment (qbridge sets -d and -o)")
+    old = e["workload"]["args"]
+    if args == old:
+        raise ExperimentError("the proposed arguments are the same as the current ones")
+    label = "workload arguments"
+    diff = "".join(difflib.unified_diff([_args_line(e["program"], old)], [_args_line(e["program"], args)],
+                                        fromfile=f"a/{label}", tofile=f"b/{label}"))
+    return {"kind": "args", "old_args": old, "new_args": args, "description": description,
+            "diagnosis_id": diagnosis_id, "diff": diff,
+            "diff_sha256": hashlib.sha256(diff.encode()).hexdigest(),
+            "proposed": time.strftime("%Y-%m-%dT%H:%M:%S")}
+
+
+def propose(s, exp_id: str, file: str | None = None, find: str | None = None,
+            replace: str | None = None, description: str = "",
+            diagnosis_id: str | None = None, args: list[str] | None = None) -> dict:
+    """Propose ONE change: either a source edit (file, find, replace) or new
+    workload arguments (args), e.g. a different thread priority. Not applied."""
     e = load(exp_id)
     if e["state"] not in ("baseline", "proposed", "approved"):
         raise ExperimentError(f"experiment is {e['state']}; start a new one to try another change")
+    if not description:
+        raise ExperimentError("describe the change and why (description)")
+    if args is not None:
+        if file or find or replace:
+            raise ExperimentError("propose either a source edit or new arguments, not both")
+        e["proposal"] = _propose_args(e, args, description, diagnosis_id)
+        return _record_proposal(e, exp_id)
+    if not (file and find is not None and replace is not None):
+        raise ExperimentError("a source edit needs file, find and replace (or pass args instead)")
     project = Path(e["project_dir"])
     target = _inside(project, file)
     if not target.is_file():
@@ -159,15 +202,23 @@ def propose(s, exp_id: str, file: str, find: str, replace: str, description: str
     new = text.replace(find, replace, 1)
     diff = "".join(difflib.unified_diff(text.splitlines(keepends=True), new.splitlines(keepends=True),
                                         fromfile=f"a/{file}", tofile=f"b/{file}"))
-    e["proposal"] = {"file": file, "find": find, "replace": replace, "description": description,
+    e["proposal"] = {"kind": "source", "file": file, "find": find, "replace": replace,
+                     "description": description,
                      "diagnosis_id": diagnosis_id, "diff": diff,
                      "diff_sha256": hashlib.sha256(diff.encode()).hexdigest(),
                      "proposed": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    return _record_proposal(e, exp_id)
+
+
+def _record_proposal(e: dict, exp_id: str) -> dict:
+    p = e["proposal"]
     e.pop("approval", None)                # any earlier approval was for a different diff
     e["state"] = "proposed"
-    e["history"].append({"time": e["proposal"]["proposed"], "event": "change proposed"})
+    e["history"].append({"time": p["proposed"],
+                         "event": "change proposed" + (" (arguments)" if p["kind"] == "args" else "")})
     _save(e)
-    return {"experiment_id": exp_id, "state": "proposed", "description": description, "diff": diff,
+    return {"experiment_id": exp_id, "state": "proposed", "kind": p["kind"],
+            "description": p["description"], "diff": p["diff"],
             "approval": f"A person must approve this change before it is applied. In a terminal run:\n"
                         f"  qbridge experiment approve {exp_id}\n"
                         "It shows the diff and asks for 'yes'. The assistant cannot approve it."}
@@ -200,6 +251,8 @@ def run(s, exp_id: str) -> dict:
                           f"'qbridge experiment approve {exp_id}' in a terminal")
     if a["diff_sha256"] != p["diff_sha256"]:
         raise PolicyError("the approval was for a different diff; approve again")
+    if p.get("kind") == "args":
+        return _run_args(s, e, exp_id)
     project = Path(e["project_dir"])
     target = _inside(project, p["file"])
     text = target.read_text(encoding="utf-8")
@@ -219,9 +272,35 @@ def run(s, exp_id: str) -> dict:
     tools.deploy(s, str(bin_path), e["program"])
     w = e["workload"]
     cand_runs = _measure_n(s, e["program"], w["seconds"], w["repeats"], w["args"], f"{exp_id}-candidate")
-    cmp = deadlines.compare_sets(_reports(e["baseline"]["runs"]), _reports(cand_runs))
-    e["candidate"] = {"binary_sha256": _sha256(bin_path), "runs": cand_runs,
+    e["candidate"] = {"binary_sha256": _sha256(bin_path), "runs": cand_runs, "args": w["args"],
                       "build_warnings": len(build_info["warnings"])}
+    return _finish_run(e, exp_id, cand_runs)
+
+
+def _run_args(s, e: dict, exp_id: str) -> dict:
+    """Approved argument change: same binary, new arguments, same workload length."""
+    p = e["proposal"]
+    if e["workload"]["args"] != p["old_args"]:
+        raise ExperimentError("the workload arguments changed since the proposal; propose again")
+    # Same binary as the baseline, checked by sha256, so only the arguments differ.
+    baseline_bin = _path(exp_id) / "baseline.bin"
+    tools.deploy(s, str(baseline_bin), e["program"])
+    on_target = tools._remote_sha256(s, s.policy.deploy_path(e["program"]))
+    if on_target != e["baseline"]["binary_sha256"]:
+        raise TargetError(f"the target's binary is {on_target}, not the baseline "
+                          f"{e['baseline']['binary_sha256']}; not comparable")
+    e["history"].append({"time": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                         "event": "arguments applied: " + " ".join(p["new_args"])})
+    w = e["workload"]
+    cand_runs = _measure_n(s, e["program"], w["seconds"], w["repeats"], p["new_args"],
+                           f"{exp_id}-candidate")
+    e["candidate"] = {"binary_sha256": on_target, "runs": cand_runs, "args": p["new_args"],
+                      "build_warnings": 0}
+    return _finish_run(e, exp_id, cand_runs)
+
+
+def _finish_run(e: dict, exp_id: str, cand_runs: list[dict]) -> dict:
+    cmp = deadlines.compare_sets(_reports(e["baseline"]["runs"]), _reports(cand_runs))
     e["comparison"] = cmp
     e["state"] = "measured"
     e["history"].append({"time": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -251,6 +330,7 @@ def rollback(s, exp_id: str) -> dict:
     ok = on_target == e["baseline"]["binary_sha256"]
     e["state"] = "rolled_back"
     e["rollback"] = {"restored_files": restored, "target_sha256": on_target, "matches_baseline": ok,
+                     "workload_args": e["workload"]["args"],
                      "time": time.strftime("%Y-%m-%dT%H:%M:%S")}
     e["history"].append({"time": e["rollback"]["time"],
                          "event": "rolled back" + ("" if ok else " (target sha256 does NOT match)")})
@@ -259,7 +339,8 @@ def rollback(s, exp_id: str) -> dict:
         raise TargetError(f"after rollback the target's {remote} has sha256 {on_target}, "
                           f"not the baseline's {e['baseline']['binary_sha256']}")
     return {"experiment_id": exp_id, "state": "rolled_back", "restored_files": restored,
-            "target_binary_matches_baseline": ok}
+            "target_binary_matches_baseline": ok,
+            "workload_args": e["workload"]["args"]}
 
 
 def keep(s, exp_id: str) -> dict:
@@ -268,8 +349,14 @@ def keep(s, exp_id: str) -> dict:
         raise ExperimentError(f"only a measured experiment can be kept (it is {e['state']})")
     e["state"] = "kept"
     e["history"].append({"time": time.strftime("%Y-%m-%dT%H:%M:%S"), "event": "change kept"})
+    out = {"experiment_id": exp_id, "state": "kept"}
+    if e["proposal"].get("kind") == "args":
+        # Nothing on the target stores arguments; record which ones to use.
+        e["workload"]["kept_args"] = e["proposal"]["new_args"]
+        out["use_arguments"] = e["proposal"]["new_args"]
+        out["note"] = "Run the program with these arguments from now on (e.g. in its start script)."
     _save(e)
-    return {"experiment_id": exp_id, "state": "kept"}
+    return out
 
 
 def show(exp_id: str) -> dict:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sys
 
 from . import audit, experiments, tools
@@ -67,6 +68,8 @@ def build_parser() -> argparse.ArgumentParser:
     dg.add_argument("--seconds", type=int, default=6)
     dg.add_argument("--snapshots", type=int, default=40)
     dg.add_argument("--run-id", help="use this saved run's deadline report")
+    dg.add_argument("args", nargs="*",
+                    help="extra workload arguments, after --  (e.g. diagnose rtdemo -- -s overload)")
 
     ru = sub.add_parser("runs", help="list saved measurement runs")
     ru.add_argument("--limit", type=int, default=20)
@@ -111,12 +114,16 @@ def build_parser() -> argparse.ArgumentParser:
     es.add_argument("--seconds", type=int, default=10)
     es.add_argument("--repeats", type=int, default=3)
     es.add_argument("args", nargs="*", help="extra workload arguments, after --")
-    ep = ex_sub.add_parser("propose", help="propose one exact text replacement")
+    ep = ex_sub.add_parser("propose", help="propose one change: a source edit (--file/--find/"
+                                           "--replace) or new workload arguments (--args)")
     ep.add_argument("experiment_id")
-    ep.add_argument("--file", required=True)
-    ep.add_argument("--find", required=True)
-    ep.add_argument("--replace", required=True)
+    ep.add_argument("--file")
+    ep.add_argument("--find")
+    ep.add_argument("--replace")
+    ep.add_argument("--args", dest="new_args",
+                    help='new workload arguments as one string, e.g. "-s overload -a 30"')
     ep.add_argument("--description", required=True)
+    ep.add_argument("--diagnosis-id", help="the diagnosis this change addresses (used by the report)")
     ea = ex_sub.add_parser("approve", help="a person approves the proposed change (interactive)")
     ea.add_argument("experiment_id")
     for name, text in (("run", "apply the approved change, rebuild, rerun, compare"),
@@ -154,7 +161,7 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
         case "deadlines":
             return tools.deadline_stats(s)
         case "diagnose":
-            return tools.diagnose(s, a.program, a.seconds, a.snapshots, a.run_id)
+            return tools.diagnose(s, a.program, a.seconds, a.snapshots, a.run_id, a.args)
         case "runs":
             return tools.list_runs(s, a.limit)
         case "run-report":
@@ -209,7 +216,9 @@ def experiment_command(s: tools.Session, a: argparse.Namespace) -> dict:
         case "start":
             return experiments.start(s, a.program, a.project, a.binary, a.seconds, a.repeats, a.args)
         case "propose":
-            return experiments.propose(s, a.experiment_id, a.file, a.find, a.replace, a.description)
+            new_args = shlex.split(a.new_args) if a.new_args is not None else None
+            return experiments.propose(s, a.experiment_id, a.file, a.find, a.replace,
+                                       a.description, a.diagnosis_id, args=new_args)
         case "approve":
             return approve_interactively(a.experiment_id)
         case "run":

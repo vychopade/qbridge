@@ -1,0 +1,233 @@
+{
+ "id": "20261122-131040-exp-rtdemo",
+ "state": "rolled_back",
+ "created": "2026-11-22T13:11:14",
+ "program": "rtdemo",
+ "project_dir": "examples/rtdemo",
+ "binary": "build/rtdemo",
+ "workload": {
+  "seconds": 10,
+  "repeats": 3,
+  "args": [
+   "-s",
+   "overload",
+   "-a",
+   "15"
+  ]
+ },
+ "baseline": {
+  "binary_sha256": "7e8a0bfa583d485ac170caa4818ce783e6face394cde5eec40eb5633fc8a9ce0",
+  "source_files": [
+   "Makefile",
+   "rtdemo.c"
+  ],
+  "runs": [
+   {
+    "run_id": "20261122-131052-20261122-131040-exp-rtdemo-baseline-1",
+    "binary_sha256": "7e8a0bfa583d485ac170caa4818ce783e6face394cde5eec40eb5633fc8a9ce0",
+    "summary": "A-control: 301 of 999 cycles missed the 10 ms deadline (30.1%); worst response 36.1 ms, 99th percentile 35.5 ms, mean 10.19 ms. The misses form 100 run(s) of consecutive misses (longest 4); what started each run: late wake-up (scheduling latency) (100).",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261122-131103-20261122-131040-exp-rtdemo-baseline-2",
+    "binary_sha256": "7e8a0bfa583d485ac170caa4818ce783e6face394cde5eec40eb5633fc8a9ce0",
+    "summary": "A-control: 309 of 999 cycles missed the 10 ms deadline (30.9%); worst response 44.6 ms, 99th percentile 36.1 ms, mean 10.49 ms. The misses form 101 run(s) of consecutive misses (longest 5); what started each run: late wake-up (scheduling latency) (97), being preempted while ready to run (4).",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261122-131114-20261122-131040-exp-rtdemo-baseline-3",
+    "binary_sha256": "7e8a0bfa583d485ac170caa4818ce783e6face394cde5eec40eb5633fc8a9ce0",
+    "summary": "A-control: 305 of 999 cycles missed the 10 ms deadline (30.5%); worst response 46.2 ms, 99th percentile 35.9 ms, mean 10.34 ms. The misses form 100 run(s) of consecutive misses (longest 5); what started each run: late wake-up (scheduling latency) (98), being preempted while ready to run (2).",
+    "cross_check": true,
+    "qbridged_check": true
+   }
+  ],
+  "build_warnings": 0
+ },
+ "history": [
+  {
+   "time": "2026-11-22T13:11:14",
+   "event": "baseline measured"
+  },
+  {
+   "time": "2026-11-22T13:11:14",
+   "event": "change proposed (arguments)"
+  },
+  {
+   "time": "2026-11-22T13:38:47",
+   "event": "approved (qbridge CLI prompt)"
+  },
+  {
+   "time": "2026-11-22T13:39:03",
+   "event": "arguments applied: -s overload -a 30"
+  },
+  {
+   "time": "2026-11-22T13:39:36",
+   "event": "candidate measured: improved"
+  },
+  {
+   "time": "2026-11-22T13:41:14",
+   "event": "rolled back"
+  }
+ ],
+ "updated": "2026-11-22T13:41:14",
+ "proposal": {
+  "kind": "args",
+  "old_args": [
+   "-s",
+   "overload",
+   "-a",
+   "15"
+  ],
+  "new_args": [
+   "-s",
+   "overload",
+   "-a",
+   "30"
+  ],
+  "description": "Run the control task (A) at priority 30, above the CPU-heavy worker B (20), as the CPU-preemption diagnosis suggests. Scheduling change only; no source edit.",
+  "diagnosis_id": "20261122-131039-diagnose-rtdemo",
+  "diff": "--- a/workload arguments\n+++ b/workload arguments\n@@ -1 +1 @@\n-rtdemo -s overload -a 15\n+rtdemo -s overload -a 30\n",
+  "diff_sha256": "04011b0b807ee40f9a1c3609f6be70c6a0f70240015d60005cb44cb3d0851fbb",
+  "proposed": "2026-11-22T13:11:14"
+ },
+ "approval": {
+  "diff_sha256": "04011b0b807ee40f9a1c3609f6be70c6a0f70240015d60005cb44cb3d0851fbb",
+  "via": "qbridge CLI prompt",
+  "time": "2026-11-22T13:38:47"
+ },
+ "candidate": {
+  "binary_sha256": "7e8a0bfa583d485ac170caa4818ce783e6face394cde5eec40eb5633fc8a9ce0",
+  "runs": [
+   {
+    "run_id": "20261122-133914-20261122-131040-exp-rtdemo-candidate-1",
+    "binary_sha256": "7e8a0bfa583d485ac170caa4818ce783e6face394cde5eec40eb5633fc8a9ce0",
+    "summary": "A-control: 0 of 999 cycles missed the 10 ms deadline (0.0%); worst response 5.0 ms, 99th percentile 3.0 ms, mean 2.10 ms.",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261122-133925-20261122-131040-exp-rtdemo-candidate-2",
+    "binary_sha256": "7e8a0bfa583d485ac170caa4818ce783e6face394cde5eec40eb5633fc8a9ce0",
+    "summary": "A-control: 1 of 999 cycles missed the 10 ms deadline (0.1%); worst response 10.6 ms, 99th percentile 3.0 ms, mean 2.11 ms. The misses form 1 run(s) of consecutive misses (longest 1); what started each run: late wake-up (scheduling latency) (1).",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261122-133936-20261122-131040-exp-rtdemo-candidate-3",
+    "binary_sha256": "7e8a0bfa583d485ac170caa4818ce783e6face394cde5eec40eb5633fc8a9ce0",
+    "summary": "A-control: 0 of 999 cycles missed the 10 ms deadline (0.0%); worst response 6.2 ms, 99th percentile 3.0 ms, mean 2.10 ms.",
+    "cross_check": true,
+    "qbridged_check": true
+   }
+  ],
+  "args": [
+   "-s",
+   "overload",
+   "-a",
+   "30"
+  ],
+  "build_warnings": 0
+ },
+ "comparison": {
+  "runs_before": 3,
+  "runs_after": 3,
+  "misses": {
+   "before": {
+    "runs": [
+     301,
+     309,
+     305
+    ],
+    "min": 301,
+    "max": 309
+   },
+   "after": {
+    "runs": [
+     0,
+     1,
+     0
+    ],
+    "min": 0,
+    "max": 1
+   }
+  },
+  "worst_response_us": {
+   "before": {
+    "runs": [
+     36101.8,
+     44602.9,
+     46249.9
+    ],
+    "min": 36101.8,
+    "max": 46249.9
+   },
+   "after": {
+    "runs": [
+     5006.8,
+     10561.0,
+     6160.6
+    ],
+    "min": 5006.8,
+    "max": 10561.0
+   }
+  },
+  "p99_response_us": {
+   "before": {
+    "runs": [
+     35518.1,
+     36098.2,
+     35920.0
+    ],
+    "min": 35518.1,
+    "max": 36098.2
+   },
+   "after": {
+    "runs": [
+     2965.3,
+     2975.0,
+     3022.3
+    ],
+    "min": 2965.3,
+    "max": 3022.3
+   }
+  },
+  "worst_lock_wait_us": {
+   "before": {
+    "runs": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "min": 0.0,
+    "max": 0.0
+   },
+   "after": {
+    "runs": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "min": 0.0,
+    "max": 0.0
+   }
+  },
+  "deadline_us": 10000.0,
+  "verdict": "improved",
+  "explanation": "Every run after the change beat every run before it. Misses: 301-309 before, 0-1 after; worst response 36.1-46.2 ms before, 5.0-10.6 ms after. Based on 3 + 3 finite runs on this target; this does not prove a worst case, and virtual-machine timing adds noise."
+ },
+ "rollback": {
+  "restored_files": [],
+  "target_sha256": "7e8a0bfa583d485ac170caa4818ce783e6face394cde5eec40eb5633fc8a9ce0",
+  "matches_baseline": true,
+  "workload_args": [
+   "-s",
+   "overload",
+   "-a",
+   "15"
+  ],
+  "time": "2026-11-22T13:41:14"
+ }
+}

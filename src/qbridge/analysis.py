@@ -174,6 +174,188 @@ def mutex_inversion(snapshots: list[list[dict]], deadline_report: dict | None = 
     return findings
 
 
+RULE_CPU_PREEMPTION = "cpu_preemption"
+
+# Kernel threads (procnto, pid 1: interrupt and clock threads) run briefly at
+# very high priority all the time; they are not the kind of CPU-heavy thread
+# this rule is about, so they are not counted as the cause.
+_KERNEL_PID = 1
+
+
+def _mutex_holders_waited_on(snap: list[dict]) -> set[tuple[int, int]]:
+    """(pid, tid) of threads holding a mutex that a higher-priority thread is
+    blocked on in this snapshot (holder decoded and pid bits matched)."""
+    by_key = {(t["pid"], t["tid"]): t for t in snap}
+    out = set()
+    for w in snap:
+        b = w.get("blocked_on") or {}
+        if w.get("state") == "MUTEX" and b.get("mutex_owner_pid_bits_match"):
+            h = by_key.get((w["pid"], b.get("mutex_owner_tid")))
+            if h is not None and h.get("real_priority", h["priority"]) < w["priority"]:
+                out.add((h["pid"], h["tid"]))
+    return out
+
+
+def _task_threads(snapshots: list[list[dict]], deadline_report: dict | None) -> set[tuple[int, int]]:
+    """Threads the rule examines: the deadline task if its name is known, else
+    every thread seen READY."""
+    name = (deadline_report or {}).get("task")
+    keys = set()
+    for snap in snapshots:
+        for t in snap:
+            if name and t.get("thread_name") == name:
+                keys.add((t["pid"], t["tid"]))
+            elif not name and t.get("state") == "READY":
+                keys.add((t["pid"], t["tid"]))
+    return keys
+
+
+def cpu_preemption(snapshots: list[list[dict]], deadline_report: dict | None = None,
+                   timing_checks: list[dict] | None = None) -> list[dict]:
+    """Rule: a deadline task is ready to run but a thread of higher priority
+    keeps its CPU, and its misses come from waiting for the CPU, not a lock.
+
+    Required: at least one snapshot with the task READY while a non-kernel
+    thread of higher priority is RUNNING on the task's CPU. Everything else
+    raises or lowers confidence.
+    """
+    findings = []
+    for key in sorted(_task_threads(snapshots, deadline_report)):
+        seen, ready, running_above, as_holder = 0, 0, 0, 0
+        runners: dict = {}
+        task = None
+        for snap in snapshots:
+            me = next((t for t in snap if (t["pid"], t["tid"]) == key), None)
+            if me is None:
+                continue
+            seen += 1
+            task = me
+            if me.get("state") != "READY":
+                continue
+            if key in _mutex_holders_waited_on(snap):
+                # A preempted lock holder that a higher-priority thread waits
+                # for is the middle step of a priority inversion; that is the
+                # mutex rule's finding, not CPU overload.
+                as_holder += 1
+                continue
+            ready += 1
+            above = [x for x in snap
+                     if x.get("state") == "RUNNING" and x["pid"] != _KERNEL_PID
+                     and x.get("priority", 0) > me["priority"]
+                     and x.get("last_cpu") == me.get("last_cpu")]
+            if above:
+                running_above += 1
+                for x in above:
+                    r = runners.setdefault((x["pid"], x["tid"]), {"thread": x, "count": 0})
+                    r["count"] += 1
+        if running_above == 0 or task is None:
+            continue
+        top = max(runners.values(), key=lambda r: r["count"])
+        runner = top["thread"]
+        n = len(snapshots)
+
+        evidence = [
+            f"{_label(task)} (priority {task['priority']}) was READY (able to run, not running) "
+            f"in {ready} of the {seen} snapshots it appeared in.",
+            f"In {running_above} of those, a thread with a higher priority was RUNNING on its CPU "
+            f"(CPU {task.get('last_cpu')}): mostly {_label(runner)} at priority "
+            f"{runner['priority']} ({top['count']} time(s)).",
+        ]
+        points = 1
+        if running_above >= 3 and running_above >= ready / 2:
+            points += 1
+            evidence.append("This was the usual situation, not a one-off: the higher-priority "
+                            f"thread was running in {running_above} of {ready} READY snapshots.")
+
+        dl = None
+        if deadline_report and deadline_report.get("misses"):
+            roots = deadline_report.get("chain_root_causes", {})
+            cpu_rooted = roots.get("latency", 0) + roots.get("preempted", 0)
+            lock_rooted = roots.get("lock_wait", 0)
+            runs_ = deadline_report.get("miss_chains", 0)
+            worst_lock = deadline_report["parts_us"]["lock_wait"]["max"]
+            worst_wait = max(deadline_report["parts_us"]["latency"]["max"],
+                             deadline_report["parts_us"]["preempted"]["max"])
+            # The 99th percentile is the typical bad case; unlike the single
+            # worst cycle it is not moved by one outlier (e.g. one VM stall).
+            p99_wait = max(deadline_report["parts_us"]["latency"].get("p99", 0.0),
+                           deadline_report["parts_us"]["preempted"].get("p99", 0.0))
+            dl = {"cpu_rooted": cpu_rooted, "lock_rooted": lock_rooted, "runs": runs_,
+                  "worst_lock": worst_lock, "worst_wait": worst_wait, "p99_wait": p99_wait}
+            evidence.append(
+                f"The deadline report for {deadline_report.get('task')} shows "
+                f"{deadline_report['misses']} misses in {runs_} run(s) of consecutive misses; "
+                f"{cpu_rooted} of those runs started with waiting for the CPU (late start or "
+                f"preempted) and {lock_rooted} with a lock wait. Worst wait for the CPU "
+                f"{worst_wait / 1000:.1f} ms; worst lock wait {worst_lock / 1000:.1f} ms.")
+            if runs_ and cpu_rooted >= runs_ / 2 and lock_rooted < runs_ / 2:
+                points += 1
+        tc = next((t for t in timing_checks or [] if t.get("cpu") == task.get("last_cpu")), None)
+        if tc and dl:
+            p99, worst, noise = dl["p99_wait"], dl["worst_wait"], tc["max_late_us"]
+            if p99 > 2 * noise:
+                points += 1
+                evidence.append(
+                    f"The 99th-percentile wait for the CPU ({p99 / 1000:.1f} ms; worst "
+                    f"{worst / 1000:.1f} ms) is more than twice the worst timer lateness measured on "
+                    f"CPU {tc['cpu']} with nothing else running ({noise / 1000:.1f} ms), so "
+                    "virtual-machine noise alone does not explain it.")
+            else:
+                evidence.append(
+                    f"Caution: the 99th-percentile wait for the CPU ({p99 / 1000:.1f} ms; worst "
+                    f"{worst / 1000:.1f} ms) is within twice the measured timer lateness of CPU "
+                    f"{tc['cpu']} ({noise / 1000:.1f} ms); part of it may be virtual-machine noise.")
+            if worst > 4 * max(p99, 1.0):
+                evidence.append(
+                    f"One wait ({worst / 1000:.1f} ms) is far above the rest (99th percentile "
+                    f"{p99 / 1000:.1f} ms). It is not used as evidence: one outlier can come from "
+                    "the virtual machine or from other activity and is not explained by this rule.")
+        confidence = "high" if points >= 3 else "medium" if points == 2 else "low"
+
+        unknown = [
+            f"Snapshots are instants: {n} were taken. They show the higher-priority thread had the "
+            "CPU at those moments, not for how long overall.",
+            "Kernel threads (procnto) are not counted as the cause; their CPU use is not analysed.",
+            "Whether the higher-priority thread's work is legitimate: the rule sees priorities and "
+            "states, not what the threads are for.",
+            "A worst case: finite runs cannot prove the deadline will always be met after a fix.",
+        ]
+        if not dl:
+            unknown.append("Whether this causes the deadline misses: no deadline report was given.")
+        if not tc:
+            unknown.append(f"How much of the late starts is virtual-machine timer noise: no timing "
+                           f"check of CPU {task.get('last_cpu')} was saved (run qnx_timing_check).")
+
+        fix = (f"Run {_label(task)} at a higher priority than {_label(runner)} (now "
+               f"{task['priority']} vs {runner['priority']}), or lower the CPU-heavy thread's "
+               "priority. On QNX a higher number is a higher priority and a FIFO thread keeps the "
+               "CPU until it blocks, so a deadline-critical thread must sit above CPU-heavy work "
+               "on its CPU. This is a scheduling-parameter change; no lock or code change is "
+               "involved.")
+        findings.append({
+            "rule": RULE_CPU_PREEMPTION,
+            "title": f"CPU preemption: {task['name']}[{task['pid']}] waits for a higher-priority "
+                     f"thread",
+            "confidence": confidence,
+            "explanation": (
+                f"{_label(task)} (priority {task['priority']}) is ready to run but "
+                f"{_label(runner)} (priority {runner['priority']}) holds its CPU. The scheduler "
+                "always runs the highest-priority ready thread, so the deadline task waits until "
+                "the CPU-heavy thread stops. No lock is involved."),
+            "evidence": evidence,
+            "could_not_determine": unknown,
+            "suggested_fix": fix,
+            "subject": {"pid": task["pid"], "cpu": task.get("last_cpu"),
+                        "task": {k: task[k] for k in ("tid", "thread_name", "priority")},
+                        "runner": {k: runner[k] for k in ("pid", "tid", "thread_name", "priority")},
+                        "middle": [{k: runner[k] for k in ("pid", "tid", "thread_name", "priority")}]},
+            "observations": {"snapshots": n, "seen": seen, "ready": ready,
+                             "higher_running_while_ready": running_above,
+                             "skipped_as_inversion_holder": as_holder},
+        })
+    return findings
+
+
 def inheritance_observed(snapshots: list[list[dict]]) -> list[dict]:
     """Mutex waits where the holder was running at least at the waiter's
     priority although its own (real) priority is lower: the kernel raised it,
@@ -196,9 +378,11 @@ def inheritance_observed(snapshots: list[list[dict]]) -> list[dict]:
     return seen
 
 
-def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None) -> dict:
+def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None,
+             timing_checks: list[dict] | None = None) -> dict:
     """Run every rule; say plainly when nothing was found."""
-    findings = mutex_inversion(snapshots, deadline_report)
+    findings = (mutex_inversion(snapshots, deadline_report)
+                + cpu_preemption(snapshots, deadline_report, timing_checks))
     inherited = inheritance_observed(snapshots)
     order = {"high": 0, "medium": 1, "low": 2}
     findings.sort(key=lambda f: order[f["confidence"]])
@@ -207,7 +391,7 @@ def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None) -
                   f"({findings[0]['confidence']} confidence)."
     else:
         waits = sum(1 for s in snapshots for t in s if t.get("state") == "MUTEX")
-        summary = (f"No priority inversion seen in {len(snapshots)} snapshot(s)"
+        summary = (f"No priority inversion or CPU preemption seen in {len(snapshots)} snapshot(s)"
                    + (f" ({waits} brief mutex waits, all with the holder at or above the "
                       "waiter's priority or the holder unknown)" if waits else "")
                    + ". This does not prove there is none; it was not observed.")

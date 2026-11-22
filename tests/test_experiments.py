@@ -51,7 +51,9 @@ def env(tmp_path, monkeypatch, fixture_text):
         return {"remote": f"/data/qbridge/{name}"}
 
     def fake_measure(s, program, seconds=10, args=None, label=None, deadline_us=None, period_us=None):
-        variant = "rtdemo_fixed" if b"INHERIT" in state["deployed"][-1] else "rtdemo"
+        state.setdefault("measured_args", []).append(list(args or []))
+        fixed = b"INHERIT" in state["deployed"][-1] or (args and args[-2:] == ["-a", "30"])
+        variant = "rtdemo_fixed" if fixed else "rtdemo"
         samples = deadlines.parse_samples_csv(fixture_text(f"{variant}_samples.csv"))
         rep = deadlines.analyse(samples, 10000.0, 10000.0, "A-control")
         run_id = runs.new_run_id(label)
@@ -208,3 +210,122 @@ def test_compare_sets_is_strict():
     assert deadlines.compare_sets(before, [_rep(400, 50000)])["verdict"] == "worse"
     same = deadlines.compare_sets([_rep(0, 4000)], [_rep(0, 4100)])
     assert same["verdict"] == "inconclusive" and "no misses either way" in same["explanation"]
+
+
+# -- scheduling-parameter changes (new workload arguments, no source edit) --------------
+
+FAULT_ARGS = ["-s", "overload", "-a", "15"]
+FIX_ARGS = ["-s", "overload", "-a", "30"]
+
+
+def _start_overload(s, project):
+    return experiments.start(s, "rtdemo", str(project), seconds=10, repeats=2, args=FAULT_ARGS)
+
+
+def test_argument_change_full_loop(env):
+    s, project, state = env
+    eid = _start_overload(s, project)["experiment_id"]
+    builds_after_start = state["builds"]
+    prop = experiments.propose(s, eid, args=FIX_ARGS,
+                               description="Run the control task above the CPU-heavy worker")
+    assert prop["kind"] == "args"
+    assert "-rtdemo -s overload -a 15" in prop["diff"] and "+rtdemo -s overload -a 30" in prop["diff"]
+    assert "a/workload arguments" in prop["diff"]
+    assert (project / "rtdemo.c").read_text(encoding="utf-8") == SRC     # no source edit
+
+    with pytest.raises(PolicyError, match="not been approved"):
+        experiments.run(s, eid)
+    out = io.StringIO()
+    assert cli.approve_interactively(eid, TTY("yes\n"), out)["approved"] is True
+    assert "+rtdemo -s overload -a 30" in out.getvalue()
+
+    res = experiments.run(s, eid)
+    assert res["verdict"] == "improved"
+    assert state["builds"] == builds_after_start                  # nothing rebuilt
+    assert state["measured_args"][-2:] == [FIX_ARGS, FIX_ARGS]    # candidate runs used new args
+    assert state["measured_args"][:2] == [FAULT_ARGS, FAULT_ARGS]  # baseline used the old ones
+    e = experiments.show(eid)
+    assert e["candidate"]["binary_sha256"] == e["baseline"]["binary_sha256"]
+    assert e["candidate"]["args"] == FIX_ARGS
+    assert "arguments applied: -s overload -a 30" in [h["event"] for h in e["history"]]
+
+    kept = experiments.keep(s, eid)
+    assert kept["use_arguments"] == FIX_ARGS
+
+
+def test_argument_change_rollback(env):
+    s, project, _ = env
+    eid = _start_overload(s, project)["experiment_id"]
+    experiments.propose(s, eid, args=FIX_ARGS, description="raise A")
+    cli.approve_interactively(eid, TTY("yes\n"), io.StringIO())
+    experiments.run(s, eid)
+    rb = experiments.rollback(s, eid)
+    assert rb["restored_files"] == [] and rb["target_binary_matches_baseline"] is True
+    assert rb["workload_args"] == FAULT_ARGS
+
+
+@pytest.mark.parametrize("bad,match", [
+    (["-s", "overload", "-a", "30", "-d", "60"], "cannot be changed"),
+    (["-o/tmp/x.csv"], "cannot be changed"),
+    (FAULT_ARGS, "same as the current"),
+])
+def test_argument_proposal_rules(env, bad, match):
+    s, project, _ = env
+    eid = _start_overload(s, project)["experiment_id"]
+    with pytest.raises(experiments.ExperimentError, match=match):
+        experiments.propose(s, eid, args=bad, description="x")
+
+
+def test_source_and_argument_change_are_not_mixed(env):
+    s, project, _ = env
+    eid = _start_overload(s, project)["experiment_id"]
+    with pytest.raises(experiments.ExperimentError, match="not both"):
+        experiments.propose(s, eid, file="rtdemo.c", find=FIND, replace=REPLACE, args=FIX_ARGS,
+                            description="x")
+    with pytest.raises(experiments.ExperimentError, match="describe the change"):
+        experiments.propose(s, eid, args=FIX_ARGS, description="")
+
+
+def test_new_argument_proposal_voids_approval(env):
+    s, project, _ = env
+    eid = _start_overload(s, project)["experiment_id"]
+    experiments.propose(s, eid, args=FIX_ARGS, description="raise A")
+    cli.approve_interactively(eid, TTY("yes\n"), io.StringIO())
+    experiments.propose(s, eid, args=["-s", "overload", "-a", "25"], description="other")
+    with pytest.raises(PolicyError, match="not been approved"):
+        experiments.run(s, eid)
+
+
+def test_cli_propose_args_are_split():
+    a = cli.build_parser().parse_args(["experiment", "propose", "x", "--args", "-s overload -a 30",
+                                       "--description", "raise A"])
+    assert a.new_args == "-s overload -a 30" and a.file is None
+
+
+def test_live_overload_experiment_record(fixture_text):
+    """The scheduling-parameter experiment run on the target on 2026-11-22:
+    rtdemo -s overload, A at priority 15 -> 30, approved by a person at the prompt."""
+    e = json.loads(fixture_text("experiment_live_overload/experiment.json"))
+    assert e["workload"]["args"] == FAULT_ARGS
+    p = e["proposal"]
+    assert p["kind"] == "args" and p["new_args"] == FIX_ARGS
+    assert "+rtdemo -s overload -a 30" in p["diff"]
+    assert e["approval"]["diff_sha256"] == p["diff_sha256"]
+    assert e["approval"]["via"] == "qbridge CLI prompt"
+    assert e["candidate"]["binary_sha256"] == e["baseline"]["binary_sha256"]   # same binary
+    assert e["rollback"]["matches_baseline"] is True
+    assert all(r["cross_check"] and r["qbridged_check"]
+               for r in e["baseline"]["runs"] + e["candidate"]["runs"])
+
+    def reports(side):
+        return [json.loads(fixture_text(f"experiment_live_overload/{r['run_id']}.report.json"))
+                for r in e[side]["runs"]]
+
+    again = deadlines.compare_sets(reports("baseline"), reports("candidate"))
+    assert again == e["comparison"] and again["verdict"] == "improved"
+    assert again["misses"]["before"]["runs"] == [301, 309, 305]
+    assert again["misses"]["after"]["runs"] == [0, 1, 0]
+    # every baseline run's misses started with waiting for the CPU, never a lock
+    for r in reports("baseline"):
+        assert r["chain_root_causes"].get("lock_wait", 0) == 0
+        assert r["parts_us"]["lock_wait"]["max"] == 0

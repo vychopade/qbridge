@@ -360,8 +360,11 @@ def diagnose(s: Session, program: str | None = None, seconds: int = 6, snapshots
                                            summary.get("task") or program)
                 source = "the same run's samples"
 
-    result = analysis.diagnose(snaps, report)
+    checks = runs.latest_timing_checks()
+    result = analysis.diagnose(snaps, report, checks)
     result["deadline_evidence_from"] = source
+    result["workload_args"] = args or []
+    result["timing_checks_used"] = [t.get("check_id") for t in checks]
     if report:
         result["deadline_summary"] = report["summary"]
     diag_id = runs.save_diagnosis(program, result, snaps)

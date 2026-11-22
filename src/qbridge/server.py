@@ -153,17 +153,20 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
     "qnx_diagnose": (
         "Find out why a real-time task misses deadlines. Takes /dev/qbridge/threads snapshots "
         "while the workload runs (starting it if `program` is given) and applies deterministic "
-        "rules, currently: priority inversion on a mutex (reads the mutex's holder and protocol "
-        "from process memory). Each finding lists its evidence with numbers, a confidence level, "
-        "what it could not determine, and a suggested fix. Starting a program needs write access.",
+        "rules: priority inversion on a mutex (reads the mutex's holder and protocol from process "
+        "memory) and CPU preemption (the deadline task is ready but a higher-priority thread "
+        "holds its CPU). Each finding lists its evidence with numbers, a confidence level, what "
+        "it could not determine, and a suggested fix. Starting a program needs write access.",
         _schema({
             "program": {"type": "string", "description": "Workload to start, e.g. 'rtdemo'"},
             "seconds": {"type": "integer", "description": "Workload length, 3-60 (default 6)"},
             "snapshots": {"type": "integer", "description": "Max snapshots (default 40)"},
             "run_id": {"type": "string", "description": "Use this saved run's deadline report"},
+            "args": {"type": "array", "items": {"type": "string"},
+                     "description": "Extra workload arguments, e.g. ['-s', 'overload', '-a', '15']"},
         }),
-        lambda s, program=None, seconds=6, snapshots=40, run_id=None:
-            tools.diagnose(s, program, seconds, snapshots, run_id),
+        lambda s, program=None, seconds=6, snapshots=40, run_id=None, args=None:
+            tools.diagnose(s, program, seconds, snapshots, run_id, args),
         True,    # starts the workload when `program` is given
     ),
     "qnx_audit": (
@@ -192,18 +195,24 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         True,
     ),
     "qnx_experiment_propose": (
-        "Propose one change for an experiment: an exact text replacement in one source file "
-        "of the project (the 'find' text must occur exactly once). Returns the diff. The change "
-        "is NOT applied: a person must approve it by running 'qbridge experiment approve <id>' "
-        "in a terminal. There is no tool to approve; ask the user.",
+        "Propose ONE change for an experiment, either an exact text replacement in one source "
+        "file of the project (file, find, replace; 'find' must occur exactly once) or new "
+        "workload arguments (args), for a scheduling change such as a thread priority with no "
+        "source edit (-d and -o cannot be changed). Returns the diff. The change is NOT applied: "
+        "a person must approve it by running 'qbridge experiment approve <id>' in a terminal. "
+        "There is no tool to approve; ask the user.",
         _schema({
             "experiment_id": {"type": "string"}, "file": {"type": "string"},
             "find": {"type": "string"}, "replace": {"type": "string"},
+            "args": {"type": "array", "items": {"type": "string"},
+                     "description": "New workload arguments, e.g. ['-s', 'overload', '-a', '30']"},
             "description": {"type": "string", "description": "What the change does and why"},
             "diagnosis_id": {"type": "string", "description": "Diagnosis this change addresses"},
-        }, ["experiment_id", "file", "find", "replace", "description"]),
-        lambda s, experiment_id, file, find, replace, description, diagnosis_id=None:
-            experiments.propose(s, experiment_id, file, find, replace, description, diagnosis_id),
+        }, ["experiment_id", "description"]),
+        lambda s, experiment_id, description, file=None, find=None, replace=None, args=None,
+               diagnosis_id=None:
+            experiments.propose(s, experiment_id, file, find, replace, description, diagnosis_id,
+                                args),
         False,
     ),
     "qnx_experiment_run": (

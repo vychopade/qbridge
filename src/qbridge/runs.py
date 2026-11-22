@@ -67,17 +67,20 @@ def load(run_id: str) -> dict:
 def save_diagnosis(program: str | None, result: dict, snapshots: list[list[dict]]) -> str:
     """Save a diagnosis with the snapshots that supported its findings.
 
-    To keep files small, only snapshots in which some thread was MUTEX-blocked
-    are kept, and only the processes named in the findings (or, with no
-    findings, the processes that had a MUTEX-blocked thread).
+    To keep files small, only snapshots in which a thread of the named
+    processes was MUTEX-blocked or READY (waiting for the CPU) are kept, with
+    those processes' threads plus every RUNNING thread (who had the CPU).
+    With no findings, the processes that had a MUTEX-blocked thread are used.
     """
     pids = {f["subject"]["pid"] for f in result.get("findings", [])}
     for f in result.get("findings", []):
         pids |= {m["pid"] for m in f["subject"].get("middle", [])}
     if not pids:
         pids = {t["pid"] for snap in snapshots for t in snap if t.get("state") == "MUTEX"}
-    kept = [[t for t in snap if t["pid"] in pids] for snap in snapshots
-            if any(t.get("state") == "MUTEX" for t in snap)]
+    waiting = ("MUTEX", "READY")
+    kept = [[t for t in snap if t["pid"] in pids or t.get("state") == "RUNNING"]
+            for snap in snapshots
+            if any(t["pid"] in pids and t.get("state") in waiting for t in snap)]
     diag_id = new_run_id(f"diagnose-{program or 'live'}")
     d = home() / "diagnoses"
     d.mkdir(parents=True, exist_ok=True)

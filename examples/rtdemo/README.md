@@ -16,6 +16,30 @@ Three threads, pinned to one CPU (CPU 1 by default):
 
 The workload is fixed, with the same phases every run, so before and after runs are comparable.
 
+## Second scenario: CPU overload with the wrong priorities
+
+```
+rtdemo -s overload -a 15
+```
+
+There's no lock in this scenario: A does the same 1 ms of work without the shared lock, and C does not run. `-a` sets A's priority. At 15, A is **below** B (20), so every time B's 40 ms burst runs, A is ready but cannot get the CPU, and it misses its deadlines. The fix is a scheduling change, not a code change: `-a 30` puts A above B.
+
+qbridge tells the two faults apart:
+- **CPU preemption** (this scenario): A is READY while a higher-priority thread is RUNNING on its CPU, the misses start with waiting for the CPU, and lock wait is zero.
+- **Priority inversion** (the default scenario): A is MUTEX-blocked on a lock held by a lower-priority thread.
+
+Each rule was checked on recorded target data from the other scenario and does not fire there (`tests/test_scenarios.py`).
+
+Measured on the reference target (Nov 22, 2026), 3 runs of 10 s each way. The change is to the program's arguments only (same binary, checked by sha256), approved by a person at the prompt:
+
+| `-s overload` | `-a 15` (fault) | `-a 30` (fix) |
+|---|---|---|
+| Misses (of 999) | 301, 309, 305 | 0, 1, 0 |
+| Worst response | 36.1–46.2 ms | 5.0–10.6 ms |
+| 99th percentile | 35.5–36.1 ms | 3.0 ms |
+
+The verdict was "improved": every run after the change beat every run before it. The single miss after the change was a 10.6 ms cycle. On that day CPU 1's timer lateness reached 28.4 ms in the timing check (it was 2–5 ms on Nov 17), so a few misses from the VM are expected. The report is [docs/example-report-overload.html](../../docs/example-report-overload.html), and the record is in `tests/fixtures/experiment_live_overload/`.
+
 ## What A measures, per cycle
 
 | Field | Meaning |
@@ -30,7 +54,7 @@ The workload is fixed, with the same phases every run, so before and after runs 
 Execution time, scheduling latency and lock wait are kept separate so a miss can be attributed to the right cause. Samples are stored in memory allocated before the run and written to a CSV afterwards. One JSON summary line goes to stdout.
 
 ```
-rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n]
+rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n] [-s inversion|overload] [-a A-priority]
 ```
 
 If qbridged is running, A also registers with it and reports every cycle by message passing ([qbridge_task.h](../../target/qbridged/qbridge_task.h)). This happens after the cycle's own timestamps, so it isn't counted in A's response, and it never blocks. `-n` turns it off. The summary line says whether A registered, its slot, and how many pulses the kernel refused (0 in every run so far).

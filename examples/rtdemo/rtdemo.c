@@ -18,11 +18,19 @@
  * This is priority inversion. With inheritance, C runs at A's priority as
  * soon as A waits, and A's wait is at most C's remaining 3 ms.
  *
+ * Second scenario, "-s overload": no lock at all. A does the same 1 ms of
+ * work without the shared lock and C does not run, so A can only be delayed
+ * by the CPU. With "-a 15" A runs at priority 15, BELOW B's 20, so each of
+ * B's 40 ms bursts keeps A off the CPU and A misses its deadlines. The fix is
+ * a scheduling change, not a code change: run A above B ("-a 30").
+ *
  * The workload is fixed (same phases every run) so before/after runs are
  * comparable. Timing on a virtual machine is noisy; finite runs show the
  * effect, they do not prove a worst case.
  *
  * Usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n]
+ *               [-s inversion|overload] [-a A-priority]
+ *   -s  scenario (default inversion); -a  A's priority, 1..63 (default 30)
  *   Prints one JSON summary line on stdout when done.
  *   If qbridged is running, A registers with it and reports every cycle by
  *   message passing (see target/qbridged/qbridge_task.h); -n turns that off.
@@ -68,8 +76,12 @@
 #define C_OFFSET_NS    2000000LL   /* starts 2 ms into each 20 ms window */
 #define C_HOLD_NS      3000000LL   /* 3 ms of work while holding the lock */
 
+enum scenario { SCEN_INVERSION, SCEN_OVERLOAD };
+
 static pthread_mutex_t shared_lock;
 static int run_cpu = 1;         /* all three threads run on this CPU */
+static enum scenario scenario = SCEN_INVERSION;
+static int a_prio = A_PRIO;     /* -a: A's priority (scheduling parameter) */
 static int report_to_qbridged = 1;
 static int qbt_status = -1;     /* qbt_register() result; -1 = not tried */
 static int qbt_slot = -1;
@@ -139,7 +151,7 @@ static void setup_thread(int prio, const char *name)
 static void *task_a(void *arg)
 {
     (void)arg;
-    setup_thread(A_PRIO, "A-control");
+    setup_thread(a_prio, "A-control");
     /* Register with qbridged before the real-time loop (this one call may
      * block briefly; the per-cycle reports below never do). */
     struct qbt_task qbt = { .fd = -1 };
@@ -158,11 +170,15 @@ static void *task_a(void *arg)
         int64_t ready = prev_done > release ? prev_done : release;
         int64_t c0 = cpu_ns();
 
-        int64_t l0 = mono_ns();
-        pthread_mutex_lock(&shared_lock);
-        int64_t l1 = mono_ns();
-        burn(A_LOCKED_NS);
-        pthread_mutex_unlock(&shared_lock);
+        int64_t l0 = mono_ns(), l1 = l0;
+        if (scenario == SCEN_INVERSION) {
+            pthread_mutex_lock(&shared_lock);
+            l1 = mono_ns();
+            burn(A_LOCKED_NS);
+            pthread_mutex_unlock(&shared_lock);
+        } else {
+            burn(A_LOCKED_NS);      /* same work, no lock: lock_wait stays 0 */
+        }
         burn(A_WORK_NS);
 
         int64_t c1 = cpu_ns();          /* read CPU time before the end stamp */
@@ -263,16 +279,32 @@ int main(int argc, char **argv)
     int seconds = 10;
     const char *csv = "/data/qbridge/rtdemo_samples.csv";
     int c;
-    while ((c = getopt(argc, argv, "d:o:c:n")) != -1) {
+    while ((c = getopt(argc, argv, "d:o:c:ns:a:")) != -1) {
         switch (c) {
         case 'd': seconds = atoi(optarg); break;
         case 'o': csv = optarg; break;
         case 'c': run_cpu = atoi(optarg); break;
         case 'n': report_to_qbridged = 0; break;
+        case 'a': a_prio = atoi(optarg); break;
+        case 's':
+            if (strcmp(optarg, "inversion") == 0) {
+                scenario = SCEN_INVERSION;
+            } else if (strcmp(optarg, "overload") == 0) {
+                scenario = SCEN_OVERLOAD;
+            } else {
+                fprintf(stderr, "rtdemo: -s must be inversion or overload\n");
+                return EXIT_FAILURE;
+            }
+            break;
         default:
-            fprintf(stderr, "usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n]\n");
+            fprintf(stderr, "usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n] "
+                            "[-s inversion|overload] [-a A-priority]\n");
             return EXIT_FAILURE;
         }
+    }
+    if (a_prio < 1 || a_prio > 63) {
+        fprintf(stderr, "rtdemo: -a must be 1..63\n");
+        return EXIT_FAILURE;
     }
     if (run_cpu < 0 || run_cpu >= _syspage_ptr->num_cpu) {
         fprintf(stderr, "rtdemo: -c must be 0..%d\n", _syspage_ptr->num_cpu - 1);
@@ -306,12 +338,16 @@ int main(int argc, char **argv)
     t_end = t0 + (int64_t)seconds * 1000000000LL;
 
     pthread_t ta, tb, tc;
-    pthread_create(&tc, NULL, task_c, NULL);
+    if (scenario == SCEN_INVERSION) {
+        pthread_create(&tc, NULL, task_c, NULL);   /* C shares the lock with A */
+    }
     pthread_create(&tb, NULL, task_b, NULL);
     pthread_create(&ta, NULL, task_a, NULL);
     pthread_join(ta, NULL);
     pthread_join(tb, NULL);
-    pthread_join(tc, NULL);
+    if (scenario == SCEN_INVERSION) {
+        pthread_join(tc, NULL);
+    }
 
     size_t misses = 0;
     for (size_t i = 0; i < n_samples; i++) {
@@ -338,11 +374,14 @@ int main(int argc, char **argv)
     const char *protocol = LOCK_PROTOCOL == PTHREAD_PRIO_INHERIT ? "PTHREAD_PRIO_INHERIT"
                          : LOCK_PROTOCOL == PTHREAD_PRIO_NONE    ? "PTHREAD_PRIO_NONE"
                                                                  : "OTHER";
-    printf("{\"task\": \"A-control\", \"cpu\": %d, \"lock_protocol\": \"%s\", "
+    printf("{\"task\": \"A-control\", \"scenario\": \"%s\", \"cpu\": %d, "
+           "\"priorities\": {\"A\": %d, \"B\": %d, \"C\": %d}, \"lock_used\": %s, "
+           "\"lock_protocol\": \"%s\", "
            "\"period_us\": %lld, \"deadline_us\": %lld, \"seconds\": %d, "
            "\"cycles\": %zu, \"misses\": %zu, ",
-           run_cpu, protocol, A_PERIOD_NS / 1000, A_DEADLINE_NS / 1000, seconds,
-           n_samples, misses);
+           scenario == SCEN_INVERSION ? "inversion" : "overload", run_cpu, a_prio, B_PRIO,
+           C_PRIO, scenario == SCEN_INVERSION ? "true" : "false", protocol,
+           A_PERIOD_NS / 1000, A_DEADLINE_NS / 1000, seconds, n_samples, misses);
     print_stats("response", stats_of(offsetof(struct sample, response)), 0);
     print_stats("backlog", stats_of(offsetof(struct sample, backlog)), 0);
     print_stats("latency", stats_of(offsetof(struct sample, latency)), 0);

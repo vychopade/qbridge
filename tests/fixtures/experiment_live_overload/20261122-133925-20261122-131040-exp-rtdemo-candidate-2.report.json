@@ -1,0 +1,101 @@
+{
+ "task": "A-control",
+ "period_us": 10000.0,
+ "deadline_us": 10000.0,
+ "cycles": 999,
+ "misses": 1,
+ "miss_rate": 0.001001001001001001,
+ "miss_chains": 1,
+ "longest_chain": 1,
+ "response_us": {
+  "count": 999,
+  "min": 1595.9,
+  "max": 10561.0,
+  "mean": 2105.2764764764765,
+  "stddev": 412.35021471653675,
+  "p50": 1977.6,
+  "p99": 2975.0
+ },
+ "parts_us": {
+  "backlog": {
+   "count": 999,
+   "min": 0.0,
+   "max": 561.0,
+   "mean": 0.5615615615615616,
+   "stddev": 17.740368785586522,
+   "p50": 0.0,
+   "p99": 0.0
+  },
+  "latency": {
+   "count": 999,
+   "min": 24.9,
+   "max": 9220.2,
+   "mean": 1091.3978978978978,
+   "stddev": 399.7046998380908,
+   "p50": 967.4,
+   "p99": 1965.2
+  },
+  "lock_wait": {
+   "count": 999,
+   "min": 0.0,
+   "max": 0.0,
+   "mean": 0.0,
+   "stddev": 0.0,
+   "p50": 0.0,
+   "p99": 0.0
+  },
+  "exec": {
+   "count": 999,
+   "min": 1005.5,
+   "max": 1471.5,
+   "mean": 1009.7762762762762,
+   "stddev": 25.02263215306526,
+   "p50": 1007.1,
+   "p99": 1055.1
+  },
+  "preempted": {
+   "count": 999,
+   "min": 1.2000000000002728,
+   "max": 157.00000000000045,
+   "mean": 3.5407407407407385,
+   "stddev": 7.21353359448548,
+   "p50": 2.7999999999999545,
+   "p99": 20.0
+  }
+ },
+ "exec_budget_us": 1007.1,
+ "chain_root_causes": {
+  "latency": 1
+ },
+ "per_miss_primary_cause": {
+  "latency": 1
+ },
+ "worst_chains": [
+  {
+   "first_release_us": 10000.0,
+   "misses": 1,
+   "root_cause": "latency",
+   "root": {
+    "response_us": 10561.0,
+    "backlog_us": 0.0,
+    "latency_us": 9220.2,
+    "lock_wait_us": 0.0,
+    "exec_us": 1200.1,
+    "preempted_us": 140.69999999999936
+   },
+   "worst_response_us": 10561.0
+  }
+ ],
+ "summary": "A-control: 1 of 999 cycles missed the 10 ms deadline (0.1%); worst response 10.6 ms, 99th percentile 3.0 ms, mean 2.11 ms. The misses form 1 run(s) of consecutive misses (longest 1); what started each run: late wake-up (scheduling latency) (1).",
+ "cross_check": {
+  "checked": true,
+  "agrees": true,
+  "problems": []
+ },
+ "qbridged_check": {
+  "checked": true,
+  "slot": 11,
+  "agrees": true,
+  "problems": []
+ }
+}
