@@ -24,12 +24,23 @@
  * B's 40 ms bursts keeps A off the CPU and A misses its deadlines. The fix is
  * a scheduling change, not a code change: run A above B ("-a 30").
  *
+ * Third scenario, "-s msgpass": priority inversion through QNX message
+ * passing, with no mutex. A asks a separate server process, S "server"
+ * (priority 10, same CPU), for a result each cycle with MsgSend; S does
+ * 4 ms of work per request and replies. On QNX a server thread that
+ * receives a message normally runs at the sending client's priority, so S
+ * would serve A at 30. Planted fault: S's channel is created with
+ * _NTO_CHF_FIXED_PRIORITY, which turns that off. S then serves A at its own
+ * priority 10, B's burst (20) preempts S in the middle of A's request, and
+ * A stays REPLY-blocked for the whole burst. The fix is to create the
+ * channel without the flag (SERVER_CHANNEL_FLAGS below).
+ *
  * The workload is fixed (same phases every run) so before/after runs are
  * comparable. Timing on a virtual machine is noisy; finite runs show the
  * effect, they do not prove a worst case.
  *
  * Usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n]
- *               [-s inversion|overload] [-a A-priority]
+ *               [-s inversion|overload|msgpass] [-a A-priority]
  *   -s  scenario (default inversion); -a  A's priority, 1..63 (default 30)
  *   Prints one JSON summary line on stdout when done.
  *   If qbridged is running, A registers with it and reports every cycle by
@@ -51,6 +62,7 @@
 #include <string.h>
 #include <sys/neutrino.h>
 #include <sys/syspage.h>
+#include <sys/wait.h>
 #include <time.h>
 
 #include "qbridge_task.h"   /* report each cycle to qbridged (target/qbridged) */
@@ -60,6 +72,12 @@
 /* PTHREAD_PRIO_NONE: holding the lock does not raise the holder's priority.
  * Restoring PTHREAD_PRIO_INHERIT (QNX's default) is the fix. */
 #define LOCK_PROTOCOL PTHREAD_PRIO_NONE
+
+/* ---- The -s msgpass fault ---------------------------------------------- */
+/* _NTO_CHF_FIXED_PRIORITY: a server thread receiving on this channel keeps
+ * its own priority instead of taking the client's. Creating the channel
+ * without it (0) is the fix. */
+#define SERVER_CHANNEL_FLAGS _NTO_CHF_FIXED_PRIORITY
 
 /* ---- Fixed workload ------------------------------------------------------- */
 #define A_PRIO        30
@@ -75,8 +93,13 @@
 #define C_PERIOD_NS   20000000LL   /* 20 ms */
 #define C_OFFSET_NS    2000000LL   /* starts 2 ms into each 20 ms window */
 #define C_HOLD_NS      3000000LL   /* 3 ms of work while holding the lock */
+#define S_PRIO        10           /* -s msgpass: the server's own priority */
+#define S_WORK_NS      4000000LL   /* 4 ms of server work per request */
 
-enum scenario { SCEN_INVERSION, SCEN_OVERLOAD };
+enum scenario { SCEN_INVERSION, SCEN_OVERLOAD, SCEN_MSGPASS };
+
+static int server_coid = -1;    /* -s msgpass: A's connection to S */
+static pid_t server_pid = -1;
 
 static pthread_mutex_t shared_lock;
 static int run_cpu = 1;         /* all three threads run on this CPU */
@@ -97,6 +120,8 @@ struct sample {
                            A could first have started (release, or the end of
                            the previous cycle if that was later) */
     int64_t lock_wait;  /* time spent waiting for the shared lock */
+    int64_t server_wait;/* -s msgpass: time in MsgSend, from send to reply
+                           (the server's own work plus any wait for it) */
     int64_t exec;       /* CPU time A actually used this cycle */
     int64_t response;   /* finish time minus release */
 };
@@ -171,6 +196,7 @@ static void *task_a(void *arg)
         int64_t c0 = cpu_ns();
 
         int64_t l0 = mono_ns(), l1 = l0;
+        int64_t m0 = 0, m1 = 0;
         if (scenario == SCEN_INVERSION) {
             pthread_mutex_lock(&shared_lock);
             l1 = mono_ns();
@@ -178,6 +204,14 @@ static void *task_a(void *arg)
             pthread_mutex_unlock(&shared_lock);
         } else {
             burn(A_LOCKED_NS);      /* same work, no lock: lock_wait stays 0 */
+        }
+        if (scenario == SCEN_MSGPASS) {
+            int64_t req = k, rep = 0;
+            m0 = mono_ns();
+            if (MsgSend(server_coid, &req, sizeof(req), &rep, sizeof(rep)) == -1) {
+                perror("A: MsgSend");
+            }
+            m1 = mono_ns();
         }
         burn(A_WORK_NS);
 
@@ -189,6 +223,8 @@ static void *task_a(void *arg)
         s->latency = wake - ready;
         prev_done = done;
         s->lock_wait = l1 - l0;
+        s->server_wait = m1 - m0;
+        /* exec is A's own CPU time; the server's work is in server_wait. */
         s->exec = c1 - c0;
         s->response = done - release;
         /* After the cycle's own timestamps, so reporting is not counted in
@@ -230,6 +266,72 @@ static void *task_c(void *arg)
         pthread_mutex_unlock(&shared_lock);
     }
     return NULL;
+}
+
+/* -s msgpass: the server, a separate process (the QNX way: a service is a
+ * process that receives messages). It reports its channel id to the parent
+ * through a pipe, then answers each request with S_WORK_NS of work. It
+ * exits when A's connection goes away (_NTO_CHF_DISCONNECT pulse), so it
+ * also goes if rtdemo is killed. */
+static void run_server(int report_fd)
+{
+    setup_thread(S_PRIO, "S-server");
+    int chid = ChannelCreate(SERVER_CHANNEL_FLAGS | _NTO_CHF_DISCONNECT);
+    if (write(report_fd, &chid, sizeof(chid)) != (ssize_t)sizeof(chid) || chid == -1) {
+        _exit(EXIT_FAILURE);
+    }
+    close(report_fd);
+    for (;;) {
+        union {
+            struct _pulse pulse;
+            int64_t req;
+        } msg;
+        int rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
+        if (rcvid == -1) {
+            _exit(EXIT_FAILURE);
+        }
+        if (rcvid == 0) {
+            if (msg.pulse.code == _PULSE_CODE_DISCONNECT) {
+                _exit(EXIT_SUCCESS);
+            }
+            continue;
+        }
+        burn(S_WORK_NS);
+        int64_t rep = msg.req;
+        MsgReply(rcvid, EOK, &rep, sizeof(rep));
+    }
+}
+
+static int start_server(void)
+{
+    int fds[2];
+    if (pipe(fds) == -1) {
+        perror("pipe");
+        return -1;
+    }
+    server_pid = fork();
+    if (server_pid == -1) {
+        perror("fork");
+        return -1;
+    }
+    if (server_pid == 0) {
+        close(fds[0]);
+        run_server(fds[1]);
+    }
+    close(fds[1]);
+    int chid = -1;
+    if (read(fds[0], &chid, sizeof(chid)) != (ssize_t)sizeof(chid) || chid == -1) {
+        fprintf(stderr, "rtdemo: the server did not start\n");
+        close(fds[0]);
+        return -1;
+    }
+    close(fds[0]);
+    server_coid = ConnectAttach(0, server_pid, chid, _NTO_SIDE_CHANNEL, 0);
+    if (server_coid == -1) {
+        perror("ConnectAttach");
+        return -1;
+    }
+    return 0;
 }
 
 struct stats {
@@ -291,14 +393,16 @@ int main(int argc, char **argv)
                 scenario = SCEN_INVERSION;
             } else if (strcmp(optarg, "overload") == 0) {
                 scenario = SCEN_OVERLOAD;
+            } else if (strcmp(optarg, "msgpass") == 0) {
+                scenario = SCEN_MSGPASS;
             } else {
-                fprintf(stderr, "rtdemo: -s must be inversion or overload\n");
+                fprintf(stderr, "rtdemo: -s must be inversion, overload or msgpass\n");
                 return EXIT_FAILURE;
             }
             break;
         default:
             fprintf(stderr, "usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n] "
-                            "[-s inversion|overload] [-a A-priority]\n");
+                            "[-s inversion|overload|msgpass] [-a A-priority]\n");
             return EXIT_FAILURE;
         }
     }
@@ -333,6 +437,11 @@ int main(int argc, char **argv)
     pthread_mutex_init(&shared_lock, &ma);
     pthread_mutexattr_destroy(&ma);
 
+    /* Fork the server before any other thread exists. */
+    if (scenario == SCEN_MSGPASS && start_server() == -1) {
+        return EXIT_FAILURE;
+    }
+
     /* Start 50 ms from now, aligned to a whole millisecond. */
     t0 = (mono_ns() / 1000000LL + 50) * 1000000LL;
     t_end = t0 + (int64_t)seconds * 1000000000LL;
@@ -348,6 +457,10 @@ int main(int argc, char **argv)
     if (scenario == SCEN_INVERSION) {
         pthread_join(tc, NULL);
     }
+    if (scenario == SCEN_MSGPASS) {
+        ConnectDetach(server_coid);     /* the server gets a disconnect pulse and exits */
+        waitpid(server_pid, NULL, 0);
+    }
 
     size_t misses = 0;
     for (size_t i = 0; i < n_samples; i++) {
@@ -358,12 +471,13 @@ int main(int argc, char **argv)
 
     FILE *f = fopen(csv, "w");
     if (f != NULL) {
-        fprintf(f, "release_us,backlog_us,latency_us,lock_wait_us,exec_us,response_us,missed\n");
+        fprintf(f, "release_us,backlog_us,latency_us,lock_wait_us,server_wait_us,exec_us,"
+                   "response_us,missed\n");
         for (size_t i = 0; i < n_samples; i++) {
             const struct sample *s = &samples[i];
-            fprintf(f, "%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%d\n", s->release / 1e3,
-                    s->backlog / 1e3, s->latency / 1e3,
-                    s->lock_wait / 1e3, s->exec / 1e3, s->response / 1e3,
+            fprintf(f, "%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%d\n", s->release / 1e3,
+                    s->backlog / 1e3, s->latency / 1e3, s->lock_wait / 1e3,
+                    s->server_wait / 1e3, s->exec / 1e3, s->response / 1e3,
                     s->response > A_DEADLINE_NS);
         }
         fclose(f);
@@ -374,18 +488,26 @@ int main(int argc, char **argv)
     const char *protocol = LOCK_PROTOCOL == PTHREAD_PRIO_INHERIT ? "PTHREAD_PRIO_INHERIT"
                          : LOCK_PROTOCOL == PTHREAD_PRIO_NONE    ? "PTHREAD_PRIO_NONE"
                                                                  : "OTHER";
+    const char *scen_name = scenario == SCEN_INVERSION ? "inversion"
+                          : scenario == SCEN_OVERLOAD  ? "overload"
+                                                       : "msgpass";
+    const char *channel = scenario != SCEN_MSGPASS ? "none"
+                        : (SERVER_CHANNEL_FLAGS & _NTO_CHF_FIXED_PRIORITY) ? "_NTO_CHF_FIXED_PRIORITY"
+                                                                          : "inherits client priority";
     printf("{\"task\": \"A-control\", \"scenario\": \"%s\", \"cpu\": %d, "
-           "\"priorities\": {\"A\": %d, \"B\": %d, \"C\": %d}, \"lock_used\": %s, "
-           "\"lock_protocol\": \"%s\", "
+           "\"priorities\": {\"A\": %d, \"B\": %d, \"%s\": %d}, \"lock_used\": %s, "
+           "\"lock_protocol\": \"%s\", \"server_channel\": \"%s\", "
            "\"period_us\": %lld, \"deadline_us\": %lld, \"seconds\": %d, "
            "\"cycles\": %zu, \"misses\": %zu, ",
-           scenario == SCEN_INVERSION ? "inversion" : "overload", run_cpu, a_prio, B_PRIO,
-           C_PRIO, scenario == SCEN_INVERSION ? "true" : "false", protocol,
+           scen_name, run_cpu, a_prio, B_PRIO, scenario == SCEN_MSGPASS ? "S" : "C",
+           scenario == SCEN_MSGPASS ? S_PRIO : C_PRIO, scenario == SCEN_INVERSION ? "true" : "false",
+           protocol, channel,
            A_PERIOD_NS / 1000, A_DEADLINE_NS / 1000, seconds, n_samples, misses);
     print_stats("response", stats_of(offsetof(struct sample, response)), 0);
     print_stats("backlog", stats_of(offsetof(struct sample, backlog)), 0);
     print_stats("latency", stats_of(offsetof(struct sample, latency)), 0);
     print_stats("lock_wait", stats_of(offsetof(struct sample, lock_wait)), 0);
+    print_stats("server_wait", stats_of(offsetof(struct sample, server_wait)), 0);
     print_stats("exec", stats_of(offsetof(struct sample, exec)), 1);
     printf(", \"samples_csv\": \"%s\", \"qbridged\": {\"status\": \"%s\", \"slot\": %d, "
            "\"refused_pulses\": %ld}}\n", csv,
