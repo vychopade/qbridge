@@ -205,7 +205,9 @@ def _task_threads(snapshots: list[list[dict]], deadline_report: dict | None) -> 
         for t in snap:
             if name and t.get("thread_name") == name:
                 keys.add((t["pid"], t["tid"]))
-            elif not name and t.get("state") == "READY":
+            elif not name and t.get("state") == "READY" and t["pid"] != _KERNEL_PID:
+                # Kernel threads (idle threads above all) are READY at low
+                # priority whenever anything else runs; they are not tasks.
                 keys.add((t["pid"], t["tid"]))
     return keys
 
@@ -232,10 +234,11 @@ def cpu_preemption(snapshots: list[list[dict]], deadline_report: dict | None = N
             task = me
             if me.get("state") != "READY":
                 continue
-            if key in _mutex_holders_waited_on(snap):
-                # A preempted lock holder that a higher-priority thread waits
-                # for is the middle step of a priority inversion; that is the
-                # mutex rule's finding, not CPU overload.
+            if key in _mutex_holders_waited_on(snap) or key in _servers_waited_on(snap):
+                # A preempted lock holder (or server) that a higher-priority
+                # thread waits for is the middle step of a priority inversion;
+                # that is the mutex (or message-passing) rule's finding, not
+                # CPU overload.
                 as_holder += 1
                 continue
             ready += 1
@@ -356,6 +359,177 @@ def cpu_preemption(snapshots: list[list[dict]], deadline_report: dict | None = N
     return findings
 
 
+RULE_MSGPASS_INVERSION = "msgpass_priority_inversion"
+
+_MSG_STATES = ("SEND", "REPLY")
+
+
+def _server_workers(snap: list[dict], client: dict) -> list[dict]:
+    """Threads of the server process a SEND/REPLY-blocked client waits on that
+    could be working for it: not waiting for messages themselves, not blocked
+    on another server. Only a server in another process is examined: inside one
+    process the snapshot cannot tell which thread received the message."""
+    spid = (client.get("blocked_on") or {}).get("pid")
+    if spid is None or spid == client["pid"] or spid == _KERNEL_PID:
+        return []
+    return [t for t in snap if t["pid"] == spid and t.get("state") != "RECEIVE"
+            and t.get("state") not in _MSG_STATES]
+
+
+def _servers_waited_on(snap: list[dict]) -> set[tuple[int, int]]:
+    """(pid, tid) of server threads running below a client that waits on them."""
+    out = set()
+    for c in snap:
+        if c.get("state") in _MSG_STATES:
+            for w in _server_workers(snap, c):
+                if w["priority"] < c["priority"]:
+                    out.add((w["pid"], w["tid"]))
+    return out
+
+
+def msgpass_inversion(snapshots: list[list[dict]], deadline_report: dict | None = None) -> list[dict]:
+    """Rule: a client is SEND- or REPLY-blocked on a server process whose
+    thread runs below the client's priority, while a thread in between has the
+    server's CPU. On QNX a receiving server thread normally takes the client's
+    priority, so this means inheritance is not happening (for example a
+    channel created with _NTO_CHF_FIXED_PRIORITY)."""
+    name = (deadline_report or {}).get("task")
+    obs: dict = {}
+    for snap in snapshots:
+        for c in snap:
+            if c.get("state") not in _MSG_STATES or (name and c.get("thread_name") != name):
+                continue
+            workers = _server_workers(snap, c)
+            if not workers:
+                continue
+            spid = c["blocked_on"]["pid"]
+            o = obs.setdefault((c["pid"], c["tid"], spid), {
+                "with_wait": 0, "server_below": 0, "middle_running": 0, "client": c,
+                "servers": {}, "middle": {}, "max_blocked_ms": 0, "states": Counter()})
+            o["with_wait"] += 1
+            o["states"][c["state"]] += 1
+            o["client"] = c
+            o["max_blocked_ms"] = max(o["max_blocked_ms"], c.get("blocked_ms") or 0)
+            top = max(workers, key=lambda t: t["priority"])
+            if top["priority"] >= c["priority"]:
+                continue
+            o["server_below"] += 1
+            o["servers"][top["tid"]] = top
+            mids = [x for x in snap
+                    if x.get("state") in ("RUNNING", "READY") and x["pid"] != _KERNEL_PID
+                    and top["priority"] < x["priority"] < c["priority"]
+                    and x.get("last_cpu") == top.get("last_cpu")]
+            if mids:
+                o["middle_running"] += 1
+                for x in mids:
+                    o["middle"][(x["pid"], x["tid"])] = x
+
+    findings = []
+    n = len(snapshots)
+    for (cpid, _ctid, spid), o in obs.items():
+        if o["server_below"] == 0:
+            continue
+        client = o["client"]
+        server = min(o["servers"].values(), key=lambda t: t["priority"])
+        middle = sorted(o["middle"].values(), key=lambda t: -t["priority"])
+        states = ", ".join(f"{k} {v}" for k, v in sorted(o["states"].items()))
+        evidence = [
+            f"In {o['with_wait']} of {n} snapshots {_label(client)} (priority "
+            f"{client['priority']}) was waiting on a message to process {server['name']}[{spid}] "
+            f"({states}), for up to {o['max_blocked_ms']} ms.",
+            f"In {o['server_below']} of those, the server's working thread {_label(server)} ran "
+            f"at priority {server['priority']}, below its client. On QNX a server thread that "
+            f"receives a message normally runs at the client's priority, so it was not "
+            f"inheriting it.",
+        ]
+        if middle:
+            evidence.append(
+                f"In {o['middle_running']} snapshot(s) a thread between the two priorities had the "
+                f"server's CPU: " + ", ".join(f"{_label(x)} at priority {x['priority']} "
+                                              f"({x['state']})" for x in middle) + ".")
+        dl = None
+        if deadline_report and deadline_report.get("misses"):
+            roots = deadline_report.get("chain_root_causes", {})
+            srv = roots.get("server_wait", 0)
+            runs_ = deadline_report.get("miss_chains", 0)
+            worst = deadline_report["parts_us"].get("server_wait", {}).get("max", 0.0)
+            dl = {"server_rooted": srv, "runs": runs_, "worst_server_wait": worst}
+            evidence.append(
+                f"The deadline report for {deadline_report.get('task')} shows "
+                f"{deadline_report['misses']} misses in {runs_} run(s) of consecutive misses; "
+                f"{srv} of those runs started with a long wait for a server's reply (worst "
+                f"{worst / 1000:.1f} ms from send to reply; the server's usual answer time is "
+                f"{(deadline_report.get('server_budget_us') or 0) / 1000:.1f} ms).")
+
+        points = 1
+        points += 1 if middle else 0
+        points += 1 if o["server_below"] >= 3 and o["server_below"] >= o["with_wait"] / 2 else 0
+        points += 1 if dl and dl["runs"] and dl["server_rooted"] >= dl["runs"] / 2 else 0
+        confidence = "high" if points >= 3 else "medium" if points == 2 else "low"
+
+        unknown = [
+            f"Snapshots are instants: {n} were taken, and qbridged reads processes one after "
+            "another, so client and server are not read at exactly the same moment.",
+            "Why the server does not inherit the client's priority: qbridge cannot read a "
+            "channel's flags. _NTO_CHF_FIXED_PRIORITY on the server's channel has this effect; so "
+            "would a server that sets its own priority after receiving.",
+            "Which server thread received this client's message, if the server process has "
+            "several working threads: the snapshot names the process, not the thread.",
+            "A worst case: finite runs cannot prove the deadline will always be met after a fix.",
+        ]
+        if not dl:
+            unknown.append("Whether this causes the deadline misses: no deadline report was given.")
+        fix = ("Let the server inherit its clients' priority, the QNX default: create its channel "
+               "without _NTO_CHF_FIXED_PRIORITY (and do not lower the server thread's priority "
+               "after MsgReceive). The server then works for a client at the client's priority, so "
+               "a middle-priority thread can no longer delay the reply. If the server must keep a "
+               "fixed priority, run it above the threads that compete for its CPU.")
+        findings.append({
+            "rule": RULE_MSGPASS_INVERSION,
+            "title": f"Priority inversion through message passing: {client['name']}[{cpid}] waits "
+                     f"on {server['name']}[{spid}]",
+            "confidence": confidence,
+            "explanation": (
+                f"{_label(client)} (priority {client['priority']}) waits for a reply from "
+                f"{_label(server)}, which serves it at priority {server['priority']}"
+                + (f", while {', '.join(_label(x) for x in middle)} (priority "
+                   f"{', '.join(str(x['priority']) for x in middle)}) keeps the server's CPU"
+                   if middle else "")
+                + ". The reply cannot come until the middle-priority work stops, so the "
+                  "high-priority client waits for unrelated work. No mutex is involved."),
+            "evidence": evidence,
+            "could_not_determine": unknown,
+            "suggested_fix": fix,
+            "subject": {"pid": cpid, "server_pid": spid,
+                        "client": {k: client[k] for k in ("tid", "thread_name", "priority")},
+                        "server": {k: server[k] for k in ("pid", "tid", "thread_name", "priority")},
+                        "middle": [{k: x[k] for k in ("pid", "tid", "thread_name", "priority")}
+                                   for x in middle]},
+            "observations": {"snapshots": n, "with_wait": o["with_wait"],
+                             "server_below_client": o["server_below"],
+                             "middle_running": o["middle_running"]},
+        })
+    return findings
+
+
+def msgpass_inheritance_observed(snapshots: list[list[dict]]) -> list[dict]:
+    """Message waits where the server thread runs at least at its client's
+    priority although its own priority is lower: inheritance working."""
+    seen = []
+    for i, snap in enumerate(snapshots):
+        for c in snap:
+            if c.get("state") not in _MSG_STATES:
+                continue
+            for w in _server_workers(snap, c):
+                if w["priority"] >= c["priority"] > w.get("real_priority", w["priority"]):
+                    seen.append({"snapshot": i, "client": c.get("thread_name"),
+                                 "client_priority": c["priority"], "server": w.get("thread_name"),
+                                 "server_pid": w["pid"], "server_priority": w["priority"],
+                                 "server_real_priority": w.get("real_priority"),
+                                 "server_state": w["state"]})
+    return seen
+
+
 def inheritance_observed(snapshots: list[list[dict]]) -> list[dict]:
     """Mutex waits where the holder was running at least at the waiter's
     priority although its own (real) priority is lower: the kernel raised it,
@@ -382,8 +556,10 @@ def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None,
              timing_checks: list[dict] | None = None) -> dict:
     """Run every rule; say plainly when nothing was found."""
     findings = (mutex_inversion(snapshots, deadline_report)
+                + msgpass_inversion(snapshots, deadline_report)
                 + cpu_preemption(snapshots, deadline_report, timing_checks))
     inherited = inheritance_observed(snapshots)
+    msg_inherited = msgpass_inheritance_observed(snapshots)
     order = {"high": 0, "medium": 1, "low": 2}
     findings.sort(key=lambda f: order[f["confidence"]])
     if findings:
@@ -391,7 +567,8 @@ def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None,
                   f"({findings[0]['confidence']} confidence)."
     else:
         waits = sum(1 for s in snapshots for t in s if t.get("state") == "MUTEX")
-        summary = (f"No priority inversion or CPU preemption seen in {len(snapshots)} snapshot(s)"
+        summary = (f"No priority inversion or CPU preemption seen in {len(snapshots)} snapshot(s) "
+                   "(rules: mutex and message-passing priority inversion, CPU preemption)"
                    + (f" ({waits} brief mutex waits, all with the holder at or above the "
                       "waiter's priority or the holder unknown)" if waits else "")
                    + ". This does not prove there is none; it was not observed.")
@@ -404,5 +581,14 @@ def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None,
                     f"'{x['holder']}' held a {x['protocol']} mutex and ran at priority "
                     f"{x['holder_priority']} (its own priority is {x['holder_real_priority']}) "
                     f"while '{x['waiter']}' (priority {x['waiter_priority']}) waited.")
-    return {"summary": summary, "findings": findings, "inheritance_observed": inherited,
-            "snapshots": len(snapshots)}
+    if msg_inherited:
+        x = msg_inherited[0]
+        summary += (f" Message-passing priority inheritance was seen working "
+                    f"{len(msg_inherited)} time(s): e.g. server '{x['server']}' ran at priority "
+                    f"{x['server_priority']} (its own priority is {x['server_real_priority']}) while "
+                    f"'{x['client']}' (priority {x['client_priority']}) waited for its reply.")
+    out = {"summary": summary, "findings": findings, "inheritance_observed": inherited,
+           "snapshots": len(snapshots)}
+    if msg_inherited:
+        out["msgpass_inheritance_observed"] = msg_inherited
+    return out

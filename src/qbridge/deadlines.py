@@ -8,6 +8,8 @@ that have different causes (all in microseconds):
     latency    scheduling latency: wake-up minus the moment the task could
                first have started
     lock_wait  time blocked waiting for a lock
+    server_wait time from sending a message to a server until its reply
+               (MsgSend): the server's own work plus any wait for it
     exec       CPU time the task itself used
     preempted  derived: response minus all of the above, i.e. time the task
                was ready to run but something else had the CPU
@@ -24,7 +26,7 @@ import io
 import math
 from dataclasses import dataclass
 
-PARTS = ("backlog", "latency", "lock_wait", "exec", "preempted")
+PARTS = ("backlog", "latency", "lock_wait", "server_wait", "exec", "preempted")
 
 
 @dataclass
@@ -35,16 +37,19 @@ class Sample:
     latency: float = 0.0
     lock_wait: float = 0.0
     exec: float = 0.0
+    server_wait: float = 0.0
 
     @property
     def preempted(self) -> float:
-        rest = self.response - self.backlog - self.latency - self.lock_wait - self.exec
+        rest = (self.response - self.backlog - self.latency - self.lock_wait - self.server_wait
+                - self.exec)
         return max(0.0, rest)
 
 
 def parse_samples_csv(text: str) -> list[Sample]:
     """CSV with columns release_us, response_us and optionally backlog_us,
-    latency_us, lock_wait_us, exec_us (the format rtdemo writes)."""
+    latency_us, lock_wait_us, server_wait_us, exec_us (the format rtdemo
+    writes; older files have no server_wait_us column, which reads as 0)."""
     rows = csv.DictReader(io.StringIO(text.lstrip("﻿")))
     out = []
     for r in rows:
@@ -54,7 +59,8 @@ def parse_samples_csv(text: str) -> list[Sample]:
         if r.get("release_us") in (None, "") or r.get("response_us") in (None, ""):
             continue
         out.append(Sample(release=f("release"), response=f("response"), backlog=f("backlog"),
-                          latency=f("latency"), lock_wait=f("lock_wait"), exec=f("exec")))
+                          latency=f("latency"), lock_wait=f("lock_wait"), exec=f("exec"),
+                          server_wait=f("server_wait")))
     return out
 
 
@@ -81,13 +87,17 @@ def stats(values: list[float]) -> dict:
     }
 
 
-def _primary_cause(s: Sample, exec_budget: float | None) -> str:
+def _primary_cause(s: Sample, exec_budget: float | None,
+                   server_budget: float | None = None) -> str:
     parts = {p: getattr(s, p) for p in PARTS}
     if exec_budget is not None:
         # Only the CPU time beyond the task's normal budget is a cause.
         parts["exec"] = max(0.0, s.exec - exec_budget)
     else:
         parts["exec"] = 0.0
+    # Likewise a server's normal answer time is part of the work; only the
+    # wait beyond it is a cause.
+    parts["server_wait"] = max(0.0, s.server_wait - (server_budget or 0.0))
     return max(parts, key=parts.get)
 
 
@@ -98,6 +108,8 @@ def analyse(samples: list[Sample], deadline_us: float, period_us: float | None =
     missed = [s for s in samples if s.response > deadline_us]
     # The task's normal CPU use per cycle: the median over all cycles.
     exec_budget = stats([s.exec for s in samples])["p50"] if samples else None
+    # The server's normal answer time: the median over all cycles.
+    server_budget = stats([s.server_wait for s in samples])["p50"] if samples else None
 
     # Group consecutive misses into chains; a chain's root is its first cycle.
     chains: list[list[Sample]] = []
@@ -113,7 +125,7 @@ def analyse(samples: list[Sample], deadline_us: float, period_us: float | None =
     chain_reports = []
     for ch in chains:
         root = ch[0]
-        cause = _primary_cause(root, exec_budget)
+        cause = _primary_cause(root, exec_budget, server_budget)
         root_causes[cause] = root_causes.get(cause, 0) + 1
         chain_reports.append({
             "first_release_us": root.release,
@@ -126,7 +138,7 @@ def analyse(samples: list[Sample], deadline_us: float, period_us: float | None =
     # Per-miss primary cause, before chain grouping (most knock-on misses are "backlog").
     per_miss: dict[str, int] = {}
     for s in missed:
-        c = _primary_cause(s, exec_budget)
+        c = _primary_cause(s, exec_budget, server_budget)
         per_miss[c] = per_miss.get(c, 0) + 1
 
     longest = max((len(c) for c in chains), default=0)
@@ -144,6 +156,7 @@ def analyse(samples: list[Sample], deadline_us: float, period_us: float | None =
         "response_us": stats([s.response for s in samples]),
         "parts_us": {p: stats([getattr(s, p) for s in samples]) for p in PARTS},
         "exec_budget_us": exec_budget,
+        "server_budget_us": server_budget,
         "chain_root_causes": root_causes,
         "per_miss_primary_cause": per_miss,
         "worst_chains": worst_chains,
@@ -154,6 +167,7 @@ def analyse(samples: list[Sample], deadline_us: float, period_us: float | None =
 
 _CAUSE_TEXT = {
     "lock_wait": "waiting for a lock",
+    "server_wait": "waiting for a server's reply (message passing)",
     "latency": "late wake-up (scheduling latency)",
     "preempted": "being preempted while ready to run",
     "exec": "using more CPU time than usual",

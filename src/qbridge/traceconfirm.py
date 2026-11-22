@@ -19,7 +19,7 @@ the other threads were doing while the waiter was blocked.
 
 from __future__ import annotations
 
-from .analysis import RULE_CPU_PREEMPTION, RULE_MUTEX_INVERSION
+from .analysis import RULE_CPU_PREEMPTION, RULE_MSGPASS_INVERSION, RULE_MUTEX_INVERSION
 from .parsers import kev
 
 KERNEL_PID = 1
@@ -188,7 +188,86 @@ def confirm_inversion(f: dict, tr: kev.Trace) -> dict:
     return {"steps": steps, "timeline": _timeline(tr, lanes, longest)}
 
 
+def confirm_msgpass(f: dict, tr: kev.Trace) -> dict:
+    sub = f["subject"]
+    c, srv = sub["client"], sub["server"]
+    ck, why_c = _key(tr, sub["pid"], c["tid"], c.get("thread_name"))
+    sk, why_s = _key(tr, srv["pid"], srv["tid"], srv.get("thread_name"))
+    steps, longest = [], None
+    if not ck or not sk:
+        steps.append(_step("The finding's threads appear in the trace", False, why_c or why_s))
+        return {"steps": steps, "timeline": None}
+
+    waits = [s for s in tr.spans.get(ck, []) if s.state in ("SEND", "REPLY")]
+    wait_ms = sum(s.ms for s in waits)
+    reply_ms = sum(s.ms for s in waits if s.state == "REPLY")
+    steps.append(_step(
+        f"{tr.label(ck)} blocks waiting for a server (SEND or REPLY)",
+        wait_ms >= 1.0,
+        f"SEND/REPLY {wait_ms:.1f} ms ({reply_ms:.1f} ms of it REPLY, the server holding its "
+        f"message) in {len(waits)} span(s) in a {tr.duration_ms:.0f} ms trace"))
+
+    s_ready = s_ready_low = s_run = 0.0
+    middle = 0.0
+    middle_names: dict = {}
+    for s in waits:
+        for (st, p), ms in tr.states_during(sk, s.start, s.end).items():
+            if st == "READY":
+                s_ready += ms
+                if p < c["priority"]:
+                    s_ready_low += ms
+            elif st == "RUNNING":
+                s_run += ms
+        for ss in _spans(tr, sk, "READY"):
+            a, b = max(ss.start, s.start), min(ss.end, s.end)
+            if b <= a:
+                continue
+            for (k, p), ms in tr.running_during(ss.cpu, a, b, exclude=sk).items():
+                if k != ck and k[0] != KERNEL_PID and ss.priority < p < c["priority"]:
+                    middle += ms
+                    middle_names[(tr.label(k), p)] = middle_names.get((tr.label(k), p), 0.0) + ms
+    top = sorted(middle_names.items(), key=lambda kv: -kv[1])[:3]
+    # While the server is RUNNING it is doing the client's work, which is a
+    # normal part of the wait. The question is what the rest of the wait was.
+    held_off = wait_ms - s_run
+    steps.append(_step(
+        f"Meanwhile the server {tr.label(sk)} is ready but not running, below the client's "
+        f"priority (no inheritance)",
+        held_off >= 1.0 and s_ready_low >= SHARE * held_off,
+        f"of the {wait_ms:.1f} ms wait the server was RUNNING (doing the work) for {s_run:.1f} ms; "
+        f"of the other {held_off:.1f} ms it was READY for {s_ready:.1f} ms "
+        f"({_pct(s_ready, held_off)}), {s_ready_low:.1f} ms of it below priority {c['priority']}"))
+    steps.append(_step(
+        "A middle-priority thread holds the server's CPU",
+        s_ready > 0 and middle >= SHARE * s_ready,
+        (f"{', '.join(f'{n} (priority {p}, {ms:.1f} ms)' for (n, p), ms in top)}"
+         + (" and others" if len(middle_names) > 3 else "") + " ran "
+         if middle_names else "No thread between the two priorities ran ")
+        + f"for {middle:.1f} ms of the server's {s_ready:.1f} ms READY time "
+          f"({_pct(middle, s_ready)})"))
+
+    s_running = _spans(tr, sk, "RUNNING")
+    replies = [s for s in waits if s.state == "REPLY" and s.end < tr.duration_ms - 0.01]
+    woken = sum(1 for s in replies
+                if any(r.start - WAKE_SLACK_MS <= s.end <= r.end + WAKE_SLACK_MS for r in s_running))
+    steps.append(_step(
+        "Each wait for a reply ends while the server is running (it replies)",
+        bool(replies) and woken == len(replies),
+        f"{woken} of {len(replies)} completed REPLY waits ended while the server was RUNNING"))
+    if waits:
+        longest = max(waits, key=lambda s: s.ms)
+    lanes = [("client", ck), ("server", sk)]
+    for m in sub.get("middle", [])[:2]:
+        mk, _ = _key(tr, m["pid"], m["tid"], m.get("thread_name"))
+        if mk:
+            lanes.append(("middle", mk))
+    return {"steps": steps, "timeline": _timeline(tr, lanes, longest)}
+
+
 NOT_IN_TRACE = {
+    RULE_MSGPASS_INVERSION: ("The trace does not name the server a client waits on (THSEND and "
+                             "THREPLY only name the waiting thread, and message events are not "
+                             "recorded); the server's identity comes from the snapshot."),
     RULE_MUTEX_INVERSION: ("The trace does not name the mutex or its owner (THMUTEX only names "
                            "the waiting thread); the holder's identity comes from the snapshot's "
                            "mutex owner word."),
@@ -203,6 +282,8 @@ def confirm(finding: dict, tr: kev.Trace, trace_id: str | None = None) -> dict:
         r = confirm_preemption(finding, tr)
     elif rule == RULE_MUTEX_INVERSION:
         r = confirm_inversion(finding, tr)
+    elif rule == RULE_MSGPASS_INVERSION:
+        r = confirm_msgpass(finding, tr)
     else:
         return {"status": "not checked", "reason": f"no trace check for rule {rule!r}"}
     steps = r["steps"]

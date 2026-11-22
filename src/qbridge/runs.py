@@ -68,16 +68,19 @@ def save_diagnosis(program: str | None, result: dict, snapshots: list[list[dict]
     """Save a diagnosis with the snapshots that supported its findings.
 
     To keep files small, only snapshots in which a thread of the named
-    processes was MUTEX-blocked or READY (waiting for the CPU) are kept, with
+    processes was MUTEX-, SEND- or REPLY-blocked or READY (waiting for the CPU) are kept, with
     those processes' threads plus every RUNNING thread (who had the CPU).
     With no findings, the processes that had a MUTEX-blocked thread are used.
     """
     pids = {f["subject"]["pid"] for f in result.get("findings", [])}
     for f in result.get("findings", []):
         pids |= {m["pid"] for m in f["subject"].get("middle", [])}
+        if f["subject"].get("server_pid") is not None:
+            pids.add(f["subject"]["server_pid"])
     if not pids:
-        pids = {t["pid"] for snap in snapshots for t in snap if t.get("state") == "MUTEX"}
-    waiting = ("MUTEX", "READY")
+        pids = {t["pid"] for snap in snapshots for t in snap
+                if t.get("state") in ("MUTEX", "SEND", "REPLY")}
+    waiting = ("MUTEX", "READY", "SEND", "REPLY")
     kept = [[t for t in snap if t["pid"] in pids or t.get("state") == "RUNNING"]
             for snap in snapshots
             if any(t["pid"] in pids and t.get("state") in waiting for t in snap)]

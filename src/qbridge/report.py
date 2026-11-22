@@ -18,11 +18,13 @@ PARTS_LABEL = {
     "backlog": "Backlog (previous cycle overran)",
     "latency": "Scheduling latency",
     "lock_wait": "Lock wait",
+    "server_wait": "Server reply wait (MsgSend)",
     "exec": "CPU time (own work)",
     "preempted": "Preempted while ready",
 }
 CAUSE_LABEL = {
-    "lock_wait": "long lock wait", "latency": "late wake-up", "preempted": "preempted",
+    "lock_wait": "long lock wait", "server_wait": "long wait for a server's reply",
+    "latency": "late wake-up", "preempted": "preempted",
     "exec": "more CPU time than usual", "backlog": "previous cycle overran",
 }
 
@@ -316,11 +318,16 @@ def build(experiment: dict, load_run: Callable[[str], dict], diagnosis: dict | N
                      "<p class='note'>Dots above the dashed line are missed deadlines.</p></section>")
 
     # Where the time went
+    # Server reply wait only appears for workloads that send messages (older
+    # saved runs have no such part at all).
+    shown = [k for k in PARTS_LABEL
+             if k != "server_wait"
+             or any(r["parts_us"].get(k, {}).get("max", 0) > 0 for r in breps + creps)]
     prow = "".join(
         f"<tr><td>{e_(PARTS_LABEL[k])}</td>"
         f"<td class='num'>{_range([r['parts_us'][k]['max'] for r in breps], _ms)}</td>"
         + (f"<td class='num'>{_range([r['parts_us'][k]['max'] for r in creps], _ms)}</td>" if creps else "")
-        + "</tr>" for k in PARTS_LABEL)
+        + "</tr>" for k in shown)
     roots = {}
     for r in breps:
         for c, n in r.get("chain_root_causes", {}).items():
