@@ -89,10 +89,10 @@ QNX SDP 8.0, QNX Neutrino RTOS 8.0, C, `qcc` (gcc 12.2), `tracelogger`, `tracepr
 - Repository: https://github.com/vychopade/qbridge (MIT licence)
 - Demo video: **[YouTube link]**
 - Build and run instructions: README, "Build and run"
-- QNX-specific code: README, "How it uses QNX", and [docs/ARCHITECTURE.md](ARCHITECTURE.md)
+- QNX-specific code: README, "How it uses QNX", and [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
 - Check without a target: README, "Quick check without a target" (`qbridge replay`)
-- Codelab: [docs/codelab/README.md](codelab/README.md)
-- Example reports: [docs/example-report.html](example-report.html) (priority inversion), [docs/example-report-overload.html](example-report-overload.html) (CPU overload)
+- Codelab: [docs/codelab/README.md](../docs/codelab/README.md)
+- Example reports: [docs/example-report.html](../docs/example-report.html) (priority inversion), [docs/example-report-overload.html](../docs/example-report-overload.html) (CPU overload)
 
 ## GitHub About (set these on the repository page, gear icon next to "About")
 

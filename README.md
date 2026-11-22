@@ -237,8 +237,9 @@ The general QNX debugging tools from the project's first phase still work and ar
 | `examples/rtdemo/` | The real-time demo workload ([README](examples/rtdemo/README.md)) |
 | `examples/` | Other demo programs |
 | `tests/` | The tests; `tests/fixtures/` holds output recorded on the real target (also used by `qbridge replay`) |
-| `docs/` | [ARCHITECTURE.md](docs/ARCHITECTURE.md), [TOOLS.md](docs/TOOLS.md), [DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md), [SUBMISSION.md](docs/SUBMISSION.md), the two example reports |
+| `docs/` | [ARCHITECTURE.md](docs/ARCHITECTURE.md), [TOOLS.md](docs/TOOLS.md), the codelab, the two example reports |
 | `docs/codelab/` | The codelab "Write a QNX resource manager that serves live data as files" and its example |
+| `hackathon/` | Hackathon material: [DEMO_SCRIPT.md](hackathon/DEMO_SCRIPT.md) (video script), [SUBMISSION.md](hackathon/SUBMISSION.md) (Devpost text) |
 
 ## Licence
 
