@@ -1,0 +1,79 @@
+{
+ "diagnosis_id": "20261122-162501-diagnose-rtdemo",
+ "trace_id": "20261122-162455-trace",
+ "workload_args": [
+  "-s",
+  "msgpass"
+ ],
+ "rtdemo_pids": [
+  21360661,
+  21372930
+ ],
+ "threads": {
+  "S-server": [
+   21372930,
+   1
+  ],
+  "B-worker": [
+   21360661,
+   2
+  ],
+  "A-control": [
+   21360661,
+   3
+  ]
+ },
+ "findings": [
+  {
+   "rule": "msgpass_priority_inversion",
+   "title": "Priority inversion through message passing: rtdemo[21360661] waits on rtdemo[21372930]",
+   "confidence": "high",
+   "explanation": "rtdemo[21360661] 'A-control' (priority 30) waits for a reply from rtdemo[21372930] 'S-server', which serves it at priority 10, while rtdemo[21360661] 'B-worker' (priority 20) keeps the server's CPU. The reply cannot come until the middle-priority work stops, so the high-priority client waits for unrelated work. No mutex is involved.",
+   "evidence": [
+    "In 16 of 23 snapshots rtdemo[21360661] 'A-control' (priority 30) was waiting on a message to process rtdemo[21372930] (REPLY 16), for up to 44 ms.",
+    "In 16 of those, the server's working thread rtdemo[21372930] 'S-server' ran at priority 10, below its client. On QNX a server thread that receives a message normally runs at the client's priority, so it was not inheriting it.",
+    "In 9 snapshot(s) a thread between the two priorities had the server's CPU: rtdemo[21360661] 'B-worker' at priority 20 (RUNNING).",
+    "The deadline report for A-control shows 1041 misses in 130 run(s) of consecutive misses; 130 of those runs started with a long wait for a server's reply (worst 47.4 ms from send to reply; the server's usual answer time is 4.0 ms)."
+   ],
+   "could_not_determine": [
+    "Snapshots are instants: 23 were taken, and qbridged reads processes one after another, so client and server are not read at exactly the same moment.",
+    "Why the server does not inherit the client's priority: qbridge cannot read a channel's flags. _NTO_CHF_FIXED_PRIORITY on the server's channel has this effect; so would a server that sets its own priority after receiving.",
+    "Which server thread received this client's message, if the server process has several working threads: the snapshot names the process, not the thread.",
+    "A worst case: finite runs cannot prove the deadline will always be met after a fix."
+   ],
+   "suggested_fix": "Let the server inherit its clients' priority, the QNX default: create its channel without _NTO_CHF_FIXED_PRIORITY (and do not lower the server thread's priority after MsgReceive). The server then works for a client at the client's priority, so a middle-priority thread can no longer delay the reply. If the server must keep a fixed priority, run it above the threads that compete for its CPU.",
+   "subject": {
+    "pid": 21360661,
+    "server_pid": 21372930,
+    "client": {
+     "tid": 3,
+     "thread_name": "A-control",
+     "priority": 30
+    },
+    "server": {
+     "pid": 21372930,
+     "tid": 1,
+     "thread_name": "S-server",
+     "priority": 10
+    },
+    "middle": [
+     {
+      "pid": 21360661,
+      "tid": 2,
+      "thread_name": "B-worker",
+      "priority": 20
+     }
+    ]
+   },
+   "observations": {
+    "snapshots": 23,
+    "with_wait": 16,
+    "server_below_client": 16,
+    "middle_running": 9
+   }
+  }
+ ],
+ "live_status": [
+  "confirmed"
+ ]
+}

@@ -1,0 +1,28 @@
+{
+ "diagnosis_id": "20261122-162647-diagnose-rtdemo",
+ "trace_id": "20261122-162641-trace",
+ "workload_args": [
+  "-s",
+  "msgpass"
+ ],
+ "rtdemo_pids": [
+  24223765,
+  24236034
+ ],
+ "threads": {
+  "S-server": [
+   24236034,
+   1
+  ],
+  "B-worker": [
+   24223765,
+   2
+  ],
+  "A-control": [
+   24223765,
+   3
+  ]
+ },
+ "findings": [],
+ "live_status": []
+}
