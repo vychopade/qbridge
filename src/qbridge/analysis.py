@@ -512,16 +512,24 @@ def msgpass_inversion(snapshots: list[list[dict]], deadline_report: dict | None 
     return findings
 
 
-def msgpass_inheritance_observed(snapshots: list[list[dict]]) -> list[dict]:
+def msgpass_inheritance_observed(snapshots: list[list[dict]], task: str | None) -> list[dict]:
     """Message waits where the server thread runs at least at its client's
-    priority although its own priority is lower: inheritance working."""
+    priority. That is what QNX's priority inheritance through message passing
+    does, but unlike a mutex boost it changes the server's priority itself:
+    on QNX 8.0 procfs then reports priority and real_priority both at the
+    client's level (seen on the reference target). So a snapshot cannot tell an
+    inherited priority from one the server was given; it is reported as
+    consistent with inheritance, not as proof. Only the deadline task is
+    looked at (other system clients are not what was asked about)."""
     seen = []
+    if not task:
+        return seen
     for i, snap in enumerate(snapshots):
         for c in snap:
-            if c.get("state") not in _MSG_STATES:
+            if c.get("state") != "REPLY" or c.get("thread_name") != task:
                 continue
             for w in _server_workers(snap, c):
-                if w["priority"] >= c["priority"] > w.get("real_priority", w["priority"]):
+                if w["priority"] >= c["priority"]:
                     seen.append({"snapshot": i, "client": c.get("thread_name"),
                                  "client_priority": c["priority"], "server": w.get("thread_name"),
                                  "server_pid": w["pid"], "server_priority": w["priority"],
@@ -559,7 +567,7 @@ def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None,
                 + msgpass_inversion(snapshots, deadline_report)
                 + cpu_preemption(snapshots, deadline_report, timing_checks))
     inherited = inheritance_observed(snapshots)
-    msg_inherited = msgpass_inheritance_observed(snapshots)
+    msg_inherited = msgpass_inheritance_observed(snapshots, (deadline_report or {}).get("task"))
     order = {"high": 0, "medium": 1, "low": 2}
     findings.sort(key=lambda f: order[f["confidence"]])
     if findings:
@@ -583,9 +591,9 @@ def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None,
                     f"while '{x['waiter']}' (priority {x['waiter_priority']}) waited.")
     if msg_inherited:
         x = msg_inherited[0]
-        summary += (f" Message-passing priority inheritance was seen working "
-                    f"{len(msg_inherited)} time(s): e.g. server '{x['server']}' ran at priority "
-                    f"{x['server_priority']} (its own priority is {x['server_real_priority']}) while "
+        summary += (f" In {len(msg_inherited)} snapshot(s) a server ran at its waiting client's "
+                    f"priority, as QNX's priority inheritance through message passing does: e.g. "
+                    f"'{x['server']}' at priority {x['server_priority']} ({x['server_state']}) while "
                     f"'{x['client']}' (priority {x['client_priority']}) waited for its reply.")
     out = {"summary": summary, "findings": findings, "inheritance_observed": inherited,
            "snapshots": len(snapshots)}
