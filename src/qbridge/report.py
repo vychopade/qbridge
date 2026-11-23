@@ -133,7 +133,8 @@ def _cdf_chart(before: list[float], after: list[float], deadline_us: float) -> s
               '<span class="key after"></span>after<span class="key deadline"></span>deadline</div></figure>')
 
 
-_STATE_CLASS = {"RUNNING": "st-run", "READY": "st-ready", "MUTEX": "st-mutex"}
+_STATE_CLASS = {"RUNNING": "st-run", "READY": "st-ready", "MUTEX": "st-mutex",
+                "SEND": "st-msg", "REPLY": "st-msg"}
 
 
 def _trace_timeline(tl: dict) -> str:
@@ -173,7 +174,10 @@ def _trace_timeline(tl: dict) -> str:
             + "".join(out) + '</svg><div class="legend"><span class="key st-run"></span>running'
             '<span class="key st-ready"></span>ready (waiting for the CPU)'
             '<span class="key st-mutex"></span>blocked on a mutex'
-            '<span class="key st-bg"></span>sleeping or other</div></figure>')
+            + ('<span class="key st-msg"></span>waiting for a server (SEND/REPLY)'
+               if any(sp["state"] in ("SEND", "REPLY") for ln in lanes for sp in ln["spans"])
+               else "")
+            + '<span class="key st-bg"></span>sleeping or other</div></figure>')
 
 
 def _trace_block(f: dict) -> str:
@@ -525,9 +529,10 @@ svg .line { fill:none; stroke-width:2.2; } svg .line.before { stroke:var(--befor
 svg .st-run, .key.st-run { fill:var(--after); background:var(--after); }
 svg .st-ready, .key.st-ready { fill:var(--warn); background:var(--warn); }
 svg .st-mutex, .key.st-mutex { fill:var(--miss); background:var(--miss); }
+svg .st-msg, .key.st-msg { fill:var(--accent); background:var(--accent); }
 svg .st-bg, .key.st-bg { fill:var(--line); background:var(--line); }
 svg .lane { fill:var(--ink); font-size:12px; }
-.key.st-run, .key.st-ready, .key.st-mutex { height:10px; }
+.key.st-run, .key.st-ready, .key.st-mutex, .key.st-msg { height:10px; }
 ul.steps li.ok strong { color:var(--good); } ul.steps li.no strong { color:var(--bad); }
 .trace-ok { color:var(--good); font-weight:600; } .trace-no { color:var(--warn); font-weight:600; }
 .c-high { color:var(--good); } .c-medium { color:var(--warn); } .c-low { color:var(--muted); }
