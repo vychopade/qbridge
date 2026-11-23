@@ -27,16 +27,21 @@ SCENARIOS = [
     ("scenario_inversion", "rtdemo, mutex without priority inheritance"),
     ("scenario_overload_fault", "rtdemo -s overload -a 15 (A below the CPU-heavy B)"),
     ("scenario_overload_fixed", "rtdemo -s overload -a 30 (the fix)"),
+    ("scenario_msgpass_fault", "rtdemo -s msgpass, server channel with _NTO_CHF_FIXED_PRIORITY"),
+    ("scenario_msgpass_fixed", "rtdemo -s msgpass, server inherits its client's priority (the fix)"),
 ]
 TRACES = [
     ("inversion", "rtdemo, mutex without priority inheritance"),
     ("overload_fault", "rtdemo -s overload -a 15"),
+    ("msgpass_fault", "rtdemo -s msgpass (fixed-priority server channel)"),
 ]
 RULE_NAMES = {analysis.RULE_MUTEX_INVERSION: "Priority inversion on a mutex",
-              analysis.RULE_CPU_PREEMPTION: "CPU preemption"}
+              analysis.RULE_CPU_PREEMPTION: "CPU preemption",
+              analysis.RULE_MSGPASS_INVERSION: "Priority inversion through message passing"}
 EXPERIMENTS = [
     ("experiment_live", "source change: PTHREAD_PRIO_NONE -> PTHREAD_PRIO_INHERIT"),
     ("experiment_live_overload", "scheduling change: A's priority 15 -> 30"),
+    ("experiment_live_msgpass", "source change: drop _NTO_CHF_FIXED_PRIORITY from the server's channel"),
 ]
 
 
@@ -132,5 +137,5 @@ def text(out: dict) -> str:
     ok = sum(c["matches_target"] for c in out["checks"])
     lines.append(f"{ok} of {n} results are the same as qbridge reported on the target.")
     lines.append("Full reports from those runs: docs/example-report.html, "
-                 "docs/example-report-overload.html")
+                 "docs/example-report-overload.html, docs/example-report-msgpass.html")
     return "\n".join(lines) + "\n"

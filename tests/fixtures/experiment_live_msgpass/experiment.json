@@ -1,0 +1,220 @@
+{
+ "id": "20261123-000237-exp-rtdemo",
+ "state": "rolled_back",
+ "created": "2026-11-23T00:03:13",
+ "program": "rtdemo",
+ "project_dir": "examples/rtdemo",
+ "binary": "build/rtdemo",
+ "workload": {
+  "seconds": 10,
+  "repeats": 3,
+  "args": [
+   "-s",
+   "msgpass"
+  ]
+ },
+ "baseline": {
+  "binary_sha256": "acd83e324bc5d128cb0a2eb8871e03efe4bfbc44dd3cffd4094a8e76b2127bd7",
+  "source_files": [
+   "Makefile",
+   "rtdemo.c"
+  ],
+  "runs": [
+   {
+    "run_id": "20261123-000250-20261123-000237-exp-rtdemo-baseline-1",
+    "binary_sha256": "acd83e324bc5d128cb0a2eb8871e03efe4bfbc44dd3cffd4094a8e76b2127bd7",
+    "summary": "A-control: 825 of 999 cycles missed the 10 ms deadline (82.6%); worst response 54.2 ms, 99th percentile 48.3 ms, mean 25.60 ms. The misses form 93 run(s) of consecutive misses (longest 29); what started each run: waiting for a server's reply (message passing) (93).",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261123-000301-20261123-000237-exp-rtdemo-baseline-2",
+    "binary_sha256": "acd83e324bc5d128cb0a2eb8871e03efe4bfbc44dd3cffd4094a8e76b2127bd7",
+    "summary": "A-control: 819 of 999 cycles missed the 10 ms deadline (82.0%); worst response 96.0 ms, 99th percentile 75.2 ms, mean 26.60 ms. The misses form 91 run(s) of consecutive misses (longest 58); what started each run: waiting for a server's reply (message passing) (91).",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261123-000313-20261123-000237-exp-rtdemo-baseline-3",
+    "binary_sha256": "acd83e324bc5d128cb0a2eb8871e03efe4bfbc44dd3cffd4094a8e76b2127bd7",
+    "summary": "A-control: 812 of 999 cycles missed the 10 ms deadline (81.3%); worst response 59.7 ms, 99th percentile 48.6 ms, mean 25.40 ms. The misses form 96 run(s) of consecutive misses (longest 29); what started each run: waiting for a server's reply (message passing) (96).",
+    "cross_check": true,
+    "qbridged_check": true
+   }
+  ],
+  "build_warnings": 0
+ },
+ "history": [
+  {
+   "time": "2026-11-23T00:03:13",
+   "event": "baseline measured"
+  },
+  {
+   "time": "2026-11-23T00:03:38",
+   "event": "change proposed"
+  },
+  {
+   "time": "2026-11-23T00:37:08",
+   "event": "approved (qbridge CLI prompt)"
+  },
+  {
+   "time": "2026-11-23T00:37:23",
+   "event": "change applied"
+  },
+  {
+   "time": "2026-11-23T00:38:00",
+   "event": "candidate measured: improved"
+  },
+  {
+   "time": "2026-11-23T00:38:33",
+   "event": "rolled back"
+  }
+ ],
+ "updated": "2026-11-23T00:38:33",
+ "proposal": {
+  "kind": "source",
+  "file": "rtdemo.c",
+  "find": "#define SERVER_CHANNEL_FLAGS _NTO_CHF_FIXED_PRIORITY",
+  "replace": "#define SERVER_CHANNEL_FLAGS 0",
+  "description": "Let the server inherit its client's priority (create its channel without _NTO_CHF_FIXED_PRIORITY)",
+  "diagnosis_id": "20261123-000334-diagnose-rtdemo",
+  "diff": "--- a/rtdemo.c\n+++ b/rtdemo.c\n@@ -77,7 +77,7 @@\n /* _NTO_CHF_FIXED_PRIORITY: a server thread receiving on this channel keeps\n  * its own priority instead of taking the client's. Creating the channel\n  * without it (0) is the fix. */\n-#define SERVER_CHANNEL_FLAGS _NTO_CHF_FIXED_PRIORITY\n+#define SERVER_CHANNEL_FLAGS 0\n \n /* ---- Fixed workload ------------------------------------------------------- */\n #define A_PRIO        30\n",
+  "diff_sha256": "c3bd788a131bbd48679e61ae5bb519306fc6899e9cc3f243472907800ce6198e",
+  "proposed": "2026-11-23T00:03:38"
+ },
+ "approval": {
+  "diff_sha256": "c3bd788a131bbd48679e61ae5bb519306fc6899e9cc3f243472907800ce6198e",
+  "via": "qbridge CLI prompt",
+  "time": "2026-11-23T00:37:08"
+ },
+ "candidate": {
+  "binary_sha256": "d36820fcb89ff6aa651c6604c53ecca407c4127f746d0130c85ffe9a858117b4",
+  "runs": [
+   {
+    "run_id": "20261123-003738-20261123-000237-exp-rtdemo-candidate-1",
+    "binary_sha256": "d36820fcb89ff6aa651c6604c53ecca407c4127f746d0130c85ffe9a858117b4",
+    "summary": "A-control: 9 of 999 cycles missed the 10 ms deadline (0.9%); worst response 19.4 ms, 99th percentile 9.7 ms, mean 6.28 ms. The misses form 4 run(s) of consecutive misses (longest 4); what started each run: waiting for a server's reply (message passing) (2), late wake-up (scheduling latency) (1), using more CPU time than usual (1).",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261123-003749-20261123-000237-exp-rtdemo-candidate-2",
+    "binary_sha256": "d36820fcb89ff6aa651c6604c53ecca407c4127f746d0130c85ffe9a858117b4",
+    "summary": "A-control: 4 of 999 cycles missed the 10 ms deadline (0.4%); worst response 19.0 ms, 99th percentile 7.3 ms, mean 6.16 ms. The misses form 1 run(s) of consecutive misses (longest 4); what started each run: waiting for a server's reply (message passing) (1).",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261123-003800-20261123-000237-exp-rtdemo-candidate-3",
+    "binary_sha256": "d36820fcb89ff6aa651c6604c53ecca407c4127f746d0130c85ffe9a858117b4",
+    "summary": "A-control: 24 of 999 cycles missed the 10 ms deadline (2.4%); worst response 28.0 ms, 99th percentile 18.4 ms, mean 6.42 ms. The misses form 6 run(s) of consecutive misses (longest 12); what started each run: late wake-up (scheduling latency) (3), waiting for a server's reply (message passing) (2), using more CPU time than usual (1).",
+    "cross_check": true,
+    "qbridged_check": true
+   }
+  ],
+  "args": [
+   "-s",
+   "msgpass"
+  ],
+  "build_warnings": 0
+ },
+ "comparison": {
+  "runs_before": 3,
+  "runs_after": 3,
+  "misses": {
+   "before": {
+    "runs": [
+     825,
+     819,
+     812
+    ],
+    "min": 812,
+    "max": 825
+   },
+   "after": {
+    "runs": [
+     9,
+     4,
+     24
+    ],
+    "min": 4,
+    "max": 24
+   }
+  },
+  "worst_response_us": {
+   "before": {
+    "runs": [
+     54162.3,
+     95985.0,
+     59680.6
+    ],
+    "min": 54162.3,
+    "max": 95985.0
+   },
+   "after": {
+    "runs": [
+     19371.6,
+     18960.1,
+     27991.1
+    ],
+    "min": 18960.1,
+    "max": 27991.1
+   }
+  },
+  "p99_response_us": {
+   "before": {
+    "runs": [
+     48296.5,
+     75233.1,
+     48601.7
+    ],
+    "min": 48296.5,
+    "max": 75233.1
+   },
+   "after": {
+    "runs": [
+     9697.0,
+     7259.2,
+     18418.9
+    ],
+    "min": 7259.2,
+    "max": 18418.9
+   }
+  },
+  "worst_lock_wait_us": {
+   "before": {
+    "runs": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "min": 0.0,
+    "max": 0.0
+   },
+   "after": {
+    "runs": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "min": 0.0,
+    "max": 0.0
+   }
+  },
+  "deadline_us": 10000.0,
+  "verdict": "improved",
+  "explanation": "Every run after the change beat every run before it. Misses: 812-825 before, 4-24 after; worst response 54.2-96.0 ms before, 19.0-28.0 ms after. Based on 3 + 3 finite runs on this target; this does not prove a worst case, and virtual-machine timing adds noise."
+ },
+ "rollback": {
+  "restored_files": [
+   "rtdemo.c"
+  ],
+  "target_sha256": "acd83e324bc5d128cb0a2eb8871e03efe4bfbc44dd3cffd4094a8e76b2127bd7",
+  "matches_baseline": true,
+  "workload_args": [
+   "-s",
+   "msgpass"
+  ],
+  "time": "2026-11-23T00:38:33"
+ }
+}

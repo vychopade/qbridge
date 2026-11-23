@@ -19,7 +19,7 @@ Detect  ->  Diagnose  ->  Propose  ->  (a person approves)  ->  Test  ->  Measur
 | Step | Tool (MCP / CLI) | What happens |
 |---|---|---|
 | Detect | `qnx_measure` / `qbridge measure` | Runs the workload for a fixed time. Every cycle's response is split into backlog, scheduling latency, lock wait, CPU time and preempted time, and each run of consecutive misses is attributed to what started it. The program's own numbers and qbridged's numbers are cross-checked. |
-| Diagnose | `qnx_diagnose` | Takes thread-state snapshots from qbridged while the workload runs. Deterministic rules find a priority inversion on a mutex (the holder and the mutex protocol are read from the mutex in process memory) or CPU preemption (the deadline task is ready while a higher-priority thread has its CPU). Each finding lists its evidence, a confidence level and what it could not determine. With `trace`, a kernel trace from the same run checks every step of each finding; it is marked confirmed only if all of them are seen. |
+| Diagnose | `qnx_diagnose` | Takes thread-state snapshots from qbridged while the workload runs. Deterministic rules find a priority inversion on a mutex (the holder and the mutex protocol are read from the mutex in process memory), a priority inversion through QNX message passing (the task waits for a reply from a server process that runs below it while a middle-priority thread has the server's CPU), or CPU preemption (the deadline task is ready while a higher-priority thread has its CPU). Each finding lists its evidence, a confidence level and what it could not determine. With `trace`, a kernel trace from the same run checks every step of each finding; it is marked confirmed only if all of them are seen. |
 | Propose | `qnx_experiment_propose` | One exact change, shown as a diff and not applied: an edit to one source file, or new workload arguments (a scheduling change such as a thread priority, with the same binary). |
 | Approve | `qbridge experiment approve` | **Only a person, at an interactive terminal.** There is no MCP tool for it. The approval is tied to the diff's sha256. |
 | Test | `qnx_experiment_run` | Applies the change, rebuilds with `qcc`, redeploys and reruns the identical workload. |
@@ -56,6 +56,16 @@ A kernel trace from the same kind of run confirmed each step of the finding: in 
 
 Verdict "improved". The one miss after the change started with a late wake-up (9.2 ms), not with preemption; that day's timer check measured CPU 1's wake-ups up to 28.4 ms late. Report: [docs/example-report-overload.html](docs/example-report-overload.html).
 
+**Third scenario: priority inversion through message passing, a QNX-specific fault.** On QNX, services are separate processes that receive messages, and a server thread that receives a message normally runs at the sending client's priority. `rtdemo -s msgpass` has the control task ask a separate server process (priority 10) for a result each cycle with `MsgSend`; the server's channel is created with `_NTO_CHF_FIXED_PRIORITY`, which turns that inheritance off. No mutex is involved. qbridge found **priority inversion through message passing (high confidence)**: the control task (30) was REPLY-blocked on the server, the server's thread ran at 10, and 'B-worker' (20) had its CPU; every run of misses started with a long wait for the server's reply (40-90 ms against a usual 4 ms). The kernel trace confirmed each step: whenever the server was not doing the work during the control task's waits, it was READY at priority 10 (100% of that time) while 'B-worker' ran, and all 100 waits ended while the server was running. The proposed fix was one line (create the channel without the flag), approved at the prompt and measured the same way:
+
+| | Before | After |
+|---|---|---|
+| Missed deadlines (of 999 cycles per run) | 825, 819, 812 | **9, 4, 24** |
+| Worst response | 54.2-96.0 ms | **19.0-28.0 ms** |
+| 99th percentile | 48.3-75.2 ms | 7.3-18.4 ms |
+
+Verdict "improved": every run after the change beat every run before it, but the task still missed a few deadlines. In those cycles the server's 4 ms of work took 8-13 ms of wall time and the control task's own 1 ms of work up to 10 ms, with no thread at or above their priority competing on that CPU; that session's timer check measured CPU 1's wake-ups up to 9.9 ms late. This points to the virtual machine slowing the guest, not to the inversion, but these runs cannot prove it. Report: [docs/example-report-msgpass.html](docs/example-report-msgpass.html).
+
 ## How it uses QNX
 
 The target side is native QNX 8.0 C code. These are the places to look:
@@ -68,12 +78,14 @@ The target side is native QNX 8.0 C code. These are the places to look:
 | `setup_events`, `on_pulse`, `events_read`, `qb_unblock` | Process-death and core-dump events pushed by pulses; a read of `/dev/qbridge/events` blocks until something happens | `procmgr_event_notify_add`, `DCMD_DUMPER_NOTIFYEVENT`, `MsgRegisterEvent`, `pulse_attach`, held replies (`_RESMGR_NOREPLY`, `MsgReply`, `MsgError`) |
 | [target/qbridged/qbridge_task.h](target/qbridged/qbridge_task.h) `qbt_register`, `qbt_report` | A real-time task registers once, then reports every cycle without ever blocking | `devctl` (a `MsgSend`) to register; `MsgSendPulse` per cycle |
 | [target/qbridged/qb_deadlines.c](target/qbridged/qb_deadlines.c) `qbd_devctl`, `qbd_on_pulse` | Per-task deadline statistics in memory set aside at startup, served at `/dev/qbridge/deadlines`; pulses accepted only from the registering connection | resmgr devctl handler, pulse handler, kernel-supplied `scoid` |
-| [examples/rtdemo/rtdemo.c](examples/rtdemo/rtdemo.c) `LOCK_PROTOCOL`, `task_a`, `setup_thread`, `scenario`, `a_prio` | The demo workload: periodic task, CPU pinning, FIFO priorities, the mutex protocol; two scenarios (`-s inversion`, `-s overload`) and the control task's priority (`-a`) | `pthread_mutexattr_setprotocol`, `clock_nanosleep(TIMER_ABSTIME)`, `ThreadCtl(_NTO_TCTL_RUNMASK)`, `SCHED_FIFO` |
+| [examples/rtdemo/rtdemo.c](examples/rtdemo/rtdemo.c) `LOCK_PROTOCOL`, `task_a`, `setup_thread`, `scenario`, `a_prio` | The demo workload: periodic task, CPU pinning, FIFO priorities, the mutex protocol; three scenarios (`-s inversion`, `-s overload`, `-s msgpass`) and the control task's priority (`-a`) | `pthread_mutexattr_setprotocol`, `clock_nanosleep(TIMER_ABSTIME)`, `ThreadCtl(_NTO_TCTL_RUNMASK)`, `SCHED_FIFO` |
+| `SERVER_CHANNEL_FLAGS`, `run_server`, `start_server` | The `-s msgpass` server: a separate process that answers the control task's messages; its channel is created with `_NTO_CHF_FIXED_PRIORITY` (the planted fault), and it exits when the client's connection goes away | `ChannelCreate`, `_NTO_CHF_FIXED_PRIORITY`, `_NTO_CHF_DISCONNECT`, `ConnectAttach`, `MsgSend`, `MsgReceive`, `MsgReply` |
+| [src/qbridge/analysis.py](src/qbridge/analysis.py) `mutex_inversion`, `msgpass_inversion`, `cpu_preemption` | The diagnosis rules over qbridged's thread snapshots | thread states `MUTEX`, `SEND`, `REPLY`, `READY`; the server process from `blocked_on.pid`; QNX priority inheritance on mutexes and through message passing |
 | [target/tools/vmjitter.c](target/tools/vmjitter.c) `timer_mode` | Measures how late timers fire on each CPU (the environment's noise floor) | `clock_nanosleep`, run masks |
 | [target/image/snippets](target/image/snippets) | Builds qbridged into the target image and starts it at boot | `mkqnximage` snippets |
 | [docs/codelab/livedata](docs/codelab/livedata) `live_read`, `live_write`, `live_ocb_calloc` | The codelab's stand-alone example: a resource manager serving `/dev/livedata/uptime` (live, read-only) and `/dev/livedata/message` (writable) | `resmgr_attach`, custom attribute and OCB, `iofunc_read_verify` / `iofunc_write_verify`, `resmgr_msgget` |
 | [src/qbridge/tools.py](src/qbridge/tools.py) `capture_trace`; [commands.py](src/qbridge/commands.py) `_rule_tracelogger` | Records a short kernel trace on the target in the same run as the diagnosis and decodes it on the host | instrumented kernel `procnto-smp-instr`, `tracelogger` (wide mode, class filters), SDP `traceprinter` |
-| [src/qbridge/parsers/kev.py](src/qbridge/parsers/kev.py) `parse`; [src/qbridge/traceconfirm.py](src/qbridge/traceconfirm.py) `confirm_preemption`, `confirm_inversion` | Turns kernel events into per-thread state spans and checks each step of a finding against them | `THREAD` class events (`THRUNNING`, `THREADY`, `THMUTEX`, ...), `PROCTHREAD_NAME`, `CONTROL TIME` |
+| [src/qbridge/parsers/kev.py](src/qbridge/parsers/kev.py) `parse`; [src/qbridge/traceconfirm.py](src/qbridge/traceconfirm.py) `confirm_preemption`, `confirm_inversion`, `confirm_msgpass` | Turns kernel events into per-thread state spans and checks each step of a finding against them | `THREAD` class events (`THRUNNING`, `THREADY`, `THMUTEX`, `THSEND`, `THREPLY`, ...), `PROCTHREAD_NAME`, `CONTROL TIME` |
 
 The host side (Python, no dependencies beyond the standard library) builds with the SDP's `qcc`, talks to the target over ssh, and analyses gdb output when crash analysis is used. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the pieces fit together.
 
@@ -93,14 +105,14 @@ qbridge replay
 `qbridge replay` runs qbridge's diagnosis rules, kernel-trace checks and experiment verdicts on data recorded on the reference target (thread snapshots, deadline reports, kernel traces and per-run reports, kept in `tests/fixtures/`). It then compares each result with what qbridge reported on the target at the time. It ends with:
 
 ```
-7 of 7 results are the same as qbridge reported on the target.
+11 of 11 results are the same as qbridge reported on the target.
 ```
 
 It measures nothing new. It shows that the analysis is deterministic and reproduces the recorded results. On Linux or macOS, activate the venv with `source .venv/bin/activate`.
 
 Then:
 - `pip install -e ".[dev]"` and `pytest` run the full test suite, which also uses recorded target output.
-- Open [docs/example-report.html](docs/example-report.html) (priority inversion, fixed in the source) and [docs/example-report-overload.html](docs/example-report-overload.html) (CPU preemption, fixed by a priority change) in a browser. These are the HTML reports from the recorded experiments, with the kernel trace timelines.
+- Open [docs/example-report.html](docs/example-report.html) (priority inversion, fixed in the source) [docs/example-report-overload.html](docs/example-report-overload.html) (CPU preemption, fixed by a priority change) and [docs/example-report-msgpass.html](docs/example-report-msgpass.html) (priority inversion through message passing, fixed in the source) in a browser. These are the HTML reports from the recorded experiments, with the kernel trace timelines.
 - The codelab, [docs/codelab](docs/codelab/README.md), walks through writing a small QNX resource manager; that part needs the QNX SDP and a target.
 
 ## Build and run

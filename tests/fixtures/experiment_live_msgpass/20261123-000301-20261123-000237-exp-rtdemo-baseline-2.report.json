@@ -1,0 +1,173 @@
+{
+  "task": "A-control",
+  "period_us": 10000.0,
+  "deadline_us": 10000.0,
+  "cycles": 999,
+  "misses": 819,
+  "miss_rate": 0.8198198198198198,
+  "miss_chains": 91,
+  "longest_chain": 58,
+  "response_us": {
+    "count": 999,
+    "min": 5907.4,
+    "max": 95985.0,
+    "mean": 26602.864764764763,
+    "stddev": 15376.265682017976,
+    "p50": 26508.3,
+    "p99": 75233.1
+  },
+  "parts_us": {
+    "backlog": {
+      "count": 999,
+      "min": 0.0,
+      "max": 85985.0,
+      "mean": 17189.21051051051,
+      "stddev": 14649.393408510025,
+      "p50": 16508.3,
+      "p99": 65233.1
+    },
+    "latency": {
+      "count": 999,
+      "min": 10.5,
+      "max": 6593.7,
+      "mean": 257.2602602602603,
+      "stddev": 499.2853645838419,
+      "p50": 36.6,
+      "p99": 1878.5
+    },
+    "lock_wait": {
+      "count": 999,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0,
+      "stddev": 0.0,
+      "p50": 0.0,
+      "p99": 0.0
+    },
+    "server_wait": {
+      "count": 999,
+      "min": 4011.1,
+      "max": 50480.2,
+      "mean": 8083.73083083083,
+      "stddev": 12041.392422301431,
+      "p50": 4023.5,
+      "p99": 44251.6
+    },
+    "exec": {
+      "count": 999,
+      "min": 1016.0,
+      "max": 9016.0,
+      "mean": 1081.1615615615615,
+      "stddev": 436.8603783523268,
+      "p50": 1020.9,
+      "p99": 2221.2
+    },
+    "preempted": {
+      "count": 999,
+      "min": 0.0,
+      "max": 614.2000000000007,
+      "mean": 2.1842842842842756,
+      "stddev": 23.73321066673908,
+      "p50": 0.0,
+      "p99": 41.299999999999045
+    }
+  },
+  "exec_budget_us": 1020.9,
+  "server_budget_us": 4023.5,
+  "chain_root_causes": {
+    "server_wait": 91
+  },
+  "per_miss_primary_cause": {
+    "server_wait": 99,
+    "backlog": 720
+  },
+  "worst_chains": [
+    {
+      "first_release_us": 2300000.0,
+      "misses": 58,
+      "root_cause": "server_wait",
+      "root": {
+        "response_us": 46251.1,
+        "backlog_us": 0.0,
+        "latency_us": 1075.1,
+        "lock_wait_us": 0.0,
+        "server_wait_us": 44114.7,
+        "exec_us": 1072.1,
+        "preempted_us": 0.0
+      },
+      "worst_response_us": 95985.0
+    },
+    {
+      "first_release_us": 8200000.0,
+      "misses": 28,
+      "root_cause": "server_wait",
+      "root": {
+        "response_us": 47488.3,
+        "backlog_us": 0.0,
+        "latency_us": 2346.4,
+        "lock_wait_us": 0.0,
+        "server_wait_us": 44120.1,
+        "exec_us": 1027.6,
+        "preempted_us": 0.0
+      },
+      "worst_response_us": 59283.5
+    },
+    {
+      "first_release_us": 2100000.0,
+      "misses": 19,
+      "root_cause": "server_wait",
+      "root": {
+        "response_us": 46385.0,
+        "backlog_us": 0.0,
+        "latency_us": 1114.1,
+        "lock_wait_us": 0.0,
+        "server_wait_us": 44251.6,
+        "exec_us": 1026.5,
+        "preempted_us": 0.0
+      },
+      "worst_response_us": 51899.4
+    },
+    {
+      "first_release_us": 2900000.0,
+      "misses": 9,
+      "root_cause": "server_wait",
+      "root": {
+        "response_us": 48444.0,
+        "backlog_us": 0.0,
+        "latency_us": 1257.8,
+        "lock_wait_us": 0.0,
+        "server_wait_us": 44596.5,
+        "exec_us": 2508.5,
+        "preempted_us": 81.19999999999709
+      },
+      "worst_response_us": 48444.0
+    },
+    {
+      "first_release_us": 9500000.0,
+      "misses": 8,
+      "root_cause": "server_wait",
+      "root": {
+        "response_us": 48110.1,
+        "backlog_us": 0.0,
+        "latency_us": 2715.5,
+        "lock_wait_us": 0.0,
+        "server_wait_us": 44152.6,
+        "exec_us": 1229.8,
+        "preempted_us": 12.200000000000045
+      },
+      "worst_response_us": 48110.1
+    }
+  ],
+  "summary": "A-control: 819 of 999 cycles missed the 10 ms deadline (82.0%); worst response 96.0 ms, 99th percentile 75.2 ms, mean 26.60 ms. The misses form 91 run(s) of consecutive misses (longest 58); what started each run: waiting for a server's reply (message passing) (91).",
+  "cross_check": {
+    "checked": true,
+    "agrees": true,
+    "problems": []
+  },
+  "qbridged_check": {
+    "checked": true,
+    "slot": 2,
+    "agrees": true,
+    "problems": []
+  }
+}

@@ -45,7 +45,8 @@ def test_readme_numbers_match_the_recorded_experiments():
     """The before/after tables quote the recorded experiments."""
     import json
     for name, before, after in (("experiment_live", "310, 304, 302", "**0, 0, 0**"),
-                                ("experiment_live_overload", "301, 309, 305", "**0, 1, 0**")):
+                                ("experiment_live_overload", "301, 309, 305", "**0, 1, 0**"),
+                                ("experiment_live_msgpass", "825, 819, 812", "**9, 4, 24**")):
         e = json.loads((ROOT / "tests" / "fixtures" / name / "experiment.json").read_text(encoding="utf-8"))
         m = e["comparison"]["misses"]
         assert ", ".join(map(str, m["before"]["runs"])) == before
