@@ -362,4 +362,4 @@ Further reading in the QNX SDP 8.0 documentation:
 - *Writing a Resource Manager* (the guide), especially "Handling the _IO_READ message" and "Handling the _IO_WRITE message".
 - The C library reference for `resmgr_attach()`, `iofunc_read_verify()`, `iofunc_write_verify()` and `resmgr_msgget()`.
 
-A larger real example: [`qbridged`](../../target/qbridged/qbridged.c) in this repository serves processes, threads, mutex owners and deadline statistics under `/dev/qbridge`, using the same pattern.
+A larger real example: [`qbridged`](https://github.com/vychopade/qbridge/blob/main/target/qbridged/qbridged.c) in this repository serves processes, threads, mutex owners and deadline statistics under `/dev/qbridge`, using the same pattern.

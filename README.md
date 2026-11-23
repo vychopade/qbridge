@@ -2,13 +2,33 @@
 
 **Debugging tools tell you what happened. qbridge RT lets an AI assistant find out why a real-time task missed its deadline, test a fix, and measure whether it worked, on a real QNX 8.0 target.**
 
-Built for the QNX Global Hackathon (Developer Tooling & Host Tools). Open source under the MIT licence.
+Built during the QNX Global Hackathon, November 2026 (Developer Tooling & Host Tools). Open source under the MIT licence. Project site with the example reports: **https://vychopade.github.io/qbridge/**
+
+> **For judges, a 5-minute path**
+> 1. Watch the demo video (under 3 minutes): *link added at submission*.
+> 2. Open an example report in the browser: [mutex inversion](https://vychopade.github.io/qbridge/example-report.html), [message-passing inversion](https://vychopade.github.io/qbridge/example-report-msgpass.html), [CPU overload](https://vychopade.github.io/qbridge/example-report-overload.html).
+> 3. Check the analysis on your own computer, no QNX needed: [Quick check without a target](#quick-check-without-a-target) (`qbridge replay`, 11 of 11 recorded results reproduced).
+> 4. See the QNX-specific code: [How it uses QNX](#how-it-uses-qnx).
+
+| Fault planted in the demo workload | Diagnosis (confirmed by a kernel trace) | Approved fix | Misses per 999 cycles, 3 runs before → 3 after |
+|---|---|---|---|
+| Mutex created with `PTHREAD_PRIO_NONE` | Priority inversion on a mutex | `PTHREAD_PRIO_INHERIT` (one line) | 310, 304, 302 → 0, 0, 0 |
+| Server channel created with `_NTO_CHF_FIXED_PRIORITY` | Priority inversion through message passing | drop the flag (one line) | 825, 819, 812 → 9, 4, 24 |
+| Control task below a CPU-heavy thread | CPU preemption | priority 15 → 30, same binary | 301, 309, 305 → 0, 1, 0 |
+
+![qbridge report: verdict "improved", misses 302-310 to 0, worst response 37 ms to about 5 ms, and response time of every cycle before and after the fix](docs/images/report-verdict.png)
 
 ## The problem
 
-In a real-time system a periodic task, such as a control loop, has to finish every cycle before its deadline. When it sometimes doesn't, the cause is rarely in the task itself. It might be a lower-priority thread holding a lock, a medium-priority thread taking the CPU, a late wake-up, or the previous cycle overrunning. Finding out which takes per-cycle timing, knowledge of who holds what and who waits for whom, and an understanding of priorities. Then the fix has to be tested on the target and *measured*, because a fix that looks right can still miss deadlines.
+In a real-time system a periodic task, such as a control loop, has to finish every cycle before its deadline. When it sometimes doesn't, the cause is rarely in the task itself. It might be a lower-priority thread holding a lock, a server answering at the wrong priority, a medium-priority thread taking the CPU, a late wake-up, or the previous cycle overrunning. Finding out which takes per-cycle timing, knowledge of who holds what and who waits for whom, and an understanding of priorities. Then the fix has to be tested on the target and *measured*, because a fix that looks right can still miss deadlines.
 
 AI assistants can write QNX code, but they can't see the target, measure timing or run an experiment. qbridge RT gives them that, with a person approving every change.
+
+### Who needs this, and why QNX
+
+Teams building control software on QNX for robots, industrial machines, medical devices and vehicles add features all the time, and each one can upset the timing of a loop that used to be fine. The misses are often rare and caused by another part of the system. Today, finding the cause means capturing kernel traces by hand, reading them, guessing a fix and re-testing without a clear before-and-after.
+
+QNX gives a deadline task the means to be on time: fixed-priority preemptive scheduling, priority inheritance on mutexes and through message passing, and a kernel trace detailed enough to confirm what happened. Those same mechanisms are where timing goes wrong when they are switched off or misused. Because QNX services are separate processes that talk by messages, an inversion through a server is a real risk that generic tools do not look for. qbridge RT turns these mechanisms into one repeatable loop that an AI assistant can drive and a person controls: diagnose with evidence, confirm with a trace, test one approved change, measure it.
 
 ## What it does
 

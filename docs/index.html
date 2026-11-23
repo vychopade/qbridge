@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qbridge RT</title>
+<meta name="description" content="Find out why a real-time task on QNX 8.0 missed its deadline, test a fix and measure whether it worked.">
+<style>
+:root {
+  --bg: #ffffff; --fg: #1b1f24; --muted: #59636e; --line: #d8dee4; --card: #f6f8fa;
+  --accent: #0b6bcb; --good: #1a7f37; --bad: #c2410c; --code: #eef1f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2a3138; --card: #161b21;
+    --accent: #5aa9f6; --good: #3fb950; --bad: #f0883e; --code: #1d232a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2a3138; --card: #161b21;
+  --accent: #5aa9f6; --good: #3fb950; --bad: #f0883e; --code: #1d232a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 2rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 1.3rem; margin: 40px 0 12px; }
+p { margin: 0 0 12px; }
+a { color: var(--accent); }
+.lead { font-size: 1.15rem; color: var(--muted); margin-bottom: 20px; }
+.tag { display: inline-block; font-size: .8rem; color: var(--muted); border: 1px solid var(--line);
+  border-radius: 999px; padding: 2px 10px; margin: 0 6px 6px 0; }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+ol.path { margin: 0; padding-left: 22px; }
+ol.path li { margin: 6px 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.card h3 { margin: 0 0 6px; font-size: 1.02rem; }
+.card .what { color: var(--muted); font-size: .92rem; min-height: 4.5em; }
+.num { font-variant-numeric: tabular-nums; font-size: 1.05rem; margin: 10px 0 4px; }
+.num .b { color: var(--bad); font-weight: 600; } .num .a { color: var(--good); font-weight: 600; }
+.small { font-size: .85rem; color: var(--muted); }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
+pre { background: var(--code); padding: 12px 14px; border-radius: 8px; overflow-x: auto; font-size: .88rem; }
+img { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; display: block; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.flow { font-family: ui-monospace, Consolas, monospace; font-size: .92rem; color: var(--muted); overflow-x: auto; white-space: nowrap; }
+footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>qbridge RT</h1>
+  <p class="lead">Debugging tools tell you what happened. qbridge RT lets an AI assistant find out <em>why</em> a real-time task on QNX 8.0 missed its deadline, test a fix, and measure whether it worked, with a person approving every change.</p>
+  <p>
+    <span class="tag">QNX Global Hackathon 2026</span><span class="tag">Developer Tooling &amp; Host Tools</span><span class="tag">QNX SDP 8.0</span><span class="tag">MIT licence</span>
+  </p>
+  <p class="flow">Detect &rarr; Diagnose &rarr; confirm with a kernel trace &rarr; Propose &rarr; a person approves &rarr; Test on the target &rarr; Measure &rarr; Verify</p>
+
+  <h2>For judges: a 5-minute path</h2>
+  <div class="box">
+    <ol class="path">
+      <li><strong>Watch the demo video</strong> (under 3 minutes): <span class="small">link added at submission</span>.</li>
+      <li><strong>Open one report</strong> below. Each is a self-contained page built only from data recorded on the QNX 8.0 target.</li>
+      <li><strong>Check the analysis yourself, no QNX needed:</strong> clone the repo and run <code>qbridge replay</code>. It reruns the diagnosis rules, kernel-trace checks and experiment verdicts on the recorded data and compares them with what qbridge reported on the target (11 of 11 the same).</li>
+      <li><strong>See the QNX code:</strong> the README's <a href="https://github.com/vychopade/qbridge#how-it-uses-qnx">How it uses QNX</a> table names every QNX-specific file and function.</li>
+    </ol>
+  </div>
+
+  <h2>Three faults, three diagnoses, three measured fixes</h2>
+  <p>All three run on the same demo workload: a control task (priority 30) that must finish every 10 ms, a CPU-heavy worker (20), and a low-priority thread or server (10), all on one CPU of a QNX 8.0 virtual machine. Each fault was diagnosed live, confirmed step by step by a kernel trace, fixed through an approved experiment and measured 3 runs before and 3 after (999 cycles each).</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Priority inversion on a mutex</h3>
+      <p class="what">The shared lock is created with <code>PTHREAD_PRIO_NONE</code>, so its low-priority holder is not boosted. Fix: one line, <code>PTHREAD_PRIO_INHERIT</code>.</p>
+      <p class="num">Misses <span class="b">310, 304, 302</span> &rarr; <span class="a">0, 0, 0</span></p>
+      <p class="small">Worst response 37.0&ndash;37.1 ms &rarr; 4.1&ndash;5.4 ms</p>
+      <p><a href="example-report.html">Open the report</a></p>
+    </div>
+    <div class="card">
+      <h3>Priority inversion through message passing</h3>
+      <p class="what">A QNX-specific fault: the server's channel is created with <code>_NTO_CHF_FIXED_PRIORITY</code>, so the server does not take its client's priority. Fix: one line, drop the flag.</p>
+      <p class="num">Misses <span class="b">825, 819, 812</span> &rarr; <span class="a">9, 4, 24</span></p>
+      <p class="small">Worst response 54.2&ndash;96.0 ms &rarr; 19.0&ndash;28.0 ms. The remaining misses point to the virtual machine slowing the guest; the report says what this does and does not prove.</p>
+      <p><a href="example-report-msgpass.html">Open the report</a></p>
+    </div>
+    <div class="card">
+      <h3>CPU overload with the wrong priorities</h3>
+      <p class="what">No lock: the control task runs at 15, below the CPU-heavy worker. Fix: a scheduling change with the same binary, <code>-a 30</code>.</p>
+      <p class="num">Misses <span class="b">301, 309, 305</span> &rarr; <span class="a">0, 1, 0</span></p>
+      <p class="small">Worst response 36.1&ndash;46.2 ms &rarr; 5.0&ndash;10.6 ms</p>
+      <p><a href="example-report-overload.html">Open the report</a></p>
+    </div>
+  </div>
+
+  <h2>What a report shows</h2>
+  <p>The verdict comes first. "Improved" means every run after the change beat every run before it; anything else is "inconclusive".</p>
+  <img src="images/report-verdict.png" alt="Report for the mutex inversion: verdict improved, misses 302-310 to 0, worst response 37 ms to about 5 ms, and response-time charts before and after" loading="lazy">
+  <p style="margin-top:16px">A finding is called confirmed only if a kernel trace recorded with <code>tracelogger</code> in the same run shows every step of it:</p>
+  <img src="images/report-trace.png" alt="Kernel trace check: every step seen, with a timeline of the waiter blocked on the mutex, the holder ready but not running, and the middle-priority worker running" loading="lazy">
+
+  <h2>Why it matters</h2>
+  <p>Control loops in robots, industrial machines and vehicles must finish every cycle on time. When one occasionally misses, the cause is usually outside the task itself: a lock held by a lower-priority thread, a server that answers at the wrong priority, or a CPU-heavy thread above it. Finding which one today means capturing traces by hand, reading them, guessing a fix and hoping it holds.</p>
+  <p>QNX is the right foundation for this. It gives a deadline task the tools to be on time: fixed-priority preemptive scheduling, priority inheritance on mutexes <em>and</em> through message passing, and a kernel trace detailed enough to confirm a diagnosis. Because QNX services are separate processes that talk by messages, inversion through a server is a real risk in QNX systems, and generic tools do not look for it. qbridge RT turns those mechanisms into a repeatable loop that an AI assistant can drive and a person controls.</p>
+
+  <h2>How it is built</h2>
+  <table>
+    <tr><th>Part</th><th>What it does</th></tr>
+    <tr><td>qbridged (QNX C)</td><td>A resource manager serving live thread state, mutex holders read from process memory, process-death events and per-task deadline statistics as files under <code>/dev/qbridge</code>. Started at boot from the target image.</td></tr>
+    <tr><td>qbridge_task.h</td><td>A real-time task registers once with a <code>devctl</code> and reports every cycle with <code>MsgSendPulse</code>, so it never blocks on the monitor.</td></tr>
+    <tr><td>Diagnosis rules</td><td>Deterministic rules for mutex inversion, message-passing inversion and CPU preemption, each with evidence, a confidence level and what it could not determine.</td></tr>
+    <tr><td>Trace check</td><td>Records one second with <code>tracelogger</code>, decodes it with the SDP's <code>traceprinter</code>, and checks every step of a finding against the thread state changes.</td></tr>
+    <tr><td>Experiment loop</td><td>Proposes one exact change, waits for a person's typed approval tied to the diff's hash, rebuilds with <code>qcc</code>, redeploys, reruns, compares and rolls back.</td></tr>
+    <tr><td>MCP server and CLI</td><td>The same tools for an AI assistant (any MCP client) and for a terminal. Read-only by default; every call is in a hash-chained audit log.</td></tr>
+  </table>
+
+  <h2>Codelab</h2>
+  <p><a href="codelab/">Write a QNX resource manager that serves live data as files</a>: a step-by-step tutorial for QNX 8.0 with its own small example program, every command run and checked on a target.</p>
+
+  <h2>Try it</h2>
+<pre>git clone https://github.com/vychopade/qbridge.git
+cd qbridge
+python -m venv .venv
+.venv\Scripts\activate          (Linux/macOS: source .venv/bin/activate)
+pip install -e .
+qbridge replay</pre>
+  <p class="small">Building and running on a QNX 8.0 target (QNX SDP 8.0, <code>qcc</code> with gcc 12.2, an x86_64 image made with <code>mkqnximage</code>) is described in the <a href="https://github.com/vychopade/qbridge#build-and-run">README</a>.</p>
+
+  <footer>
+    <p>Measured on a QNX 8.0 virtual machine (VirtualBox, 2 virtual CPUs). Finite runs show the effect of a change on this workload; they do not prove a worst case. The demo workload is educational and simulated, not a model of any real product.</p>
+    <p><a href="https://github.com/vychopade/qbridge">Source on GitHub</a> &middot; MIT licence</p>
+  </footer>
+</main>
+</body>
+</html>
