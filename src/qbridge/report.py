@@ -135,6 +135,7 @@ def _cdf_chart(before: list[float], after: list[float], deadline_us: float) -> s
 
 _STATE_CLASS = {"RUNNING": "st-run", "READY": "st-ready", "MUTEX": "st-mutex",
                 "SEND": "st-msg", "REPLY": "st-msg"}
+_PRIO_LABEL_MIN_PX = 22                   # narrower bars get no priority label
 
 
 def _trace_timeline(tl: dict) -> str:
@@ -159,6 +160,7 @@ def _trace_timeline(tl: dict) -> str:
         out.append(f'<text class="lane" x="{left - 8}" y="{y + lane_h / 2 + 4}" text-anchor="end">'
                    f'{e_(ln["lane"])}: {e_(ln["thread"].split(" ", 1)[-1].strip(chr(39)))}</text>')
         out.append(f'<rect class="st-bg" x="{left}" y="{y + lane_h / 2 - 1}" width="{plot_w}" height="2"/>')
+        shown = None                      # last priority printed in this lane
         for sp in ln["spans"]:
             cls = _STATE_CLASS.get(sp["state"])
             if not cls:
@@ -167,6 +169,13 @@ def _trace_timeline(tl: dict) -> str:
             out.append(f'<rect class="{cls}" x="{x0:.1f}" y="{y}" width="{max(x1 - x0, 0.8):.1f}" '
                        f'height="{lane_h}"><title>{e_(sp["state"])} at priority {sp["priority"]}, '
                        f'{sp["end"] - sp["start"]:.2f} ms, CPU {sp["cpu"]}</title></rect>')
+            # Print the priority on the bar where it changes, so a server running
+            # below its client is visible without hovering. Only where it fits.
+            prio = sp.get("priority")
+            if prio is not None and prio != shown and x1 - x0 >= _PRIO_LABEL_MIN_PX:
+                out.append(f'<text class="prio" x="{x0 + 4:.1f}" y="{y + lane_h / 2 + 4}">'
+                           f'{e_(str(prio))}</text>')
+                shown = prio
     out.append(f'<text class="axis" x="{left + plot_w / 2}" y="{h - 2}" text-anchor="middle">'
                f'ms from {tl["window_start_ms"]:.1f} ms into the trace</text>')
     return (f'<figure class="chart"><figcaption>Kernel trace around the longest wait</figcaption>'
@@ -177,7 +186,8 @@ def _trace_timeline(tl: dict) -> str:
             + ('<span class="key st-msg"></span>waiting for a server (SEND/REPLY)'
                if any(sp["state"] in ("SEND", "REPLY") for ln in lanes for sp in ln["spans"])
                else "")
-            + '<span class="key st-bg"></span>sleeping or other</div></figure>')
+            + '<span class="key st-bg"></span>sleeping or other'
+            '<span class="note">numbers on bars: the thread\'s priority</span></div></figure>')
 
 
 def _trace_block(f: dict) -> str:
@@ -532,6 +542,9 @@ svg .st-mutex, .key.st-mutex { fill:var(--miss); background:var(--miss); }
 svg .st-msg, .key.st-msg { fill:var(--accent); background:var(--accent); }
 svg .st-bg, .key.st-bg { fill:var(--line); background:var(--line); }
 svg .lane { fill:var(--ink); font-size:12px; }
+svg .prio { fill:#fff; font-size:10px; font-weight:600; paint-order:stroke;
+  stroke:rgba(0,0,0,.55); stroke-width:2px; pointer-events:none; }
+.legend .note { color:var(--muted); margin-left:6px; }
 .key.st-run, .key.st-ready, .key.st-mutex, .key.st-msg { height:10px; }
 ul.steps li.ok strong { color:var(--good); } ul.steps li.no strong { color:var(--bad); }
 .trace-ok { color:var(--good); font-weight:600; } .trace-no { color:var(--warn); font-weight:600; }

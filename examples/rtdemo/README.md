@@ -4,7 +4,7 @@ An educational, simulated real-time workload for qbridge RT. It is not a model o
 
 ## What runs
 
-Three threads, pinned to one CPU (CPU 1 by default):
+Three threads, pinned to one CPU (CPU 1 by default). The `-s msgpass` scenario adds a server process, described [below](#third-scenario-priority-inversion-through-message-passing-qnx-specific).
 
 | Thread | Priority (FIFO) | Does |
 |---|---|---|
@@ -24,11 +24,23 @@ rtdemo -s overload -a 15
 
 There's no lock in this scenario: A does the same 1 ms of work without the shared lock, and C does not run. `-a` sets A's priority. At 15, A is **below** B (20), so every time B's 40 ms burst runs, A is ready but cannot get the CPU, and it misses its deadlines. The fix is a scheduling change, not a code change: `-a 30` puts A above B.
 
-qbridge tells the two faults apart:
-- **CPU preemption** (this scenario): A is READY while a higher-priority thread is RUNNING on its CPU, the misses start with waiting for the CPU, and lock wait is zero.
-- **Priority inversion** (the default scenario): A is MUTEX-blocked on a lock held by a lower-priority thread.
+## Third scenario: priority inversion through message passing (QNX-specific)
 
-Each rule was checked on recorded target data from the other scenario and does not fire there (`tests/test_scenarios.py`).
+```
+rtdemo -s msgpass
+```
+
+No mutex is involved. A asks a separate server process, S (`S-server`, priority 10, same CPU), for a result every cycle with `MsgSend`; S does 4 ms of work per request and replies. On QNX a server thread that receives a message normally runs at the sending client's priority, so S would serve A at 30. **Planted fault:** S's channel is created with `_NTO_CHF_FIXED_PRIORITY` (`SERVER_CHANNEL_FLAGS` near the top of [rtdemo.c](rtdemo.c)), which turns that off. S then serves A at its own priority 10, B's burst (20) preempts S in the middle of A's request, and A stays REPLY-blocked for the whole burst. The fix is one line: create the channel without the flag. S is forked before any other thread starts and exits when A's connection goes away.
+
+The results measured on the reference target are in the [main README](../../README.md#result-on-the-reference-target) and [docs/example-report-msgpass.html](../../docs/example-report-msgpass.html); the record is in `tests/fixtures/experiment_live_msgpass/`.
+
+## How qbridge tells the three faults apart
+
+- **Priority inversion on a mutex** (the default scenario): A is MUTEX-blocked on a lock held by a lower-priority thread.
+- **Priority inversion through message passing** (`-s msgpass`): A is SEND- or REPLY-blocked on a server process running below A's priority, while a middle-priority thread has the server's CPU.
+- **CPU preemption** (`-s overload`): A is READY while a higher-priority thread is RUNNING on its CPU, the misses start with waiting for the CPU, and lock wait is zero.
+
+Each rule was checked on recorded target data from the other scenarios and fires only on its own fault (`tests/test_scenarios.py`, `tests/test_msgpass.py`).
 
 Measured on the reference target (Nov 22, 2026), 3 runs of 10 s each way. The change is to the program's arguments only (same binary, checked by sha256), approved by a person at the prompt:
 
@@ -48,13 +60,14 @@ The verdict was "improved": every run after the change beat every run before it.
 | `backlog_us` | How far the previous cycle ran past this release (0 if it finished in time) |
 | `latency_us` | Scheduling latency: wake-up time minus the moment A could first have started |
 | `lock_wait_us` | Time spent waiting for the shared lock |
+| `server_wait_us` | `-s msgpass` only: time in `MsgSend`, from send to reply (the server's own work plus any wait for it) |
 | `exec_us` | CPU time A actually used (`CLOCK_THREAD_CPUTIME_ID`) |
 | `response_us` | Finish time minus release; compared with the 10 ms deadline |
 
 Execution time, scheduling latency and lock wait are kept separate so a miss can be attributed to the right cause. Samples are stored in memory allocated before the run and written to a CSV afterwards. One JSON summary line goes to stdout.
 
 ```
-rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n] [-s inversion|overload] [-a A-priority]
+rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n] [-s inversion|overload|msgpass] [-a A-priority]
 ```
 
 If qbridged is running, A also registers with it and reports every cycle by message passing ([qbridge_task.h](../../target/qbridged/qbridge_task.h)). This happens after the cycle's own timestamps, so it isn't counted in A's response, and it never blocks. `-n` turns it off. The summary line says whether A registered, its slot, and how many pulses the kernel refused (0 in every run so far).

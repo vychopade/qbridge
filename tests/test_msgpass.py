@@ -57,3 +57,23 @@ def test_recorded_live_results_match():
         d, res = _diag(name)
         key = lambda fs: [(f["rule"], f["confidence"]) for f in fs]
         assert key(res["findings"]) == key(d["result"]["findings"]), name
+
+
+def test_report_chart_shows_the_wait_and_each_threads_priority():
+    """On the recorded fault trace the chart draws the client's wait on the server
+    in its own colour and prints the server's 10 and the client's 30 on the bars."""
+    import re
+    from qbridge import report
+    _, res = _diag("msgpass_fault")
+    tl = traceconfirm.confirm(dict(res["findings"][0]), _trace("msgpass_fault"))["timeline"]
+    svg = report._trace_timeline(tl)
+    assert 'class="st-msg"' in svg and "waiting for a server" in svg
+    lanes = svg.split('class="lane"')[1:]           # one chunk per lane, in order
+    prios = [re.findall(r'class="prio"[^>]*>(\d+)<', ln) for ln in lanes]
+    names = [l["lane"] for l in tl["lanes"]]
+    by = dict(zip(names, prios))
+    assert by["client"] and set(by["client"]) == {"30"}
+    assert "10" in by["server"]
+    assert "20" in by["middle"]
+    # a label only where the priority changes, never twice in a row
+    assert all(a != b for p in prios for a, b in zip(p, p[1:]))

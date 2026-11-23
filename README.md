@@ -1,5 +1,7 @@
 # qbridge RT
 
+[![ci](https://github.com/vychopade/qbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/vychopade/qbridge/actions/workflows/ci.yml)
+
 **Debugging tools tell you what happened. qbridge RT lets an AI assistant find out why a real-time task missed its deadline, test a fix, and measure whether it worked, on a real QNX 8.0 target.**
 
 Built during the QNX Global Hackathon, November 2026 (Developer Tooling & Host Tools). Open source under the MIT licence. Project site with the example reports: **https://vychopade.github.io/qbridge/**

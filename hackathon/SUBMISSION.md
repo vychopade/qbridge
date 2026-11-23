@@ -82,7 +82,7 @@ Anyone can check the analysis without a target: `qbridge replay` reruns the diag
   - A command allowlist at the single point where commands leave for the target, with shell scripts only as fixed templates.
   - Everything confined to one deploy folder, with timeouts.
   - Rollback, and a hash-chained audit log of every action and refusal.
-- **Testing.** 253 automated tests run against output recorded on the real target, so they need no target. Every feature was also run against the real target before it was called done, and the README's commands were rerun from a fresh clone.
+- **Testing.** 254 automated tests run against output recorded on the real target, so they need no target. Every feature was also run against the real target before it was called done, and the README's commands were rerun from a fresh clone.
 - **Codelab.** "Write a QNX resource manager that serves live data as files" (`docs/codelab`) teaches the technique qbridged is built on, with its own two-step example. Every command and output in it was run on the target.
 
 ## How it meets the judging criteria
@@ -93,7 +93,7 @@ For human and automated judging alike, this section points to the evidence for e
   - Native QNX 8.0 C on the target: `target/qbridged/qbridged.c` (`resmgr_attach`, `iofunc`, `read_sync` reading `sync_t` from `/proc/<pid>/as`, held replies), `qb_deadlines.c` (devctl and pulse handlers) and `qbridge_task.h` (`MsgSendPulse`).
   - `examples/rtdemo/rtdemo.c` (`run_server`: `ChannelCreate`, `MsgReceive`, `MsgReply`).
   - Kernel traces from `tracelogger`, decoded and checked step by step (`src/qbridge/parsers/kev.py`, `src/qbridge/traceconfirm.py`).
-  - 253 tests, and `qbridge replay` reproduces all 11 recorded results.
+  - 254 tests, and `qbridge replay` reproduces all 11 recorded results.
   - The README's "How it uses QNX" table names every file and function, and a test checks that they exist.
 - **Design.**
   - One loop from detection to a verified, reversible fix, with the same tools in an AI assistant (MCP) and a terminal (CLI).
