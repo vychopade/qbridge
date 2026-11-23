@@ -363,6 +363,76 @@ def analyse(tr: kev.Trace, threads: list[str] | None = None, process: str | None
     }
 
 
+# -- Perfetto export ----------------------------------------------------------------------
+
+CPU_PID = 0          # no QNX process has pid 0; the per-CPU tracks go here
+_SKIP = ("CREATE", "DEAD", "DESTROY")   # zero-length bookkeeping states
+
+
+def _us(ms: float) -> float:
+    return round(ms * 1000, 3)
+
+
+def perfetto(tr: kev.Trace, found: list[dict] | None = None) -> dict:
+    """The trace in Chrome Trace Event JSON, which ui.perfetto.dev and chrome://tracing open.
+
+    One track per thread (a slice per state, with priority and CPU as arguments), grouped
+    by process; a "CPUs" group with one track per CPU showing which thread ran there; and
+    a marker for each pattern hint. Times are microseconds from the start of the trace."""
+    ev: list[dict] = []
+    ev.append({"ph": "M", "name": "process_name", "pid": CPU_PID, "args": {"name": "CPUs"}})
+    ev.append({"ph": "M", "name": "process_sort_index", "pid": CPU_PID, "args": {"sort_index": -1}})
+    cpus = sorted({s.cpu for v in tr.spans.values() for s in v})
+    for c in cpus:
+        ev.append({"ph": "M", "name": "thread_name", "pid": CPU_PID, "tid": c,
+                   "args": {"name": f"CPU {c}"}})
+    # Processes named in a hint first, then the busiest, so the story is at the top.
+    first: list[int] = []
+    for p in found or []:
+        for pid in [p["pid"], p.get("lower", {}).get("pid")] + [m["pid"] for m in p.get("middle", [])]:
+            if pid is not None and pid not in first:
+                first.append(pid)
+    busy: dict = defaultdict(float)
+    for k, v in tr.spans.items():
+        busy[k[0]] += sum(s.ms for s in v if s.state == "RUNNING")
+    pids = first + sorted({k[0] for k in tr.spans} - set(first), key=lambda p: -busy[p])
+    for i, pid in enumerate(pids):
+        name = tr.proc_names.get(pid, "").rsplit("/", 1)[-1] or "?"
+        ev.append({"ph": "M", "name": "process_name", "pid": pid, "args": {"name": f"{name} [{pid}]"}})
+        ev.append({"ph": "M", "name": "process_sort_index", "pid": pid, "args": {"sort_index": i}})
+    for key in sorted(tr.spans):
+        name = tr.thread_names.get(key) or f"tid {key[1]}"
+        ev.append({"ph": "M", "name": "thread_name", "pid": key[0], "tid": key[1],
+                   "args": {"name": name}})
+        for s in tr.spans[key]:
+            if s.state in _SKIP or s.end <= s.start:
+                continue
+            # Round the start and the end (not the length), so that back-to-back
+            # slices stay back to back; Perfetto rejects overlaps on one track.
+            ts, end = _us(s.start), _us(s.end)
+            ev.append({"ph": "X", "cat": "state", "name": s.state, "pid": key[0], "tid": key[1],
+                       "ts": ts, "dur": round(end - ts, 3),
+                       "args": {"priority": s.priority, "cpu": s.cpu}})
+            if s.state == "RUNNING":
+                ev.append({"ph": "X", "cat": "cpu", "name": _label(tr, key), "pid": CPU_PID,
+                           "tid": s.cpu, "ts": ts, "dur": round(end - ts, 3),
+                           "args": {"priority": s.priority, "pid": key[0], "tid": key[1]}})
+    for p in found or []:
+        title = ("possible priority inversion" if p["pattern"] == "possible_priority_inversion"
+                 else "CPU preemption")
+        ev.append({"ph": "i", "s": "t", "cat": "hint", "name": f"hint: {title}",
+                   "pid": p["pid"], "tid": p["tid"], "ts": _us(p["longest"].start),
+                   "args": {"text": p["text"], **({"cannot_tell": p["cannot_tell"]}
+                                                  if p.get("cannot_tell") else {})}})
+    h = tr.header
+    return {"traceEvents": ev, "displayTimeUnit": "ms",
+            "otherData": {"source": "qbridge trace --file",
+                          "system": " ".join(x for x in (h.get("TRACE_SYSNAME"), h.get("TRACE_SYS_RELEASE"),
+                                                         h.get("TRACE_MACHINE")) if x),
+                          "recorded": h.get("TRACE_DATE", ""),
+                          "cpus": len(cpus), "duration_ms": round(tr.duration_ms, 3)}}
+
+
 # -- HTML page ----------------------------------------------------------------------------
 
 def _timeline_for(tr: kev.Trace, p: dict) -> dict | None:

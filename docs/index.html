@@ -102,6 +102,21 @@ footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
   <p style="margin-top:16px">A finding is called confirmed only if a kernel trace recorded with <code>tracelogger</code> in the same run shows every step of it:</p>
   <img src="images/report-trace.png" alt="Kernel trace check: every step seen, with a timeline of the waiter blocked on the mutex, the holder ready but not running, and the middle-priority worker running" loading="lazy">
 
+  <h2>Any recorded trace, no target</h2>
+  <p><code>qbridge trace --file</code> reads a kernel trace that someone already recorded with <code>tracelogger</code>, from any program, and needs no target and no change to the program. For each thread it shows the time in each state, how long it waited for a CPU, and who ran instead. It flags CPU preemption and possible priority inversion as hints, and says what a trace cannot show: what a blocked thread was waiting for. It can also write the trace for <a href="https://ui.perfetto.dev">Perfetto</a>, with a track per thread and per CPU.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>The message-passing trace, analysed</h3>
+      <p class="what">One second of the whole target while the message-passing fault ran: the control task blocked on its server, the server held off the CPU by the worker.</p>
+      <p><a href="trace-msgpass.html">Open the analysis page</a></p>
+    </div>
+    <div class="card">
+      <h3>The same trace in Perfetto</h3>
+      <p class="what">Every thread's states with priorities, which thread ran on each CPU, and a marker at the hint. Perfetto reads the file in your browser.</p>
+      <p><a href="https://ui.perfetto.dev/#!/?url=https://vychopade.github.io/qbridge/traces/msgpass.perfetto.json">Open in Perfetto</a> &middot; <a href="traces/msgpass.perfetto.json" download>download the file</a></p>
+    </div>
+  </div>
+
   <h2>Why it matters</h2>
   <p>Control loops in robots, industrial machines and vehicles must finish every cycle on time. When one occasionally misses, the cause is usually outside the task itself: a lock held by a lower-priority thread, a server that answers at the wrong priority, or a CPU-heavy thread above it. Finding which one today means capturing traces by hand, reading them, guessing a fix and hoping it holds.</p>
   <p>QNX is the right foundation for this. It gives a deadline task the tools to be on time: fixed-priority preemptive scheduling, priority inheritance on mutexes <em>and</em> through message passing, and a kernel trace detailed enough to confirm a diagnosis. Because QNX services are separate processes that talk by messages, inversion through a server is a real risk in QNX systems, and generic tools do not look for it. qbridge RT turns those mechanisms into a repeatable loop that an AI assistant can drive and a person controls.</p>
@@ -113,6 +128,7 @@ footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
     <tr><td>qbridge_task.h</td><td>A real-time task registers once with a <code>devctl</code> and reports every cycle with <code>MsgSendPulse</code>, so it never blocks on the monitor.</td></tr>
     <tr><td>Diagnosis rules</td><td>Deterministic rules for mutex inversion, message-passing inversion and CPU preemption, each with evidence, a confidence level and what it could not determine.</td></tr>
     <tr><td>Trace check</td><td>Records one second with <code>tracelogger</code>, decodes it with the SDP's <code>traceprinter</code>, and checks every step of a finding against the thread state changes.</td></tr>
+    <tr><td>Recorded traces</td><td>Analyses any <code>traceprinter</code> output on the host, with no target: per-thread states and waits, preemption and possible-inversion hints, an HTML timeline and a Perfetto export.</td></tr>
     <tr><td>Experiment loop</td><td>Proposes one exact change, waits for a person's typed approval tied to the diff's hash, rebuilds with <code>qcc</code>, redeploys, reruns, compares and rolls back.</td></tr>
     <tr><td>MCP server and CLI</td><td>The same tools for an AI assistant (any MCP client) and for a terminal. Read-only by default; every call is in a hash-chained audit log.</td></tr>
   </table>
@@ -126,7 +142,8 @@ cd qbridge
 python -m venv .venv
 .venv\Scripts\activate          (Linux/macOS: source .venv/bin/activate)
 pip install -e .
-qbridge replay</pre>
+qbridge replay
+qbridge trace --file examples/traces/msgpass.txt.gz --perfetto</pre>
   <p class="small">Building and running on a QNX 8.0 target (QNX SDP 8.0, <code>qcc</code> with gcc 12.2, an x86_64 image made with <code>mkqnximage</code>) is described in the <a href="https://github.com/vychopade/qbridge#build-and-run">README</a>.</p>
 
   <footer>

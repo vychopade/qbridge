@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qbridge RT trace: msgpass.txt.gz</title>
+<style>
+:root { --bg:#f7f7f5; --card:#ffffff; --ink:#1d1d1f; --muted:#5f6368; --line:#e3e3df;
+  --before:#c2410c; --after:#0f766e; --miss:#dc2626; --accent:#1d4ed8; --code:#f1f1ee;
+  --good:#0f766e; --bad:#b91c1c; --warn:#a16207; }
+@media (prefers-color-scheme: dark) { :root { --bg:#141416; --card:#1d1d20; --ink:#ececee;
+  --muted:#a0a0a8; --line:#323238; --before:#fb923c; --after:#2dd4bf; --miss:#f87171;
+  --accent:#93b4ff; --code:#26262b; --good:#34d399; --bad:#f87171; --warn:#fbbf24; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+  font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+main { max-width:960px; margin:0 auto; padding:28px 16px 64px; }
+header h1 { font-size:26px; line-height:1.25; margin:4px 0 8px; letter-spacing:-0.01em; }
+.eyebrow { color:var(--accent); font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:.06em; margin:0; }
+.meta, .note, .muted { color:var(--muted); }
+section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-top:16px; }
+h2 { font-size:18px; margin:0 0 10px; } h3 { font-size:16px; margin:14px 0 6px; } h4 { font-size:14px; margin:12px 0 4px; }
+code { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; background:var(--code); padding:1px 5px; border-radius:4px; font-size:13px; }
+code.small { font-size:12px; }
+.pill { display:inline-block; font-weight:700; text-transform:uppercase; letter-spacing:.05em; font-size:13px;
+  padding:4px 10px; border-radius:999px; background:var(--code); }
+.v-improved .pill { background:color-mix(in srgb, var(--good) 18%, transparent); color:var(--good); }
+.v-worse .pill { background:color-mix(in srgb, var(--bad) 18%, transparent); color:var(--bad); }
+.v-inconclusive .pill { background:color-mix(in srgb, var(--warn) 18%, transparent); color:var(--warn); }
+.lead { font-size:16px; margin:10px 0 14px; }
+.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
+.kpi { border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+.kpi-label { color:var(--muted); font-size:13px; }
+.kpi-values { font-size:18px; font-weight:650; font-variant-numeric:tabular-nums;
+  display:flex; flex-wrap:wrap; align-items:baseline; }
+.before-v { color:var(--before); } .after-v { color:var(--after); } .arrow { color:var(--muted); margin:0 6px; }
+.before-v, .after-v { white-space:nowrap; }
+.kpi-note { color:var(--muted); font-size:12px; }
+.table-wrap { overflow-x:auto; }
+table { border-collapse:collapse; width:100%; font-size:14px; }
+th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+th { color:var(--muted); font-weight:600; font-size:13px; }
+td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.chart { margin:10px 0 18px; } .chart figcaption { font-size:14px; font-weight:600; margin-bottom:4px; }
+svg { width:100%; height:auto; display:block; }
+svg .grid { stroke:var(--line); stroke-width:1; } svg .tick, svg .axis { fill:var(--muted); font-size:11px; }
+svg .deadline { stroke:var(--miss); stroke-width:1.5; stroke-dasharray:6 4; }
+svg .deadline-label { fill:var(--miss); font-size:11px; }
+svg .pts.before circle { fill:var(--before); } svg .pts.after circle { fill:var(--after); }
+svg .miss circle { fill:var(--miss); }
+svg .line { fill:none; stroke-width:2.2; } svg .line.before { stroke:var(--before); } svg .line.after { stroke:var(--after); }
+.legend { font-size:13px; color:var(--muted); display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.key { display:inline-block; width:18px; height:3px; margin-left:10px; border-radius:2px; }
+.key.before { background:var(--before); } .key.after { background:var(--after); }
+.key.deadline { background:var(--miss); }
+.finding { border-left:4px solid var(--accent); padding:4px 0 4px 14px; margin:12px 0; }
+.finding-head { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+.finding-head h3 { margin:6px 0; }
+.conf { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:999px; background:var(--code); }
+svg .st-run, .key.st-run { fill:var(--after); background:var(--after); }
+svg .st-ready, .key.st-ready { fill:var(--warn); background:var(--warn); }
+svg .st-mutex, .key.st-mutex { fill:var(--miss); background:var(--miss); }
+svg .st-msg, .key.st-msg { fill:var(--accent); background:var(--accent); }
+svg .st-bg, .key.st-bg { fill:var(--line); background:var(--line); }
+svg .lane { fill:var(--ink); font-size:12px; }
+svg .prio { fill:#fff; font-size:10px; font-weight:600; paint-order:stroke;
+  stroke:rgba(0,0,0,.55); stroke-width:2px; pointer-events:none; }
+.legend .note { color:var(--muted); margin-left:6px; }
+.key.st-run, .key.st-ready, .key.st-mutex, .key.st-msg { height:10px; }
+ul.steps li.ok strong { color:var(--good); } ul.steps li.no strong { color:var(--bad); }
+.trace-ok { color:var(--good); font-weight:600; } .trace-no { color:var(--warn); font-weight:600; }
+.c-high { color:var(--good); } .c-medium { color:var(--warn); } .c-low { color:var(--muted); }
+pre.diff { background:var(--code); padding:12px; border-radius:8px; overflow-x:auto; font-size:13px; }
+pre.diff .add { color:var(--good); } pre.diff .del { color:var(--bad); } pre.diff .hunk { color:var(--accent); }
+ul.timeline { list-style:none; padding:0; } ul.timeline li { padding:3px 0; }
+.when { font-family:ui-monospace,Consolas,monospace; color:var(--muted); font-size:13px; margin-right:8px; }
+@media (max-width:600px) { header h1 { font-size:21px; } section { padding:16px; } }
+</style></head>
+<body><main>
+<header><p class="eyebrow">qbridge RT · kernel trace</p>
+<h1>msgpass.txt.gz</h1>
+<p class="meta">QNX 8.0.0 x86pc · 2 CPU(s) · 999.8 ms ·
+3642 events · 28 processes, 124 threads · recorded Sun Nov 22 21:57:58 2026</p>
+</header><section><h2>Patterns worth a closer look</h2><div class="finding"><div class="finding-head"><h3>Possible priority inversion</h3><span class="conf c-low">hint</span></div><p>rtdemo[21360661] &#x27;A-control&#x27; (priority 30) was blocked (REPLY/SEND) for 801.5 ms. Meanwhile rtdemo[21372930] &#x27;S-server&#x27; (priority 10) was ready but held off its CPU for 401.2 ms, mostly by rtdemo[21360661] &#x27;B-worker&#x27; (priority 20, 400.2 ms). If the blocked thread was waiting for that thread (a mutex it holds, or a server answering its message), this is a priority inversion.</p><p class="muted">The trace does not say what a blocked thread waits for (THMUTEX, THSEND and THREPLY name only the waiter), so the lower thread is a candidate, not a proven holder. On a live target, &#x27;qbridge diagnose --trace&#x27; reads the mutex owner or the blocked-on server and checks it step by step.</p><figure class="chart"><figcaption>Kernel trace around the longest wait</figcaption><svg viewBox="0 0 760 140" role="img" aria-label="thread states from the kernel trace"><line class="grid" x1="150.0" x2="150.0" y1="10" y2="110"/><text class="tick" x="150.0" y="124" text-anchor="middle">0</text><line class="grid" x1="256.5" x2="256.5" y1="10" y2="110"/><text class="tick" x="256.5" y="124" text-anchor="middle">10</text><line class="grid" x1="362.9" x2="362.9" y1="10" y2="110"/><text class="tick" x="362.9" y="124" text-anchor="middle">20</text><line class="grid" x1="469.4" x2="469.4" y1="10" y2="110"/><text class="tick" x="469.4" y="124" text-anchor="middle">30</text><line class="grid" x1="575.8" x2="575.8" y1="10" y2="110"/><text class="tick" x="575.8" y="124" text-anchor="middle">40</text><line class="grid" x1="682.3" x2="682.3" y1="10" y2="110"/><text class="tick" x="682.3" y="124" text-anchor="middle">50</text><text class="lane" x="142" y="25.0" text-anchor="end">blocked: A-control</text><rect class="st-bg" x="150" y="20.0" width="598" height="2"/><rect class="st-msg" x="150.0" y="10" width="8.0" height="22"><title>REPLY at priority 30, 0.75 ms, CPU 1</title></rect><rect class="st-ready" x="158.0" y="10" width="0.8" height="22"><title>READY at priority 30, 0.01 ms, CPU 1</title></rect><rect class="st-run" x="158.1" y="10" width="9.0" height="22"><title>RUNNING at priority 30, 0.85 ms, CPU 1</title></rect><rect class="st-ready" x="211.4" y="10" width="0.8" height="22"><title>READY at priority 30, 0.01 ms, CPU 1</title></rect><rect class="st-run" x="211.6" y="10" width="2.3" height="22"><title>RUNNING at priority 30, 0.22 ms, CPU 1</title></rect><rect class="st-msg" x="213.9" y="10" width="470.3" height="22"><title>REPLY at priority 30, 44.18 ms, CPU 1</title></rect><text class="prio" x="217.9" y="25.0">30</text><rect class="st-ready" x="684.1" y="10" width="0.8" height="22"><title>READY at priority 30, 0.01 ms, CPU 1</title></rect><rect class="st-run" x="684.2" y="10" width="11.1" height="22"><title>RUNNING at priority 30, 1.04 ms, CPU 1</title></rect><rect class="st-msg" x="695.3" y="10" width="0.8" height="22"><title>SEND at priority 30, 0.01 ms, CPU 1</title></rect><rect class="st-msg" x="695.4" y="10" width="42.6" height="22"><title>REPLY at priority 30, 4.00 ms, CPU 1</title></rect><rect class="st-ready" x="738.0" y="10" width="0.8" height="22"><title>READY at priority 30, 0.01 ms, CPU 1</title></rect><rect class="st-run" x="738.1" y="10" width="9.9" height="22"><title>RUNNING at priority 30, 0.93 ms, CPU 1</title></rect><text class="lane" x="142" y="57.0" text-anchor="end">lower: S-server</text><rect class="st-bg" x="150" y="52.0" width="598" height="2"/><rect class="st-run" x="150.0" y="42" width="8.0" height="22"><title>RUNNING at priority 10, 0.75 ms, CPU 1</title></rect><rect class="st-ready" x="158.0" y="42" width="9.1" height="22"><title>READY at priority 10, 0.86 ms, CPU 1</title></rect><rect class="st-run" x="167.1" y="42" width="0.8" height="22"><title>RUNNING at priority 10, 0.00 ms, CPU 1</title></rect><rect class="st-ready" x="213.8" y="42" width="0.8" height="22"><title>READY at priority 10, 0.01 ms, CPU 1</title></rect><rect class="st-run" x="213.9" y="42" width="29.0" height="22"><title>RUNNING at priority 10, 2.73 ms, CPU 1</title></rect><text class="prio" x="217.9" y="57.0">10</text><rect class="st-ready" x="242.9" y="42" width="427.6" height="22"><title>READY at priority 10, 40.17 ms, CPU 1</title></rect><rect class="st-run" x="670.5" y="42" width="13.6" height="22"><title>RUNNING at priority 10, 1.28 ms, CPU 1</title></rect><rect class="st-ready" x="684.2" y="42" width="11.2" height="22"><title>READY at priority 10, 1.05 ms, CPU 1</title></rect><rect class="st-run" x="695.3" y="42" width="42.7" height="22"><title>RUNNING at priority 10, 4.01 ms, CPU 1</title></rect><rect class="st-ready" x="738.0" y="42" width="10.0" height="22"><title>READY at priority 10, 0.94 ms, CPU 1</title></rect><text class="lane" x="142" y="89.0" text-anchor="end">middle: B-worker</text><rect class="st-bg" x="150" y="84.0" width="598" height="2"/><rect class="st-ready" x="243.2" y="74" width="0.8" height="22"><title>READY at priority 20, 0.01 ms, CPU 1</title></rect><rect class="st-run" x="243.3" y="74" width="148.6" height="22"><title>RUNNING at priority 20, 13.96 ms, CPU 1</title></rect><text class="prio" x="247.3" y="89.0">20</text><rect class="st-ready" x="392.0" y="74" width="0.8" height="22"><title>READY at priority 20, 0.08 ms, CPU 1</title></rect><rect class="st-run" x="392.8" y="74" width="9.8" height="22"><title>RUNNING at priority 20, 0.92 ms, CPU 1</title></rect><rect class="st-ready" x="402.6" y="74" width="0.8" height="22"><title>READY at priority 20, 0.04 ms, CPU 1</title></rect><rect class="st-run" x="403.0" y="74" width="267.5" height="22"><title>RUNNING at priority 20, 25.13 ms, CPU 1</title></rect><text class="axis" x="449.0" y="138" text-anchor="middle">ms from 503.0 ms into the trace</text></svg><div class="legend"><span class="key st-run"></span>running<span class="key st-ready"></span>ready (waiting for the CPU)<span class="key st-mutex"></span>blocked on a mutex<span class="key st-msg"></span>waiting for a server (SEND/REPLY)<span class="key st-bg"></span>sleeping or other<span class="note">numbers on bars: the thread's priority</span></div></figure></div></section>
+<section><h2>Threads</h2><p class="muted">Selection: automatic (threads with a pattern, then the longest waits). Times in ms.</p>
+<div class="table-wrap"><table><thead><tr><th>Thread</th><th>Priority</th><th>Running</th><th>Ready</th>
+<th>Mutex</th><th>Send/Reply</th><th>Longest ready wait</th></tr></thead><tbody><tr><td>rtdemo[21360661] &#x27;A-control&#x27;</td><td class='num'>30</td><td class='num'>105.1</td><td class='num'>1.0</td><td class='num'>0.0</td><td class='num'>801.5</td><td class='num'>0.03</td></tr><tr><td>rtdemo[21372930] &#x27;S-server&#x27;</td><td class='num'>10</td><td class='num'>400.8</td><td class='num'>502.4</td><td class='num'>0.0</td><td class='num'>0.0</td><td class='num'>40.17</td></tr><tr><td>rtdemo[21360661] &#x27;B-worker&#x27;</td><td class='num'>20</td><td class='num'>400.2</td><td class='num'>0.4</td><td class='num'>0.0</td><td class='num'>0.0</td><td class='num'>0.08</td></tr><tr><td>qbridged[311319] tid 1</td><td class='num'>10</td><td class='num'>2.3</td><td class='num'>5.3</td><td class='num'>0.0</td><td class='num'>0.0</td><td class='num'>0.08</td></tr></tbody></table></div>
+</section><section><h2>Limitations</h2><ul><li>The trace covers 1000 ms; it shows what happened in that window only.</li><li>Patterns are hints from thread states and priorities. The trace does not record what a blocked thread waits for, or whether a thread has a deadline.</li></ul></section></main></body></html>

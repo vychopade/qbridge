@@ -228,7 +228,8 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         "preemption, and possible priority inversion (a thread blocked while a lower-priority "
         "thread was held off its CPU by a middle-priority one). The trace does not record what a "
         "blocked thread waits for, so say 'possible'; qnx_diagnose with trace=true identifies it "
-        "on a live target. Also writes an HTML page with a thread-state timeline; returns its path.",
+        "on a live target. Also writes an HTML page with a thread-state timeline, and with "
+        "perfetto=true a file the user can open in ui.perfetto.dev; returns their paths.",
         _schema({
             "path": {"type": "string", "description": "Path of the trace file on this computer"},
             "threads": {"type": "array", "items": {"type": "string"},
@@ -236,8 +237,11 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
                                        "with a pattern, then the longest waits)"},
             "process": {"type": "string", "description": "Report every thread of this process "
                                                          "(name or pid)"},
+            "perfetto": {"type": "boolean", "description": "Also write Trace Event JSON the "
+                                                          "user can open in ui.perfetto.dev"},
         }, ["path"]),
-        lambda s, path, threads=None, process=None: tools.trace_file(s, path, threads, process),
+        lambda s, path, threads=None, process=None, perfetto=False:
+            tools.trace_file(s, path, threads, process, perfetto_out="" if perfetto else None),
         False,
     ),
     "qnx_audit": (

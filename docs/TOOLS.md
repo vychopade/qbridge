@@ -19,7 +19,7 @@ Paths in this page are relative to the repository root.
 | `qnx_measure` | `qbridge --allow-write measure` | yes (runs a program) | Run a periodic workload for a fixed time; deadline statistics with each cycle split into backlog, scheduling latency, lock wait, CPU time and preempted time; runs of consecutive misses attributed to what started them; saved as a run |
 | `qnx_diagnose` | `qbridge diagnose [--trace]` | no (yes if it starts the workload or traces) | Snapshot thread states while the workload runs and apply diagnosis rules: priority inversion on a mutex (holder and protocol read from the mutex in process memory), priority inversion through message passing (the task is SEND- or REPLY-blocked on a server process running below it while a middle-priority thread has the server's CPU) and CPU preemption (the deadline task is ready while a higher-priority thread has its CPU). Each finding has evidence, a confidence level, what it could not determine, and a suggested fix. With `--trace`, each finding is also checked step by step against a kernel trace from the same run |
 | `qnx_trace` | `qbridge --allow-write trace` | yes (runs `tracelogger`) | Record a short kernel trace and report, per thread, time in each state and who ran on its CPU during its longest waits |
-| `qnx_trace_file` | `qbridge trace --file <path>` | no (host only, no target) | Analyse a **recorded** kernel trace from any program: time per state, ready-queue waits, who ran instead, and patterns worth a look (CPU preemption, possible priority inversion), with an HTML timeline page. See [Recorded traces](#recorded-traces-no-target) |
+| `qnx_trace_file` | `qbridge trace --file <path>` | no (host only, no target) | Analyse a **recorded** kernel trace from any program: time per state, ready-queue waits, who ran instead, and patterns worth a look (CPU preemption, possible priority inversion), with an HTML timeline page and, with `--perfetto`, a file for ui.perfetto.dev. See [Recorded traces](#recorded-traces-no-target) |
 | `qnx_timing_check` | `qbridge --allow-write timing-check` | yes (runs `vmjitter`) | Measure the target's timer lateness on one CPU (a priority-50 thread waking every 1 ms) and save it as the environment's noise floor; reports quote the latest check |
 | `qnx_experiment_start` / `_propose` / `_run` / `_rollback` / `_keep` / `_show` | `qbridge experiment start` / `propose` / `run` / `rollback` / `keep` / `show` | yes for start, run and rollback | A measured fix experiment: baseline runs, one proposed change, rerun and compare, then roll back or keep. A person approves the change with `qbridge experiment approve`, which has no MCP tool. See [Experiments](#experiments-test-a-fix-and-measure-it) |
 | `qnx_report` | `qbridge report` | no (host only) | A self-contained HTML report for an experiment, built only from saved data. See [Report](#report) |
@@ -184,6 +184,17 @@ It also looks for two patterns across all threads (except the kernel's and `trac
 They are hints, not diagnoses. A trace does not say what a blocked thread waits for: `THMUTEX`, `THSEND` and `THREPLY` name only the waiter. So the lower thread is a candidate, not a proven holder, and the output says so. On a live target, `qbridge diagnose --trace` reads the mutex owner or the blocked-on server and checks each step against a trace from the same run (above). A preemption hint for the lower thread of an inversion is left out, since it is part of the same story.
 
 Without `--thread` or `--process` it reports the threads involved in a pattern, then the threads that waited longest for a CPU or a mutex (up to six). It prints JSON and writes an HTML page with a timeline around the longest wait of each pattern; the path is in the `html` field (default `~/.qbridge/reports/trace-<name>.html`).
+
+### Perfetto
+
+`--perfetto [PATH]` (MCP: `perfetto: true`) also writes the whole trace as Trace Event JSON, which [ui.perfetto.dev](https://ui.perfetto.dev) and `chrome://tracing` open (default `~/.qbridge/reports/trace-<name>.perfetto.json`). Open Perfetto and drop the file on the page; Perfetto reads it in the browser and uploads nothing.
+
+- one track per thread, grouped by process, with a slice per state (RUNNING, READY, MUTEX, REPLY, ...) and the thread's priority and CPU as arguments of each slice;
+- a "CPUs" group with one track per CPU showing which thread ran there;
+- a marker on the thread of each hint, with its text and what the trace cannot tell;
+- the processes named in a hint at the top, then the busiest.
+
+The project site has the message-passing trace both ways: [the analysis page](https://vychopade.github.io/qbridge/trace-msgpass.html) and [the same trace in Perfetto](https://ui.perfetto.dev/#!/?url=https://vychopade.github.io/qbridge/traces/msgpass.perfetto.json). A test rebuilds both from `examples/traces/msgpass.txt.gz` and checks they still match.
 
 [examples/traces/](../examples/traces/README.md) has four full one-second traces from the reference target to try it on: the mutex inversion, the message-passing inversion before and after its fix, and the CPU overload.
 

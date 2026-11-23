@@ -163,6 +163,84 @@ def test_kev_files_are_decoded_with_traceprinter(tmp_path, monkeypatch):
     assert traceview.load_text(kevf) == text
 
 
+# -- Perfetto export ---------------------------------------------------------------------------
+
+def _perfetto(name):
+    tr = kev.parse(traceview.load_text(EX / name))
+    r = traceview.analyse(tr)
+    return tr, traceview.perfetto(tr, r["_found"])
+
+
+def test_perfetto_slices_never_overlap_on_a_track():
+    """Perfetto moves overlapping complete events to a spill track and counts an import
+    error for each; rounding the start and the length separately used to cause that."""
+    for f in EX.glob("*.txt.gz"):
+        _, d = _perfetto(f.name)
+        tracks: dict = {}
+        for e in d["traceEvents"]:
+            if e["ph"] == "X":
+                assert e["dur"] > 0 and e["ts"] >= 0
+                tracks.setdefault((e["pid"], e["tid"]), []).append((e["ts"], e["ts"] + e["dur"]))
+        for key, v in tracks.items():
+            v.sort()
+            assert all(b[0] >= a[1] - 1e-9 for a, b in zip(v, v[1:])), (f.name, key)
+
+
+def test_perfetto_thread_tracks_match_the_trace():
+    tr, d = _perfetto("msgpass.txt.gz")
+    ev = d["traceEvents"]
+    a = tr.find_thread("A-control")
+    names = {(e["pid"], e.get("tid")): e["args"]["name"] for e in ev if e["ph"] == "M"
+             and e["name"] in ("thread_name", "process_name")}
+    assert names[(a[0], a[1])] == "A-control"
+    assert names[(a[0], None)].startswith("rtdemo [")
+    reply_ms = sum(e["dur"] for e in ev if e["ph"] == "X" and (e["pid"], e["tid"]) == a
+                   and e["name"] == "REPLY") / 1000
+    assert reply_ms == pytest.approx(tr.state_totals(a)["REPLY"], abs=0.01)
+    assert all(e["args"]["priority"] == 30 for e in ev if e["ph"] == "X"
+               and (e["pid"], e["tid"]) == a and e["name"] == "RUNNING")
+
+
+def test_perfetto_cpu_tracks_hint_markers_and_order():
+    tr, d = _perfetto("msgpass.txt.gz")
+    ev = d["traceEvents"]
+    cpu = [e for e in ev if e["ph"] == "X" and e["pid"] == traceview.CPU_PID]
+    assert {e["tid"] for e in cpu} == {0, 1}
+    assert any(e["name"].endswith("'B-worker'") for e in cpu)
+    hints = [e for e in ev if e["ph"] == "i"]
+    assert len(hints) == 1 and hints[0]["name"] == "hint: possible priority inversion"
+    assert "candidate" in hints[0]["args"]["cannot_tell"]
+    order = sorted((e["args"]["sort_index"], e["pid"]) for e in ev
+                   if e["ph"] == "M" and e["name"] == "process_sort_index" and e["pid"])
+    client = tr.find_thread("A-control")[0]
+    server_pid = tr.find_thread("S-server")[0]
+    assert [p for _, p in order[:2]] == [client, server_pid]       # the story first
+    assert d["otherData"]["cpus"] == 2 and d["displayTimeUnit"] == "ms"
+
+
+def test_site_samples_are_what_the_code_makes_today(tmp_path):
+    """docs/trace-msgpass.html and docs/traces/msgpass.perfetto.json are on the project
+    site; rebuild them from the recorded trace and check nothing has drifted. To update:
+    qbridge trace --file examples/traces/msgpass.txt.gz --html docs/trace-msgpass.html
+    --perfetto docs/traces/msgpass.perfetto.json"""
+    s = tools.Session(NoTarget(), Policy())
+    tools.trace_file(s, str(EX / "msgpass.txt.gz"), html_out=str(tmp_path / "p.html"),
+                     perfetto_out=str(tmp_path / "p.json"))
+    docs = ROOT / "docs"
+    assert (tmp_path / "p.html").read_bytes() == (docs / "trace-msgpass.html").read_bytes()
+    assert (tmp_path / "p.json").read_bytes() == (docs / "traces" / "msgpass.perfetto.json").read_bytes()
+
+
+def test_cli_writes_the_perfetto_file(tmp_path, capsys):
+    rc = cli.main(["trace", "--file", str(EX / "overload.txt.gz"),
+                   "--html", str(tmp_path / "o.html"), "--perfetto", str(tmp_path / "o.json")])
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["perfetto"] == str(tmp_path / "o.json") and "ui.perfetto.dev" in out["perfetto_how"]
+    d = json.loads((tmp_path / "o.json").read_text(encoding="utf-8"))
+    assert any(e["ph"] == "i" and "CPU preemption" in e["name"] for e in d["traceEvents"])
+
+
 # -- tool, CLI and MCP ----------------------------------------------------------------------
 
 def test_tool_writes_an_html_page_with_the_timeline(tmp_path):
