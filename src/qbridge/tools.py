@@ -290,6 +290,22 @@ def measure(s: Session, program: str, seconds: int = 10, args: list[str] | None 
             "report": {k: v for k, v in report.items() if k != "summary"}}
 
 
+def gate(s: Session, program: str, repeats: int = 3, seconds: int = 10,
+         args: list[str] | None = None, max_misses: int | None = 0,
+         max_worst_ms: float | None = None, baseline: list[str] | None = None) -> dict:
+    """Measure a workload `repeats` times and pass or fail it against limits:
+    a regression check for CI against a lab target (see deadlines.gate)."""
+    repeats = max(1, min(int(repeats), 10))
+    base = [runs.load(rid)["report"] for rid in baseline or []]
+    measured = [measure(s, program, seconds, args, label=f"gate-{program}-{i + 1}")
+                for i in range(repeats)]
+    out = deadlines.gate([m["report"] for m in measured], max_misses,
+                         max_worst_ms * 1000 if max_worst_ms is not None else None, base or None)
+    out["runs"] = [m["run_id"] for m in measured]
+    out["baseline_runs"] = list(baseline or [])
+    return out
+
+
 def _qbridged_check(s: Session, report: dict, summary: dict | None) -> dict:
     """If the workload reported to qbridged, compare qbridged's numbers with ours."""
     info = (summary or {}).get("qbridged") or {}

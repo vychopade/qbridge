@@ -233,6 +233,14 @@ claude mcp add qbridge -- C:\path\to\qbridge\.venv\Scripts\qbridge.exe serve --a
 
 Leave out `--allow-write` to give the assistant read-only access. Any MCP client that can start a stdio server works the same way. The assistant can measure, diagnose, propose and run experiments, but it cannot approve its own change.
 
+### 7. Keep it fixed: a regression check for CI
+
+```
+qbridge --allow-write gate rtdemo --repeats 3 --max-misses 0
+```
+
+`gate` measures the workload several times and exits with code 1 if any run misses more deadlines than allowed, has a worst response above `--max-worst-ms`, or is worse than saved runs given with `--baseline <run id> ...`. A CI job on a machine with a lab target can run it after every build. On the reference target the planted inversion failed it (196 and 200 misses in two 5-second runs) and the fixed overload configuration passed with `--max-misses 2`. Passing means those runs met the limits, not that the deadline can never be missed.
+
 ## Safety
 
 - **Read-only by default.** Anything that changes the target needs `--allow-write`, and the assistant cannot switch that on.

@@ -306,3 +306,49 @@ def cross_check(report: dict, summary: dict | None) -> dict:
         problems.append(f"worst response: program {prog_max} us, samples "
                         f"{report['response_us']['max']:.1f} us")
     return {"checked": True, "agrees": not problems, "problems": problems}
+
+
+def gate(reports: list[dict], max_misses: int | None = 0, max_worst_us: float | None = None,
+         baseline: list[dict] | None = None) -> dict:
+    """Pass/fail check of measured runs, for CI against a lab target.
+
+    Fails if any run has more than `max_misses` misses, or a worst response
+    above `max_worst_us`, or (with `baseline`) more misses or a worse worst
+    response than the worst baseline run. Every limit is checked against every
+    run, so one bad run fails the gate. Passing means these runs met the limits;
+    it does not prove the deadline can never be missed.
+    """
+    if not reports:
+        raise ValueError("gate needs at least one measured run")
+    failures = []
+    for i, r in enumerate(reports, 1):
+        m, w = r["misses"], r["response_us"]["max"]
+        if max_misses is not None and m > max_misses:
+            failures.append(f"run {i}: {m} misses (limit {max_misses})")
+        if max_worst_us is not None and w > max_worst_us:
+            failures.append(f"run {i}: worst response {w / 1000:.1f} ms "
+                            f"(limit {max_worst_us / 1000:.1f} ms)")
+        if baseline:
+            bm = max(b["misses"] for b in baseline)
+            bw = max(b["response_us"]["max"] for b in baseline)
+            if m > bm:
+                failures.append(f"run {i}: {m} misses, more than the baseline's worst run ({bm})")
+            if w > bw:
+                failures.append(f"run {i}: worst response {w / 1000:.1f} ms, above the baseline's "
+                                f"worst run ({bw / 1000:.1f} ms)")
+    limits = []
+    if max_misses is not None:
+        limits.append(f"at most {max_misses} misses per run")
+    if max_worst_us is not None:
+        limits.append(f"worst response at most {max_worst_us / 1000:.1f} ms")
+    if baseline:
+        limits.append(f"no worse than the {len(baseline)} baseline run(s)")
+    passed = not failures
+    text = (f"{'PASS' if passed else 'FAIL'}: {len(reports)} run(s) checked against "
+            + ("; ".join(limits) or "no limits") + ". "
+            + ("All runs met the limits. This holds for these runs only; it does not prove the "
+               "deadline can never be missed." if passed else " ".join(failures)))
+    return {"passed": passed, "failures": failures, "limits": limits,
+            "misses": [r["misses"] for r in reports],
+            "worst_response_us": [r["response_us"]["max"] for r in reports],
+            "summary": text}

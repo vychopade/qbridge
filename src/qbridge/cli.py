@@ -61,6 +61,18 @@ def build_parser() -> argparse.ArgumentParser:
     me.add_argument("args", nargs="*",
                     help="extra program arguments, after --  (e.g. measure rtdemo -- -c 1)")
 
+    ga = sub.add_parser("gate", help="measure a workload and pass/fail it against limits, for CI "
+                                     "(exit code 1 on failure; needs --allow-write)")
+    ga.add_argument("program")
+    ga.add_argument("--repeats", type=int, default=3)
+    ga.add_argument("--seconds", type=int, default=10)
+    ga.add_argument("--max-misses", type=int, default=0,
+                    help="most misses allowed in any run (default 0; -1 for no limit)")
+    ga.add_argument("--max-worst-ms", type=float, help="highest worst response allowed in any run")
+    ga.add_argument("--baseline", nargs="+", metavar="RUN_ID",
+                    help="saved runs no run may be worse than (misses and worst response)")
+    ga.add_argument("args", nargs="*", help="extra program arguments, after --")
+
     sub.add_parser("deadlines", help="live deadline statistics from qbridged")
 
     dg = sub.add_parser("diagnose", help="snapshot thread states and apply the diagnosis rules")
@@ -175,6 +187,10 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return tools.measure(s, a.program, a.seconds, a.args, a.label, a.deadline_us)
         case "deadlines":
             return tools.deadline_stats(s)
+        case "gate":
+            return tools.gate(s, a.program, a.repeats, a.seconds, a.args,
+                              None if a.max_misses < 0 else a.max_misses, a.max_worst_ms,
+                              a.baseline)
         case "diagnose":
             return tools.diagnose(s, a.program, a.seconds, a.snapshots, a.run_id, a.args,
                                   a.trace, a.trace_seconds)
@@ -256,6 +272,7 @@ _CLI_TOOL = {
     "info": "qnx_info", "ps": "qnx_ps", "logs": "qnx_logs", "build": "qnx_build",
     "deploy": "qnx_deploy", "run": "qnx_run", "kill": "qnx_kill", "measure": "qnx_measure",
     "deadlines": "qnx_deadlines", "diagnose": "qnx_diagnose", "trace": "qnx_trace",
+    "gate": "qnx_gate",
     "runs": "qnx_runs",
     "run-report": "qnx_run_report", "events": "qnx_events", "crashes": "qnx_crashes",
     "crash": "qnx_crash", "timing-check": "qnx_timing_check", "report": "qnx_report",
@@ -306,6 +323,8 @@ def main(argv: list[str] | None = None) -> int:
     print(json.dumps(out, indent=2))
     if a.command == "build" and not out["ok"]:
         return 2
+    if a.command == "gate" and not out["passed"]:
+        return 1
     return 0
 
 

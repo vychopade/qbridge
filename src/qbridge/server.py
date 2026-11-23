@@ -141,6 +141,29 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
             tools.measure(s, program, seconds, args, label, deadline_us),
         True,
     ),
+    "qnx_gate": (
+        "Regression check for CI against a lab target: measure a workload `repeats` times "
+        "(like qnx_measure) and pass or fail it. Fails if any run has more than max_misses "
+        "misses, a worst response above max_worst_ms, or (with baseline run ids) more misses or "
+        "a worse worst response than the worst baseline run. Passing means these runs met the "
+        "limits, not that the deadline can never be missed. Needs write access.",
+        _schema({
+            "program": {"type": "string", "description": "Deployed workload, e.g. 'rtdemo'"},
+            "repeats": {"type": "integer", "description": "Runs to measure, 1-10 (default 3)"},
+            "seconds": {"type": "integer", "description": "Length of each run (default 10)"},
+            "args": {"type": "array", "items": {"type": "string"},
+                     "description": "Extra arguments for the program"},
+            "max_misses": {"type": "integer", "description": "Most misses allowed per run "
+                           "(default 0)"},
+            "max_worst_ms": {"type": "number", "description": "Highest worst response allowed"},
+            "baseline": {"type": "array", "items": {"type": "string"},
+                         "description": "Saved run ids no run may be worse than"},
+        }, ["program"]),
+        lambda s, program, repeats=3, seconds=10, args=None, max_misses=0, max_worst_ms=None,
+               baseline=None: tools.gate(s, program, repeats, seconds, args, max_misses,
+                                         max_worst_ms, baseline),
+        True,
+    ),
     "qnx_deadlines": (
         "Live deadline statistics kept by qbridged on the target for every task that registered "
         "with it (tasks report each cycle by QNX message passing). Read-only: works for tasks "
