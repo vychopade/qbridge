@@ -70,14 +70,19 @@ def run() -> dict:
         d = _load(f"{name}.json")
         res = analysis.diagnose(d["snapshots"], d["deadline_report"], d["timing_checks"])
         rec = d["result"]
-        same = [_finding_key(f) for f in res["findings"]] == [_finding_key(f) for f in rec["findings"]]
+        # The recording was made with the rules of that day; compare those. Findings of
+        # rules added since are shown, but they are new analysis, not a reproduction.
+        old = [f for f in res["findings"] if f["rule"] in analysis.ORIGINAL_RULES]
+        new = [f for f in res["findings"] if f["rule"] not in analysis.ORIGINAL_RULES]
+        same = [_finding_key(f) for f in old] == [_finding_key(f) for f in rec["findings"]]
         checks.append({
             "kind": "diagnosis", "name": name, "what": what, "matches_target": same,
             "recorded": _date(rec.get("diagnosis_id", "")),
             "input": f"{len(d['snapshots'])} snapshots + the run's deadline report",
-            "result": [f"{f['title']} ({f['confidence']} confidence)" for f in res["findings"]]
+            "result": [f"{f['title']} ({f['confidence']} confidence)" for f in old]
                       or ["no finding"],
-            "detail": res["findings"][0]["evidence"][:2] if res["findings"] else [res["summary"]]})
+            "detail": old[0]["evidence"][:2] if old else [res["summary"]] if not new else [],
+            "newer_rules": [f"{f['title']} ({f['confidence']} confidence)" for f in new]})
 
     for name, what in TRACES:
         meta = _load(f"traces/{name}.json")
@@ -134,6 +139,8 @@ def text(out: dict) -> str:
             lines += [f"    -> {r}" for r in c["result"]]
             lines += [f"       {d}" for d in c["detail"]]
             lines.append(f"       ({mark})")
+            lines += [f"    also, from a rule added after this was recorded: {r}"
+                      for r in c.get("newer_rules", [])]
         lines.append("")
     n = len(out["checks"])
     ok = sum(c["matches_target"] for c in out["checks"])

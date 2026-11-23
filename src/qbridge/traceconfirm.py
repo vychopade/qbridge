@@ -302,11 +302,18 @@ def confirm(finding: dict, tr: kev.Trace, trace_id: str | None = None) -> dict:
 
 def confirm_all(result: dict, tr: kev.Trace, trace_id: str | None = None) -> dict:
     """Check every finding of a diagnosis and extend its summary."""
-    checked = [confirm(f, tr, trace_id) for f in result.get("findings", [])]
+    every = [confirm(f, tr, trace_id) for f in result.get("findings", [])]
+    checked = [c for c in every if c.get("status") != "not checked"]
+    skipped = len(every) - len(checked)
     n_ok = sum(1 for c in checked if c.get("status") == "confirmed")
     if checked:
         result["summary"] += (f" Kernel trace ({tr.duration_ms:.0f} ms): {n_ok} of "
-                              f"{len(checked)} finding(s) confirmed step by step.")
+                              f"{len(checked)} finding(s) confirmed step by step"
+                              + (f"; {skipped} not checked (no trace check for that rule yet)"
+                                 if skipped else "") + ".")
+    elif every:
+        result["summary"] += (f" A kernel trace ({tr.duration_ms:.0f} ms) was captured; the "
+                              "findings' rules have no trace check yet.")
     else:
         result["summary"] += (f" A kernel trace ({tr.duration_ms:.0f} ms) was captured; there "
                               "was no finding to check against it.")

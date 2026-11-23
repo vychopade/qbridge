@@ -560,12 +560,234 @@ def inheritance_observed(snapshots: list[list[dict]]) -> list[dict]:
     return seen
 
 
+# -- Causes inside the task or below the scheduler -----------------------------------
+#
+# The rules above find another thread that keeps the deadline task waiting. These two
+# cover the other causes a deadline report can point at: the task's own work taking
+# longer than usual, and the task waking up late with nothing ahead of it on the CPU.
+# Both start from the runs of misses in the deadline report, attributed by what their
+# first cycle spent its time on (deadlines.py); later misses in a run are knock-on.
+
+RULE_OVERRUN = "own_work_overrun"
+RULE_LATE_WAKEUP = "late_wakeup"
+# Rules that existed when the recorded scenarios in tests/fixtures were taken; replay
+# compares only these with the recorded results (see replay.py).
+ORIGINAL_RULES = (RULE_MUTEX_INVERSION, RULE_MSGPASS_INVERSION, RULE_CPU_PREEMPTION)
+MIN_SHARE = 0.25      # a cause must start at least a quarter of the runs of misses...
+                      # ...unless no other finding explains them
+
+
+def _task_in_snapshots(snapshots: list[list[dict]], name: str | None) -> dict | None:
+    for snap in snapshots:
+        for t in snap:
+            if name and t.get("thread_name") == name:
+                return t
+    return None
+
+
+def _timing_check(timing_checks: list[dict] | None, cpu) -> dict | None:
+    return next((t for t in timing_checks or [] if t.get("cpu") == cpu), None)
+
+
+def _chains(deadline_report: dict, cause: str) -> list[dict]:
+    return [c for c in deadline_report.get("worst_chains", []) if c["root_cause"] == cause]
+
+
+def _share_ok(n: int, total: int, others: list[dict]) -> bool:
+    return n > 0 and (n >= MIN_SHARE * total or not others)
+
+
+def _task_subject(task: dict | None, name: str | None) -> dict:
+    if task:
+        return {"pid": task["pid"], "cpu": task.get("last_cpu"),
+                "task": {k: task.get(k) for k in ("tid", "thread_name", "priority")}}
+    return {"pid": None, "cpu": None, "task": {"tid": None, "thread_name": name, "priority": None}}
+
+
+def own_work_overrun(snapshots: list[list[dict]], deadline_report: dict | None = None,
+                     timing_checks: list[dict] | None = None, others: list[dict] | None = None
+                     ) -> list[dict]:
+    """Rule: runs of misses that start with the task using much more CPU time than its
+    usual cycle (its median), not with waiting for a lock, a server or the CPU."""
+    r = deadline_report or {}
+    roots = r.get("chain_root_causes", {})
+    n, total = roots.get("exec", 0), r.get("miss_chains", 0)
+    budget = r.get("exec_budget_us")
+    if not budget or not _share_ok(n, total, others or []):
+        return []
+    name = r.get("task")
+    task = _task_in_snapshots(snapshots, name)
+    label = _label(task) if task else f"'{name}'"
+    shown = _chains(r, "exec")
+    root_exec = [c["root"]["exec_us"] for c in shown]
+    worst = max(root_exec, default=r["parts_us"]["exec"]["max"])
+    knock_on = r.get("per_miss_primary_cause", {}).get("backlog", 0)
+    evidence = [
+        f"{n} of the {total} run(s) of consecutive misses started with a cycle in which "
+        f"{label} used far more CPU time than usual: up to {worst / 1000:.1f} ms against its "
+        f"median of {budget / 1000:.2f} ms per cycle, with no long wait for a lock, a server or "
+        "the CPU in that cycle.",
+        f"CPU time per cycle: 99th percentile {r['parts_us']['exec']['p99'] / 1000:.2f} ms, "
+        f"worst {r['parts_us']['exec']['max'] / 1000:.1f} ms.",
+    ]
+    if knock_on:
+        evidence.append(f"{knock_on} of the {r['misses']} misses were knock-on: the previous "
+                        "cycle ran past the next release, so the next one started late.")
+    points = 1 + (n >= total / 2) + (n >= 3)
+    tc = _timing_check(timing_checks, (task or {}).get("last_cpu"))
+    excess = worst - budget
+    if tc:
+        if excess > 2 * tc["max_late_us"]:
+            evidence.append(f"The extra time ({excess / 1000:.1f} ms) is more than twice the worst "
+                            f"timer lateness measured on CPU {tc['cpu']} with nothing else running "
+                            f"({tc['max_late_us'] / 1000:.1f} ms).")
+        else:
+            points -= 1
+            evidence.append(f"Caution: the extra time ({excess / 1000:.1f} ms) is within twice the "
+                            f"worst timer lateness measured on CPU {tc['cpu']} "
+                            f"({tc['max_late_us'] / 1000:.1f} ms). A virtual machine that pauses "
+                            "the guest makes a cycle look longer in the same way.")
+    confidence = "high" if points >= 3 else "medium" if points == 2 else "low"
+    unknown = [
+        "Whether the task's code did more work in those cycles or the machine ran it more "
+        "slowly: CPU time is read from the thread's CPU clock, which also counts time the "
+        "virtual machine paused the guest while the task was running.",
+        "Which part of the cycle took longer: the deadline report has one CPU time per cycle, "
+        "not a profile.",
+        "A worst case: finite runs cannot show the longest a cycle can take.",
+    ]
+    if not tc:
+        unknown.append("How much of it the platform's noise could explain: no timing check of "
+                       "the task's CPU was saved (run qnx_timing_check).")
+    return [{
+        "rule": RULE_OVERRUN,
+        "title": f"Own work overrun: {name} sometimes takes much longer than its usual cycle",
+        "confidence": confidence,
+        "explanation": (f"Some cycles of {label} used many times its usual CPU time, so it "
+                        "finished after the deadline, and the next cycles started late. No other "
+                        "thread kept it waiting in those cycles."),
+        "evidence": evidence,
+        "could_not_determine": unknown,
+        "suggested_fix": ("Find what makes those cycles slower (a different code path, page "
+                          "faults, memory allocation, logging or I/O inside the loop) and move "
+                          "that work out of the deadline path, or give the cycle more slack. On "
+                          "a virtual machine, check the same workload on real hardware first. "
+                          "This is not a priority or lock change."),
+        "subject": _task_subject(task, name),
+        "observations": {"chains": n, "all_chains": total, "exec_budget_us": budget,
+                         "worst_root_exec_us": worst, "knock_on_misses": knock_on},
+    }]
+
+
+def late_wakeup(snapshots: list[list[dict]], deadline_report: dict | None = None,
+                timing_checks: list[dict] | None = None, others: list[dict] | None = None
+                ) -> list[dict]:
+    """Rule: runs of misses that start with the task waking up late while no thread of
+    higher priority was seen holding its CPU (that would be CPU preemption)."""
+    r = deadline_report or {}
+    roots = r.get("chain_root_causes", {})
+    n, total = roots.get("latency", 0), r.get("miss_chains", 0)
+    others = others or []
+    name = r.get("task")
+    if any(f["rule"] == RULE_CPU_PREEMPTION for f in others):
+        return []          # late starts there are the preemption finding's evidence
+    if not _share_ok(n, total, others):
+        return []
+    task = _task_in_snapshots(snapshots, name)
+    label = _label(task) if task else f"'{name}'"
+    shown = _chains(r, "latency")
+    lat = [c["root"]["latency_us"] for c in shown]
+    pre = [c["root"]["preempted_us"] for c in shown]
+    worst = max(lat, default=r["parts_us"]["latency"]["max"])
+    evidence = [
+        f"{n} of the {total} run(s) of consecutive misses started with {label} waking up late: "
+        f"up to {worst / 1000:.1f} ms after it was due"
+        + (f" (the worst runs: {', '.join(f'{x / 1000:.1f}' for x in sorted(lat, reverse=True)[:4])} ms)"
+           if len(lat) > 1 else "")
+        + f", while its usual wake-up delay is {r['parts_us']['latency']['p50'] / 1000:.2f} ms.",
+    ]
+    if pre:
+        evidence.append(f"Once running, it was hardly delayed: at most {max(pre) / 1000:.2f} ms "
+                        "preempted in those cycles.")
+    seen = ready_behind = 0
+    if task:
+        key = (task["pid"], task["tid"])
+        for snap in snapshots:
+            me = next((t for t in snap if (t["pid"], t["tid"]) == key), None)
+            if me is None:
+                continue
+            seen += 1
+            if me.get("state") == "READY" and any(
+                    x.get("state") == "RUNNING" and x["pid"] != _KERNEL_PID
+                    and x.get("priority", 0) > me["priority"]
+                    and x.get("last_cpu") == me.get("last_cpu") for x in snap):
+                ready_behind += 1
+        evidence.append(f"In {seen} snapshot(s) it was never seen waiting behind a "
+                        "higher-priority thread on its CPU." if not ready_behind else
+                        f"In {ready_behind} of {seen} snapshot(s) it was waiting behind a "
+                        "higher-priority thread, too rarely for the CPU preemption rule.")
+    points = 1 + (n >= total / 2) + (n >= 2)
+    tc = _timing_check(timing_checks, (task or {}).get("last_cpu"))
+    within = None
+    if tc:
+        noise = tc["max_late_us"]
+        within = worst <= 1.5 * noise
+        if within:
+            when = (f", checked {tc['measured'][:10]} {tc['measured'][11:16]}"
+                    if len(tc.get("measured") or "") >= 16 else "")
+            evidence.append(f"That is within the timer lateness measured on CPU {tc['cpu']} with "
+                            f"nothing else running (worst {noise / 1000:.1f} ms, mean "
+                            f"{tc['mean_late_us'] / 1000:.2f} ms{when}), so the platform alone "
+                            "can wake a thread this late.")
+        else:
+            points -= 1
+            evidence.append(f"It is well above the timer lateness measured on CPU {tc['cpu']} "
+                            f"with nothing else running (worst {noise / 1000:.1f} ms), so that "
+                            "check does not explain it on its own.")
+    else:
+        points -= 1
+    confidence = "high" if points >= 3 else "medium" if points == 2 else "low"
+    unknown = [
+        "What delayed the wake-up: a late timer, an interrupt handler, a kernel thread, or a "
+        "virtual machine pausing the guest look the same in a deadline report.",
+        "Snapshots are instants; a higher-priority thread that ran only between them is not seen.",
+        "A worst case: finite runs cannot show the latest a wake-up can be.",
+    ]
+    if not tc:
+        unknown.append("How late the platform's timers are on their own: no timing check of the "
+                       "task's CPU was saved (run qnx_timing_check).")
+    where = (f"timer lateness measured on CPU {tc['cpu']}" if tc and within
+             else "a cause below the scheduler")
+    return [{
+        "rule": RULE_LATE_WAKEUP,
+        "title": f"Late wake-up: {name} started late with nothing ahead of it on the CPU",
+        "confidence": confidence,
+        "explanation": (f"{label} became due on time but started running late, and no thread of "
+                        "higher priority was seen holding its CPU. The delay comes from below "
+                        f"the scheduler's priorities; the likeliest source here is {where}."),
+        "evidence": evidence,
+        "could_not_determine": unknown,
+        "suggested_fix": ("Not a priority or lock change. Check the target's timing first: run "
+                          "the timing check on each CPU, keep the task on the quietest one, look "
+                          "for interrupt load on that CPU, and measure on real hardware if this "
+                          "is a virtual machine. If the lateness is a property of the platform, "
+                          "leave room for it in the deadline budget."),
+        "subject": _task_subject(task, name),
+        "observations": {"chains": n, "all_chains": total, "worst_root_latency_us": worst,
+                         "snapshots_seen": seen, "ready_behind_higher": ready_behind,
+                         "within_timer_noise": within},
+    }]
+
+
 def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None,
              timing_checks: list[dict] | None = None) -> dict:
     """Run every rule; say plainly when nothing was found."""
     findings = (mutex_inversion(snapshots, deadline_report)
                 + msgpass_inversion(snapshots, deadline_report)
                 + cpu_preemption(snapshots, deadline_report, timing_checks))
+    first = list(findings)
+    findings += (own_work_overrun(snapshots, deadline_report, timing_checks, first)
+                 + late_wakeup(snapshots, deadline_report, timing_checks, first))
     inherited = inheritance_observed(snapshots)
     msg_inherited = msgpass_inheritance_observed(snapshots, (deadline_report or {}).get("task"))
     order = {"high": 0, "medium": 1, "low": 2}
@@ -576,7 +798,8 @@ def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None,
     else:
         waits = sum(1 for s in snapshots for t in s if t.get("state") == "MUTEX")
         summary = (f"No priority inversion or CPU preemption seen in {len(snapshots)} snapshot(s) "
-                   "(rules: mutex and message-passing priority inversion, CPU preemption)"
+                   "(rules: mutex and message-passing priority inversion, CPU preemption, own "
+                   "work overrun, late wake-up)"
                    + (f" ({waits} brief mutex waits, all with the holder at or above the "
                       "waiter's priority or the holder unknown)" if waits else "")
                    + ". This does not prove there is none; it was not observed.")

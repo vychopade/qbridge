@@ -11,6 +11,12 @@ def test_replay_reproduces_every_recorded_result():
     # The fix that should not help is measured as not helping, not called "improved".
     by_name = {c["name"]: c for c in out["checks"]}
     assert by_name["experiment_live_wrongfix"]["result"] == ["verdict: inconclusive"]
+    # Rules added after the recordings are reported apart, not compared with the target.
+    fixed = by_name["scenario_overload_fixed"]
+    assert fixed["result"] == ["no finding"] and fixed["matches_target"]
+    assert fixed["newer_rules"][0].startswith("Late wake-up: A-control")
+    assert all(not c.get("newer_rules") for n, c in by_name.items()
+               if n in ("scenario_inversion", "scenario_overload_fault", "scenario_msgpass_fault"))
     by = {c["name"]: c for c in out["checks"]}
     assert "CPU preemption" in by["scenario_overload_fault"]["result"][0]
     assert "Priority inversion" in by["scenario_inversion"]["result"][0]

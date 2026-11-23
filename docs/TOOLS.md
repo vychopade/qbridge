@@ -17,7 +17,7 @@ Paths in this page are relative to the repository root.
 | `qnx_kill` | `qbridge --allow-write kill` | yes | Signal programs qbridge deployed (never system processes) and return their log; `ABRT` makes dumper write a core of a hung program |
 | `qnx_gate` | `qbridge --allow-write gate` | yes (runs a program) | Measure a workload `repeats` times and pass or fail it: at most `max_misses` misses per run, an optional worst-response limit, and no run worse than saved baseline runs. The CLI exits with code 1 on failure, for CI against a lab target |
 | `qnx_measure` | `qbridge --allow-write measure` | yes (runs a program) | Run a periodic workload for a fixed time; deadline statistics with each cycle split into backlog, scheduling latency, lock wait, CPU time and preempted time; runs of consecutive misses attributed to what started them; saved as a run |
-| `qnx_diagnose` | `qbridge diagnose [--trace]` | no (yes if it starts the workload or traces) | Snapshot thread states while the workload runs and apply diagnosis rules: priority inversion on a mutex (holder and protocol read from the mutex in process memory), priority inversion through message passing (the task is SEND- or REPLY-blocked on a server process running below it while a middle-priority thread has the server's CPU) and CPU preemption (the deadline task is ready while a higher-priority thread has its CPU). Each finding has evidence, a confidence level, what it could not determine, and a suggested fix. With `--trace`, each finding is also checked step by step against a kernel trace from the same run |
+| `qnx_diagnose` | `qbridge diagnose [--trace]` | no (yes if it starts the workload or traces) | Snapshot thread states while the workload runs and apply diagnosis rules: priority inversion on a mutex (holder and protocol read from the mutex in process memory), priority inversion through message passing (the task is SEND- or REPLY-blocked on a server process running below it while a middle-priority thread has the server's CPU) and CPU preemption (the deadline task is ready while a higher-priority thread has its CPU); when no other thread explains the misses, also own work overrun and late wake-up (see [Diagnosis](#diagnosis)). Each finding has evidence, a confidence level, what it could not determine, and a suggested fix. With `--trace`, each finding is also checked step by step against a kernel trace from the same run |
 | `qnx_trace` | `qbridge --allow-write trace` | yes (runs `tracelogger`) | Record a short kernel trace and report, per thread, time in each state and who ran on its CPU during its longest waits |
 | `qnx_trace_file` | `qbridge trace --file <path>` | no (host only, no target) | Analyse a **recorded** kernel trace from any program: time per state, ready-queue waits, who ran instead, and patterns worth a look (CPU preemption, possible priority inversion), with an HTML timeline page and, with `--perfetto`, a file for ui.perfetto.dev. See [Recorded traces](#recorded-traces-no-target) |
 | `qnx_timing_check` | `qbridge --allow-write timing-check` | yes (runs `vmjitter`) | Measure the target's timer lateness on one CPU (a priority-50 thread waking every 1 ms) and save it as the environment's noise floor; reports quote the latest check |
@@ -75,6 +75,22 @@ starts the workload, takes `/dev/qbridge/threads` snapshots while it runs, reads
 For the fixed build it reports no inversion ("this does not prove there is none; it was not observed"). It also reports priority inheritance seen working: the holder ran at priority 30 while its own priority is 10.
 
 Confidence is high when at least three independent pieces of evidence agree: holder below the waiter, a middle-priority thread running, the PRIO_NONE flag, and lock-rooted deadline misses. With fewer it is medium or low, and the fix suggestion becomes more cautious. Diagnoses are saved under `~/.qbridge/diagnoses/` with the snapshots that support them.
+
+### When no other thread is to blame
+
+The three rules above find another thread that keeps the deadline task waiting. Two more rules cover the other causes a deadline report can show. Both look at the runs of consecutive misses and what the first cycle of each run spent its time on (later misses in a run are knock-on: the previous cycle ran past the next release). Each reports only if its cause started at least a quarter of the runs, or if no other finding explains them.
+
+| Rule | What the deadline report shows | Checked against |
+|---|---|---|
+| Own work overrun | The first cycle used far more CPU time than the task's median cycle, with no long wait for a lock, a server or the CPU | The saved timing check: extra time within twice the CPU's worst timer lateness gets a caution and lower confidence, because a virtual machine pausing the guest also counts as the task's CPU time |
+| Late wake-up | The task started late while no higher-priority thread was seen holding its CPU (if one was, that is CPU preemption, and this rule stays quiet) | The snapshots (never READY behind a higher-priority thread) and the saved timing check: a delay within 1.5 times the CPU's worst timer lateness is put down to the platform |
+
+On the recorded fixed overload run (`-a 30`), which the original rules call clean, they explain the 8 misses that remained:
+
+> **Late wake-up (high confidence).** 2 of the 3 runs of misses started with 'A-control' waking up 15.8 and 10.1 ms late, against a usual 1.09 ms; it was never seen waiting behind a higher-priority thread in 18 snapshots, and the delay is within the 28.4 ms timer lateness measured on CPU 1 that day.
+> **Own work overrun (low confidence).** 1 run started with a cycle of 23.2 ms of CPU time against a median of 1.01 ms. Caution: that is within twice the measured timer lateness, and a paused virtual machine looks the same.
+
+Both say what they cannot tell apart: a late timer, an interrupt handler or a paused VM look the same in a deadline report, and so do more work and a slower machine. Their fix suggestions are not priority or lock changes. These two rules have no kernel-trace check yet; `--trace` marks their findings "not checked".
 
 ## Experiments: test a fix and measure it
 

@@ -81,14 +81,50 @@ def test_preempted_holder_is_left_to_the_mutex_rule():
     assert len(analysis.cpu_preemption(snaps)) == 1
 
 
-def test_fixed_overload_finds_nothing(fixture_text):
+def test_fixed_overload_has_no_inversion_or_preemption_but_a_late_wakeup(fixture_text):
+    """After the fix the task still missed 8 deadlines in 3 runs of misses. The rules for
+    other threads find nothing; the newer rules say what the deadline report shows."""
     d = _load(fixture_text, "overload_fixed")
     assert d["args"] == ["-s", "overload", "-a", "30"]
     mutex, cpu = _run_rules(d)
     assert mutex == [] and cpu == []
     res = analysis.diagnose(d["snapshots"], d["deadline_report"], d["timing_checks"])
-    assert "No priority inversion or CPU preemption" in res["summary"]
-    assert "does not prove there is none" in res["summary"]
+    rules = {f["rule"]: f for f in res["findings"]}
+    assert set(rules) == {analysis.RULE_LATE_WAKEUP, analysis.RULE_OVERRUN}
+    late = rules[analysis.RULE_LATE_WAKEUP]
+    assert late["confidence"] == "high" and res["findings"][0] is late
+    assert late["observations"]["chains"] == 2 and late["observations"]["within_timer_noise"]
+    assert any("never seen waiting behind a higher-priority thread" in e for e in late["evidence"])
+    assert any("within the timer lateness measured on CPU 1" in e for e in late["evidence"])
+    assert "Not a priority or lock change" in late["suggested_fix"]
+    over = rules[analysis.RULE_OVERRUN]
+    assert over["confidence"] == "low"                     # 1 of 3 runs, and inside the noise
+    assert any(e.startswith("Caution") for e in over["evidence"])
+    assert any("virtual machine paused" in u for u in over["could_not_determine"])
+
+
+def test_new_rules_stay_quiet_when_another_thread_explains_the_misses(fixture_text):
+    for name in ("overload_fault", "inversion"):
+        d = _load(fixture_text, name)
+        res = analysis.diagnose(d["snapshots"], d["deadline_report"], d["timing_checks"])
+        assert not [f for f in res["findings"] if f["rule"] not in analysis.ORIGINAL_RULES], name
+
+
+def test_late_wakeup_without_snapshots_and_above_the_noise():
+    """The overhead runs of Nov 23: deadline reports only, timer noise 1.9 ms on CPU 1, and
+    wake-ups 9.8-46.9 ms late. The rule still reports them, with lower confidence."""
+    import json
+    from pathlib import Path
+    fx = Path(__file__).parent / "fixtures" / "overhead"
+    meta = json.loads((fx / "overhead.json").read_text(encoding="utf-8"))
+    run = next(r for r in meta["runs"] if r["condition"] == "polling" and r["round"] == 1)
+    rep = json.loads((fx / f"{run['run_id']}.report.json").read_text(encoding="utf-8"))
+    tc = [{"cpu": None, "max_late_us": 1868.6, "mean_late_us": 128.3}]   # task CPU unknown
+    (f,) = analysis.late_wakeup([], rep, tc)
+    assert f["confidence"] in ("medium", "low")
+    assert f["observations"]["within_timer_noise"] is False
+    assert any("well above the timer lateness" in e for e in f["evidence"])
+    assert f["subject"]["task"]["thread_name"] == "A-control"
 
 
 def test_live_results_match_rerun_of_rules(fixture_text):
@@ -168,3 +204,16 @@ def test_one_outlier_does_not_count_as_evidence():
     assert any(e.startswith("Caution:") and "35.0 ms; worst 376.6 ms" in e for e in f["evidence"])
     assert any("far above the rest" in e for e in f["evidence"])
     assert f["confidence"] == "high"          # held, usual, CPU-rooted misses: 3 points
+
+
+def test_trace_summary_says_new_rules_are_not_checked(fixture_text):
+    import gzip
+    from pathlib import Path
+    from qbridge import traceconfirm
+    from qbridge.parsers import kev
+    d = _load(fixture_text, "overload_fixed")
+    res = analysis.diagnose(d["snapshots"], d["deadline_report"], d["timing_checks"])
+    raw = (Path(__file__).parent / "fixtures" / "traces" / "overload_fixed.txt.gz").read_bytes()
+    traceconfirm.confirm_all(res, kev.parse(gzip.decompress(raw).decode("utf-8")), "t")
+    assert "have no trace check yet" in res["summary"] and "0 of" not in res["summary"]
+    assert all(f["trace"]["status"] == "not checked" if "trace" in f else True for f in res["findings"])
