@@ -3,7 +3,7 @@
 The repository keeps data recorded on the reference QNX 8.0 target (a 2-CPU
 VirtualBox VM) under tests/fixtures: thread-state snapshots and deadline
 reports from diagnose runs, kernel traces from the same kind of runs, and the
-per-run reports of two fix experiments. This command runs qbridge's real
+per-run reports of four fix experiments (one of them a fix that should not help). This command runs qbridge's real
 analysis code on that data on this computer, and compares each result with
 what qbridge reported on the target at the time.
 
@@ -42,6 +42,8 @@ EXPERIMENTS = [
     ("experiment_live", "source change: PTHREAD_PRIO_NONE -> PTHREAD_PRIO_INHERIT"),
     ("experiment_live_overload", "scheduling change: A's priority 15 -> 30"),
     ("experiment_live_msgpass", "source change: drop _NTO_CHF_FIXED_PRIORITY from the server's channel"),
+    ("experiment_live_wrongfix", "a fix that should not help: A's priority 30 -> 50, server channel "
+                                 "still _NTO_CHF_FIXED_PRIORITY"),
 ]
 
 
@@ -137,5 +139,6 @@ def text(out: dict) -> str:
     ok = sum(c["matches_target"] for c in out["checks"])
     lines.append(f"{ok} of {n} results are the same as qbridge reported on the target.")
     lines.append("Full reports from those runs: docs/example-report.html, "
-                 "docs/example-report-overload.html, docs/example-report-msgpass.html")
+                 "docs/example-report-overload.html, docs/example-report-msgpass.html, "
+                 "docs/example-report-wrongfix.html")
     return "\n".join(lines) + "\n"

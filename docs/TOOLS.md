@@ -217,7 +217,8 @@ The project site has the message-passing trace both ways: [the analysis page](ht
 | Command allowlist | `commands.check` at `Target.run`; upload check in `Target.put` | `tests/test_commands.py` (22 refused, 16 allowed forms) |
 | Timeouts | `timeout` wrapper on every program run; ssh and scp time limits | `tests/test_server.py`, `test_demos.py` |
 | Audit log | `audit.record` in `server.Server.call_tool` and `cli.main` | `tests/test_audit.py` (chain, edits, deletions, both interfaces) |
-| Rollback to the baseline build | `experiments.rollback`: restores sources, redeploys the saved baseline binary, checks the target's sha256 | `tests/test_experiments.py`; live on Nov 17, sha256 matched |
+| Rollback to the baseline build | `experiments.rollback`: restores sources (with a new timestamp), redeploys the saved baseline binary, checks the target's sha256 | `tests/test_experiments.py`; live on Nov 17 and Nov 23, sha256 matched |
+| Measure the code as it is | Every experiment build deletes the old binary first, so a binary newer than restored source is never measured as the baseline (found live on Nov 23, when `make` skipped a rebuild after a rollback) | `tests/test_experiments.py::test_next_baseline_is_built_from_the_restored_source` |
 
 Live check on Nov 21: the target refused writes in read-only mode, refused killing `qbridged` and running outside the deploy folder even with write access, and refused `slog2info -c`, `cat /etc/shadow` and a raw `sh -c` at the allowlist. All 14 actions were in the audit log, and the chain verified.
 

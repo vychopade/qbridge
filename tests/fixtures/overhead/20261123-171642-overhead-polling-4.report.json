@@ -1,0 +1,92 @@
+{
+  "task": "A-control",
+  "period_us": 10000.0,
+  "deadline_us": 10000.0,
+  "cycles": 999,
+  "misses": 0,
+  "miss_rate": 0.0,
+  "miss_chains": 0,
+  "longest_chain": 0,
+  "response_us": {
+    "count": 999,
+    "min": 1051.4,
+    "max": 5183.1,
+    "mean": 1173.44014014014,
+    "stddev": 301.0323116095901,
+    "p50": 1079.4,
+    "p99": 2139.9
+  },
+  "parts_us": {
+    "backlog": {
+      "count": 999,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0,
+      "stddev": 0.0,
+      "p50": 0.0,
+      "p99": 0.0
+    },
+    "latency": {
+      "count": 999,
+      "min": 42.7,
+      "max": 3766.7,
+      "mean": 158.4944944944945,
+      "stddev": 291.6085916265674,
+      "p50": 68.3,
+      "p99": 1129.6
+    },
+    "lock_wait": {
+      "count": 999,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0,
+      "stddev": 0.0,
+      "p50": 0.0,
+      "p99": 0.0
+    },
+    "server_wait": {
+      "count": 999,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0,
+      "stddev": 0.0,
+      "p50": 0.0,
+      "p99": 0.0
+    },
+    "exec": {
+      "count": 999,
+      "min": 1005.6,
+      "max": 1463.9,
+      "mean": 1009.4333333333334,
+      "stddev": 20.951832360900546,
+      "p50": 1007.3,
+      "p99": 1054.1
+    },
+    "preempted": {
+      "count": 999,
+      "min": 2.5,
+      "max": 164.2000000000005,
+      "mean": 5.512312312312314,
+      "stddev": 11.312208653626485,
+      "p50": 3.2000000000000455,
+      "p99": 56.89999999999998
+    }
+  },
+  "exec_budget_us": 1007.3,
+  "server_budget_us": 0.0,
+  "chain_root_causes": {},
+  "per_miss_primary_cause": {},
+  "worst_chains": [],
+  "summary": "A-control: 0 of 999 cycles missed the 10 ms deadline (0.0%); worst response 5.2 ms, 99th percentile 2.1 ms, mean 1.17 ms.",
+  "cross_check": {
+    "checked": true,
+    "agrees": true,
+    "problems": []
+  },
+  "qbridged_check": {
+    "checked": true,
+    "slot": 2,
+    "agrees": true,
+    "problems": []
+  }
+}

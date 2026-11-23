@@ -56,7 +56,7 @@ The kernel trace showed each mechanism directly:
 
 After the message-passing fix a few misses remained. In those cycles the server's 4 ms of work and the task's own 1 ms took several times longer, with nothing at their priority competing for the CPU. That points to the virtual machine slowing the guest; the report says so and that it is not proven.
 
-Anyone can check the analysis without a target: `qbridge replay` reruns the diagnosis rules, the trace checks and the experiment verdicts on the data recorded on the target, and reports that all 11 results are the same as on the target.
+Anyone can check the analysis without a target: `qbridge replay` reruns the diagnosis rules, the trace checks and the experiment verdicts on the data recorded on the target, and reports that all 12 results are the same as on the target.
 
 ## How we built it
 

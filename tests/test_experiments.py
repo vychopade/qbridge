@@ -113,6 +113,40 @@ def test_full_loop_improves_and_rolls_back(env):
     assert events[0] == "baseline measured" and events[-1] == "rolled back"
 
 
+def test_next_baseline_is_built_from_the_restored_source(env):
+    """Found on the target on Nov 23: rollback restored rtdemo.c with its old timestamp
+    (shutil.copy2), so make saw the fixed binary as newer than the source and skipped the
+    rebuild, and the next experiment's 'baseline' measured the fix. With make's own rule
+    in the fake build, the next baseline must still be the faulty source."""
+    s, project, state = env
+    real = build_mod.build
+
+    def make_like(path, **kw):                      # rebuild only if the binary is older
+        b, src = project / "build" / "rtdemo", project / "rtdemo.c"
+        if b.is_file() and b.stat().st_mtime >= src.stat().st_mtime:
+            return type("R", (), {"ok": True, "errors": [], "warnings": [],
+                                  "to_dict": lambda self: {"ok": True}})()
+        return fake(path, **kw)
+
+    fake = experiments.build_mod.build
+    experiments.build_mod.build = make_like
+    try:
+        eid = _start(s, project)["experiment_id"]
+        experiments.propose(s, eid, "rtdemo.c", FIND, REPLACE, "fix")
+        cli.approve_interactively(eid, TTY("yes\n"), io.StringIO())
+        experiments.run(s, eid)
+        experiments.rollback(s, eid)
+        assert (project / "rtdemo.c").read_text(encoding="utf-8") == SRC
+
+        nxt = _start(s, project)
+        assert state["deployed"][-1] == b"ELF:" + SRC.encode()       # the fault, not the fix
+        assert experiments.show(nxt["experiment_id"])["baseline"]["binary_sha256"] != \
+            experiments.show(eid)["candidate"]["binary_sha256"]
+    finally:
+        experiments.build_mod.build = fake
+    assert real is build_mod.build
+
+
 def test_approval_needs_an_interactive_person(env):
     s, project, _ = env
     eid = _start(s, project)["experiment_id"]

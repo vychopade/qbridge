@@ -9,7 +9,7 @@ Built during the QNX Global Hackathon, November 2026 (Developer Tooling & Host T
 > **For judges, a 5-minute path**
 > 1. Watch the demo video (under 3 minutes): *link added at submission*.
 > 2. Open an example report in the browser: [mutex inversion](https://vychopade.github.io/qbridge/example-report.html), [message-passing inversion](https://vychopade.github.io/qbridge/example-report-msgpass.html), [CPU overload](https://vychopade.github.io/qbridge/example-report-overload.html).
-> 3. Check the analysis on your own computer, no QNX needed: [Quick check without a target](#quick-check-without-a-target) (`qbridge replay`, 11 of 11 recorded results reproduced).
+> 3. Check the analysis on your own computer, no QNX needed: [Quick check without a target](#quick-check-without-a-target) (`qbridge replay`, 12 of 12 recorded results reproduced).
 > 4. See the QNX-specific code: [How it uses QNX](#how-it-uses-qnx).
 
 | Fault planted in the demo workload | Diagnosis (confirmed by a kernel trace) | Approved fix | Misses per 999 cycles, 3 runs before → 3 after |
@@ -17,6 +17,8 @@ Built during the QNX Global Hackathon, November 2026 (Developer Tooling & Host T
 | Mutex created with `PTHREAD_PRIO_NONE` | Priority inversion on a mutex | `PTHREAD_PRIO_INHERIT` (one line) | 310, 304, 302 → 0, 0, 0 |
 | Server channel created with `_NTO_CHF_FIXED_PRIORITY` | Priority inversion through message passing | drop the flag (one line) | 825, 819, 812 → 9, 4, 24 |
 | Control task below a CPU-heavy thread | CPU preemption | priority 15 → 30, same binary | 301, 309, 305 → 0, 1, 0 |
+
+A wrong fix is measured too: raising the control task to priority 50 for the message-passing fault left the misses unchanged (798, 802, 801 → 798, 798, 798), and the verdict was "inconclusive", not "improved".
 
 ![qbridge report: verdict "improved", misses 302-310 to 0, worst response 37 ms to about 5 ms, and response time of every cycle before and after the fix](docs/images/report-verdict.png)
 
@@ -88,6 +90,15 @@ Verdict "improved". The one miss after the change started with a late wake-up (9
 
 Verdict "improved": every run after the change beat every run before it, but the task still missed a few deadlines. In those cycles the server's 4 ms of work took 8-13 ms of wall time and the control task's own 1 ms of work up to 10 ms, with no thread at or above their priority competing on that CPU; that session's timer check measured CPU 1's wake-ups up to 9.9 ms late. This points to the virtual machine slowing the guest, not to the inversion, but these runs cannot prove it. Report: [docs/example-report-msgpass.html](docs/example-report-msgpass.html).
 
+**A fix that should not help, measured as not helping.** An obvious-looking fix for the third fault is to make the control task more important: run it at priority 50, above everything else, with the same binary and the channel flag left in. It cannot work, because the server still serves the request at its own fixed priority 10, below 'B-worker'. qbridge does not take that on faith: the change was proposed, approved at the prompt and measured like the others.
+
+| | Before (`-s msgpass`) | After (`-s msgpass -a 50`) |
+|---|---|---|
+| Missed deadlines (of 999 cycles per run) | 798, 802, 801 | 798, 798, 798 |
+| Worst response | 46.6-50.5 ms | 46.0-46.5 ms |
+
+Verdict "inconclusive" and the recommendation "do not rely on this change", then a rollback. A diagnosis with a kernel trace at priority 50 found the same inversion, confirmed step by step: the control task waited at 50, the server was ready at 10 for 401 ms of the second while 'B-worker' (20) had its CPU for 400 ms of that. Report: [docs/example-report-wrongfix.html](docs/example-report-wrongfix.html).
+
 ## How it uses QNX
 
 The target side is native QNX 8.0 C code. These are the places to look:
@@ -127,7 +138,7 @@ qbridge replay
 `qbridge replay` runs qbridge's diagnosis rules, kernel-trace checks and experiment verdicts on data recorded on the reference target (thread snapshots, deadline reports, kernel traces and per-run reports, kept in `tests/fixtures/`). It then compares each result with what qbridge reported on the target at the time. It ends with:
 
 ```
-11 of 11 results are the same as qbridge reported on the target.
+12 of 12 results are the same as qbridge reported on the target.
 ```
 
 It measures nothing new. It shows that the analysis is deterministic and reproduces the recorded results. On Linux or macOS, activate the venv with `source .venv/bin/activate`.
@@ -260,6 +271,7 @@ qbridge --allow-write gate rtdemo --repeats 3 --max-misses 0
 - Virtual-machine timing is noisier than real hardware, and absolute numbers vary between boots (the faulty build missed about 300 deadlines in one boot and 384 in another). Only runs from the same session are compared.
 - rtdemo is an **educational, simulated** workload. Nothing here is a claim about any automotive, medical or other safety-certified system.
 - The mutex owner's layout in memory was **observed** on QNX 8.0, not taken from documentation. qbridged checks it against the process ID on every read, and findings say so.
+- **qbridge's own overhead** was measured on Nov 23 with a workload that rarely misses (`rtdemo -s overload -a 30`), six interleaved 10 s runs in each of three conditions: rtdemo not reporting to qbridged (`-n`), reporting every cycle (the normal mode), and reporting while the host read qbridged's thread snapshots over ssh about once a second (`qbridge ps` in a loop), as `diagnose` does. The typical cycle did not change: median response 1.083, 1.079 and 1.089 ms, mean 1.256, 1.249 and 1.254 ms. The quiet runs had no misses; four of the twelve runs with qbridge active had a few (2, 4, 5 and 4), all in the first three rounds, none in the last three. Every one of those runs of misses started with the control task waking 9.8-46.9 ms late with almost nothing running above it (at most 0.2 ms preempted), which is how the virtual machine pausing the guest looks; qbridged runs below the control task. Eighteen runs cannot tell whether qbridge's activity made those pauses more likely, so this is stated, not ruled out. The data is in `tests/fixtures/overhead/`.
 
 ## Also included
 

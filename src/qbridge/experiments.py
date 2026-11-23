@@ -85,12 +85,17 @@ def _source_files(project: Path) -> list[Path]:
 
 
 def _build_and_check(project: Path, binary_rel: str) -> tuple[Path, dict]:
+    # Remove the old binary first, so the build always comes from the source as it is
+    # now. make compares timestamps, and a binary newer than restored source (an earlier
+    # experiment's candidate, say) would otherwise be measured as the baseline.
+    binary = _inside(project, binary_rel)
+    if binary.is_file():
+        binary.unlink()
     res = build_mod.build(project)
     if not res.ok:
         raise ExperimentError(f"build failed: {len(res.errors)} error(s): "
                               + "; ".join(f"{e.get('file')}:{e.get('line')} {e['message']}"
                                           for e in res.errors[:5]))
-    binary = _inside(project, binary_rel)
     if not binary.is_file():
         raise ExperimentError(f"build succeeded but {binary} does not exist; pass binary=")
     return binary, res.to_dict()
@@ -120,7 +125,11 @@ def start(s, program: str, project_dir: str, binary: str | None = None, seconds:
     repeats = max(1, min(int(repeats), 10))
     binary_rel = binary or f"build/{program}"
 
-    exp_id = runs.new_run_id(f"exp-{program}")
+    exp_id = base = runs.new_run_id(f"exp-{program}")
+    n = 2
+    while (exp_dir() / exp_id).exists():          # two experiments started in one second
+        exp_id = f"{base}-{n}"
+        n += 1
     d = exp_dir() / exp_id
     (d / "baseline_src").mkdir(parents=True)
     for f in _source_files(project):
@@ -322,7 +331,9 @@ def rollback(s, exp_id: str) -> dict:
         src = d / "baseline_src" / name
         dst = _inside(project, name)
         if src.is_file() and (not dst.is_file() or dst.read_bytes() != src.read_bytes()):
-            shutil.copy2(src, dst)
+            # copyfile, not copy2: the restored file gets a new timestamp, so build tools
+            # see it as changed (copy2 kept the old one, older than the candidate binary).
+            shutil.copyfile(src, dst)
             restored.append(name)
     tools.deploy(s, str(d / "baseline.bin"), e["program"])
     remote = s.policy.deploy_path(e["program"])

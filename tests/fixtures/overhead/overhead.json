@@ -1,0 +1,103 @@
+{
+ "recorded": "2026-11-23",
+ "target": "QNX 8.0 VirtualBox VM, 2 CPUs, rtdemo on CPU 1",
+ "workload": "rtdemo -s overload -a 30, 10 s per run, interleaved quiet/reporting/polling",
+ "conditions": {
+  "quiet": "rtdemo -n: no reporting to qbridged",
+  "reporting": "rtdemo reports every cycle to qbridged by MsgSendPulse (normal mode)",
+  "polling": "reporting, while the host ran 'qbridge ps' (reads /dev/qbridge/threads over ssh) about every 1.2 s"
+ },
+ "timing_check_cpu1": "2026-11-23 17:08: mean lateness 0.13 ms, worst 1.9 ms",
+ "runs": [
+  {
+   "condition": "quiet",
+   "round": 1,
+   "run_id": "20261123-171220-overhead-quiet-1"
+  },
+  {
+   "condition": "reporting",
+   "round": 1,
+   "run_id": "20261123-171231-overhead-reporting-1"
+  },
+  {
+   "condition": "polling",
+   "round": 1,
+   "run_id": "20261123-171243-overhead-polling-1"
+  },
+  {
+   "condition": "quiet",
+   "round": 2,
+   "run_id": "20261123-171255-overhead-quiet-2"
+  },
+  {
+   "condition": "reporting",
+   "round": 2,
+   "run_id": "20261123-171307-overhead-reporting-2"
+  },
+  {
+   "condition": "polling",
+   "round": 2,
+   "run_id": "20261123-171318-overhead-polling-2"
+  },
+  {
+   "condition": "quiet",
+   "round": 3,
+   "run_id": "20261123-171331-overhead-quiet-3"
+  },
+  {
+   "condition": "reporting",
+   "round": 3,
+   "run_id": "20261123-171343-overhead-reporting-3"
+  },
+  {
+   "condition": "polling",
+   "round": 3,
+   "run_id": "20261123-171355-overhead-polling-3"
+  },
+  {
+   "condition": "quiet",
+   "round": 4,
+   "run_id": "20261123-171619-overhead-quiet-4"
+  },
+  {
+   "condition": "reporting",
+   "round": 4,
+   "run_id": "20261123-171631-overhead-reporting-4"
+  },
+  {
+   "condition": "polling",
+   "round": 4,
+   "run_id": "20261123-171642-overhead-polling-4"
+  },
+  {
+   "condition": "quiet",
+   "round": 5,
+   "run_id": "20261123-171656-overhead-quiet-5"
+  },
+  {
+   "condition": "reporting",
+   "round": 5,
+   "run_id": "20261123-171707-overhead-reporting-5"
+  },
+  {
+   "condition": "polling",
+   "round": 5,
+   "run_id": "20261123-171719-overhead-polling-5"
+  },
+  {
+   "condition": "quiet",
+   "round": 6,
+   "run_id": "20261123-171731-overhead-quiet-6"
+  },
+  {
+   "condition": "reporting",
+   "round": 6,
+   "run_id": "20261123-171742-overhead-reporting-6"
+  },
+  {
+   "condition": "polling",
+   "round": 6,
+   "run_id": "20261123-171754-overhead-polling-6"
+  }
+ ]
+}
