@@ -176,7 +176,7 @@ Upload the images in `hackathon/gallery/` (no third-party logos in any of them).
 - [ ] Record and upload the video as public (under 3 minutes; see [DEMO_SCRIPT.md](DEMO_SCRIPT.md)). Put its link here, in the README's judges' path and in `docs/index.html`.
 - [ ] Fill the **[your words]** sections.
 - [ ] Put the codelab URL in the Best Codelab field.
-- [ ] Decide the licence question in `COMPETITORS.md` (publishing measurements) before submitting.
+- [ ] Check that the QNX licence you accepted allows publishing the measured timing numbers, and decide whether they stay.
 - [ ] Tag the submitted state: `git tag hackathon-submission` and `git push origin hackathon-submission`.
 - [ ] Submit by **December 13** (the deadline is December 15, 2026, 2:00 pm ET).
 
