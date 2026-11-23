@@ -171,7 +171,7 @@ Upload the images in `hackathon/gallery/` (no third-party logos in any of them).
 
 ## Before submitting
 
-- [ ] Turn on GitHub Pages (Settings → Pages → Deploy from a branch → `main`, folder `/docs`), then open https://vychopade.github.io/qbridge/ and click every link.
+- [x] Turn on GitHub Pages (Settings → Pages → Deploy from a branch → `main`, folder `/docs`), then open https://vychopade.github.io/qbridge/ and click every link.
 - [ ] Set the About fields above, and check that the sidebar shows "MIT license".
 - [ ] Record and upload the video as public (under 3 minutes; see [DEMO_SCRIPT.md](DEMO_SCRIPT.md)). Put its link here, in the README's judges' path and in `docs/index.html`.
 - [ ] Fill the **[your words]** sections.
