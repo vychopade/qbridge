@@ -86,12 +86,19 @@ def build_parser() -> argparse.ArgumentParser:
     dg.add_argument("args", nargs="*",
                     help="extra workload arguments, after --  (e.g. diagnose rtdemo -- -s overload)")
 
-    tc = sub.add_parser("trace", help="capture a short kernel trace and show what threads did")
+    tc = sub.add_parser("trace", help="capture a short kernel trace and show what threads did, "
+                                      "or analyse a recorded one with --file (no target needed)")
     tc.add_argument("program", nargs="?", help="workload to start first (needs --allow-write)")
+    tc.add_argument("--file", help="analyse this recorded trace instead: traceprinter text, "
+                                   ".txt.gz, or .kev (needs the QNX SDP's traceprinter)")
+    tc.add_argument("--process", help="with --file: report every thread of this process (name or pid)")
+    tc.add_argument("--html", help="with --file: where to write the HTML page "
+                                   "(default ~/.qbridge/reports/trace-<name>.html)")
     tc.add_argument("--seconds", type=int, default=6, help="workload length")
     tc.add_argument("--trace-seconds", type=float, default=1.0)
     tc.add_argument("--thread", action="append", dest="threads",
-                    help="thread name to report (repeatable); default: the program's threads")
+                    help="thread name, or pid/tid, to report (repeatable); default: the program's "
+                         "threads, or with --file the threads with a pattern and the longest waits")
     tc.add_argument("args", nargs="*", help="extra workload arguments, after --")
 
     rp_ = sub.add_parser("replay", help="no target needed: rerun the analysis on data recorded "
@@ -195,6 +202,10 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             return tools.diagnose(s, a.program, a.seconds, a.snapshots, a.run_id, a.args,
                                   a.trace, a.trace_seconds)
         case "trace":
+            if a.file:
+                if a.program:
+                    raise ValueError("give either a program to trace live or --file, not both")
+                return tools.trace_file(s, a.file, a.threads, a.process, a.html)
             return tools.trace(s, a.program, a.args, a.seconds, a.trace_seconds, a.threads)
         case "runs":
             return tools.list_runs(s, a.limit)
@@ -288,6 +299,8 @@ def _audit_name(a: argparse.Namespace) -> tuple[str, bool]:
         name = f"qnx_experiment_{a.exp_command}"
     elif a.command == "image":
         return f"image_{a.image_command}", False          # changes the host image folder only
+    elif a.command == "trace" and a.file:
+        name = "qnx_trace_file"                            # a recorded trace, read on the host
     else:
         name = _CLI_TOOL.get(a.command, a.command)
     # Approval (CLI only, no MCP tool) records a decision; it does not touch the target.

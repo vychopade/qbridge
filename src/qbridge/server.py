@@ -28,7 +28,7 @@ INSTRUCTIONS = (
     "approve it by running 'qbridge experiment approve <id>' in a terminal (you cannot approve "
     "it), qnx_experiment_run (rebuild, rerun, compare), qnx_report, and qnx_experiment_rollback "
     "or _keep. Report results as measured: finite runs do not prove a worst case, and say "
-    "'inconclusive' when the tools do. General tools: qnx_trace (what each thread did, from a short kernel trace), qnx_ps and qnx_logs (what is running, "
+    "'inconclusive' when the tools do. General tools: qnx_trace (what each thread did, from a short kernel trace), qnx_trace_file (the same for a trace file someone recorded, with no target), qnx_ps and qnx_logs (what is running, "
     "who is blocked on whom), qnx_crash (backtrace from a core file), qnx_build. Tools that "
     "change the target only work if the user started qbridge with --allow-write; every call is "
     "recorded in an audit log (qnx_audit)."
@@ -218,6 +218,27 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         lambda s, program=None, args=None, seconds=6, trace_seconds=1.0, threads=None:
             tools.trace(s, program, args, seconds, trace_seconds, threads),
         True,
+    ),
+    "qnx_trace_file": (
+        "Analyse a RECORDED QNX kernel trace on the host; no target needed. Input: a file of "
+        "traceprinter text (also .txt.gz), or a .kev file if the QNX SDP is installed. Works on "
+        "any program's trace. Reports, per thread, time in each state, ready-queue waits (p50, "
+        "p99, max), and for its longest waits who held its CPU (READY) or which lower-priority "
+        "threads ran meanwhile (MUTEX/SEND/REPLY). Flags patterns as hints, not diagnoses: CPU "
+        "preemption, and possible priority inversion (a thread blocked while a lower-priority "
+        "thread was held off its CPU by a middle-priority one). The trace does not record what a "
+        "blocked thread waits for, so say 'possible'; qnx_diagnose with trace=true identifies it "
+        "on a live target. Also writes an HTML page with a thread-state timeline; returns its path.",
+        _schema({
+            "path": {"type": "string", "description": "Path of the trace file on this computer"},
+            "threads": {"type": "array", "items": {"type": "string"},
+                        "description": "Thread names or 'pid/tid' to report (default: threads "
+                                       "with a pattern, then the longest waits)"},
+            "process": {"type": "string", "description": "Report every thread of this process "
+                                                         "(name or pid)"},
+        }, ["path"]),
+        lambda s, path, threads=None, process=None: tools.trace_file(s, path, threads, process),
+        False,
     ),
     "qnx_audit": (
         "Show the audit log: every qbridge tool call (from the CLI or MCP) with its arguments, "

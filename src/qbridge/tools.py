@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import build as build_mod
-from . import analysis, audit, commands, crash, deadlines, qnxenv, runs, traceconfirm
+from . import analysis, audit, commands, crash, deadlines, qnxenv, runs, traceconfirm, traceview
 from .parsers import kev, pidin, qbridged, slog2
 from .policy import Policy, PolicyError
 from .target import Target, TargetError
@@ -440,24 +440,6 @@ def capture_trace(s: Session, seconds: float = 1.0) -> tuple[str, kev.Trace]:
     return trace_id, kev.parse((d / "trace.txt").read_text(encoding="utf-8", errors="replace"))
 
 
-def _thread_report(tr: kev.Trace, key: tuple[int, int]) -> dict:
-    """What a thread did in the trace, and who held its CPU while it waited."""
-    spans = tr.spans.get(key, [])
-    out = {"thread": tr.label(key), "pid": key[0], "tid": key[1],
-           "state_ms": {k: round(v, 2) for k, v in tr.state_totals(key).items()},
-           "longest_waits": []}
-    waits = sorted((sp for sp in spans if sp.state in ("READY", "MUTEX")), key=lambda sp: -sp.ms)[:3]
-    for sp in waits:
-        ran = tr.running_during(sp.cpu, sp.start, sp.end, exclude=key)
-        top = sorted(ran.items(), key=lambda kv: -kv[1])[:3]
-        out["longest_waits"].append({
-            "state": sp.state, "start_ms": round(sp.start, 2), "ms": round(sp.ms, 2), "cpu": sp.cpu,
-            "priority": sp.priority,
-            "ran_instead": [{"thread": tr.label(k), "priority": p, "ms": round(v, 2)}
-                            for (k, p), v in top]})
-    return out
-
-
 def trace(s: Session, program: str | None = None, args: list[str] | None = None,
           seconds: int = 6, trace_seconds: float = 1.0, threads: list[str] | None = None) -> dict:
     """Capture a kernel trace (optionally while starting a workload) and report
@@ -481,9 +463,26 @@ def trace(s: Session, program: str | None = None, args: list[str] | None = None,
         keys = sorted(k for k in tr.spans if k[0] in pids)
     return {"trace_id": trace_id, "duration_ms": round(tr.duration_ms, 1),
             "events": sum(tr.event_counts.values()),
-            "threads": [_thread_report(tr, k) for k in keys],
+            "threads": [traceview.thread_report(tr, k) for k in keys],
             "not_found": [n for n in names if not tr.find_thread(n)],
             "files": str(runs.home() / "traces" / trace_id)}
+
+
+def trace_file(s: Session, path: str, threads: list[str] | None = None,
+               process: str | None = None, html_out: str | None = None) -> dict:
+    """Analyse a recorded kernel trace on the host (traceprinter text, .gz, or .kev with
+    the SDP installed). No target needed. Writes an HTML page beside the JSON result."""
+    tr = kev.parse(traceview.load_text(path))
+    result = traceview.analyse(tr, threads, process)
+    page = traceview.html(result, tr, path)
+    stem = Path(path).name.split(".")[0] or "trace"
+    out = Path(html_out) if html_out else runs.home() / "reports" / f"trace-{stem}.html"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(page, encoding="utf-8", newline="\n")
+    result.pop("_found", None)
+    result["file"] = str(Path(path))
+    result["html"] = str(out)
+    return result
 
 
 def deadline_stats(s: Session) -> dict:

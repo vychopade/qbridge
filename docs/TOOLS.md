@@ -19,6 +19,7 @@ Paths in this page are relative to the repository root.
 | `qnx_measure` | `qbridge --allow-write measure` | yes (runs a program) | Run a periodic workload for a fixed time; deadline statistics with each cycle split into backlog, scheduling latency, lock wait, CPU time and preempted time; runs of consecutive misses attributed to what started them; saved as a run |
 | `qnx_diagnose` | `qbridge diagnose [--trace]` | no (yes if it starts the workload or traces) | Snapshot thread states while the workload runs and apply diagnosis rules: priority inversion on a mutex (holder and protocol read from the mutex in process memory), priority inversion through message passing (the task is SEND- or REPLY-blocked on a server process running below it while a middle-priority thread has the server's CPU) and CPU preemption (the deadline task is ready while a higher-priority thread has its CPU). Each finding has evidence, a confidence level, what it could not determine, and a suggested fix. With `--trace`, each finding is also checked step by step against a kernel trace from the same run |
 | `qnx_trace` | `qbridge --allow-write trace` | yes (runs `tracelogger`) | Record a short kernel trace and report, per thread, time in each state and who ran on its CPU during its longest waits |
+| `qnx_trace_file` | `qbridge trace --file <path>` | no (host only, no target) | Analyse a **recorded** kernel trace from any program: time per state, ready-queue waits, who ran instead, and patterns worth a look (CPU preemption, possible priority inversion), with an HTML timeline page. See [Recorded traces](#recorded-traces-no-target) |
 | `qnx_timing_check` | `qbridge --allow-write timing-check` | yes (runs `vmjitter`) | Measure the target's timer lateness on one CPU (a priority-50 thread waking every 1 ms) and save it as the environment's noise floor; reports quote the latest check |
 | `qnx_experiment_start` / `_propose` / `_run` / `_rollback` / `_keep` / `_show` | `qbridge experiment start` / `propose` / `run` / `rollback` / `keep` / `show` | yes for start, run and rollback | A measured fix experiment: baseline runs, one proposed change, rerun and compare, then roll back or keep. A person approves the change with `qbridge experiment approve`, which has no MCP tool. See [Experiments](#experiments-test-a-fix-and-measure-it) |
 | `qnx_report` | `qbridge report` | no (host only) | A self-contained HTML report for an experiment, built only from saved data. See [Report](#report) |
@@ -154,6 +155,37 @@ Live results on Nov 22 (2-CPU VirtualBox VM, rtdemo on CPU 1, 1 s traces):
 The report draws the window around the longest wait: one lane per thread, coloured running / ready / blocked on a mutex. Raw `.kev` and decoded files stay in `~/.qbridge/traces/<id>/` (git ignores `*.kev`); the tests use small filtered, gzipped copies in `tests/fixtures/traces/`.
 
 `qbridge --allow-write trace rtdemo -- -s overload -a 15` gives the same per-thread view without the diagnosis: time per state, and who ran instead during each thread's longest waits.
+
+## Recorded traces (no target)
+
+`qbridge trace --file` analyses a kernel trace that was already recorded, from any program, on this computer. It needs no target, no qbridged and no change to the program. The MCP tool is `qnx_trace_file`, which is read-only and works without `--allow-write`.
+
+```
+qbridge trace --file examples/traces/msgpass.txt.gz
+qbridge trace --file trace.txt --thread A-control --thread 21372930/1
+qbridge trace --file trace.kev --process rtdemo --html out.html
+```
+
+Input is `traceprinter` text (also gzipped). A `.kev` file is decoded first with the SDP's `traceprinter`, so that needs the QNX SDP on this computer. To record your own: `tracelogger -w -n 0 -s 1 -F1 -F2 -F6 -f trace.kev` on the instrumented kernel, then `traceprinter -f trace.kev -o trace.txt`.
+
+For each thread it reports ([traceview.py](../src/qbridge/traceview.py)):
+
+- time in each state (RUNNING, READY, MUTEX, SEND, REPLY, NANOSLEEP, ...) and its priorities;
+- ready-queue waits: how many, median, 99th percentile and longest (the time from becoming ready to running);
+- its three longest waits: for a READY wait, which threads had its CPU; for a MUTEX, SEND or REPLY wait, which lower-priority threads ran meanwhile.
+
+It also looks for two patterns across all threads (except the kernel's and `tracelogger`'s own) and reports them as **hints**:
+
+| Pattern | What the trace shows |
+|---|---|
+| CPU preemption | A thread is READY for at least 5% of the trace, and higher-priority threads have its CPU for at least half of that time |
+| Possible priority inversion | A thread is blocked (MUTEX, SEND or REPLY) for at least 1% of the trace. Meanwhile a lower-priority thread is READY for at least half of the wait it did not spend running, and threads between the two priorities have its CPU for at least half of that READY time |
+
+They are hints, not diagnoses. A trace does not say what a blocked thread waits for: `THMUTEX`, `THSEND` and `THREPLY` name only the waiter. So the lower thread is a candidate, not a proven holder, and the output says so. On a live target, `qbridge diagnose --trace` reads the mutex owner or the blocked-on server and checks each step against a trace from the same run (above). A preemption hint for the lower thread of an inversion is left out, since it is part of the same story.
+
+Without `--thread` or `--process` it reports the threads involved in a pattern, then the threads that waited longest for a CPU or a mutex (up to six). It prints JSON and writes an HTML page with a timeline around the longest wait of each pattern; the path is in the `html` field (default `~/.qbridge/reports/trace-<name>.html`).
+
+[examples/traces/](../examples/traces/README.md) has four full one-second traces from the reference target to try it on: the mutex inversion, the message-passing inversion before and after its fix, and the CPU overload.
 
 ## Guard rails
 
