@@ -105,7 +105,7 @@ footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
   <img src="images/report-trace.png" alt="Kernel trace check: every step seen, with a timeline of the waiter blocked on the mutex, the holder ready but not running, and the middle-priority worker running" loading="lazy">
 
   <h2>Any recorded trace, no target</h2>
-  <p><code>qbridge trace --file</code> reads a kernel trace that someone already recorded with <code>tracelogger</code>, from any program, and needs no target and no change to the program. For each thread it shows the time in each state, how long it waited for a CPU, and who ran instead. It flags CPU preemption and possible priority inversion as hints, and says what a trace cannot show: what a blocked thread was waiting for. It can also write the trace for <a href="https://ui.perfetto.dev">Perfetto</a>, with a track per thread and per CPU.</p>
+  <p><code>qbridge trace --file</code> reads a kernel trace that someone already recorded with <code>tracelogger</code>, from any program, and needs no target and no change to the program. For each thread it shows the time in each state, how long it waited for a CPU, and who ran instead. For every periodic thread it rebuilds each cycle from the trace alone and gives deadline statistics; against rtdemo's own log of every cycle, it found the same misses in three runs (61, 60 and 152 of about 200 cycles each). It flags CPU preemption and possible priority inversion as hints, and says what a trace cannot show: what a blocked thread was waiting for. It can also write the trace for <a href="https://ui.perfetto.dev">Perfetto</a>, with a track per thread and per CPU.</p>
   <div class="grid">
     <div class="card">
       <h3>The message-passing trace, analysed</h3>

@@ -470,12 +470,13 @@ def trace(s: Session, program: str | None = None, args: list[str] | None = None,
 
 def trace_file(s: Session, path: str, threads: list[str] | None = None,
                process: str | None = None, html_out: str | None = None,
-               perfetto_out: str | None = None) -> dict:
+               perfetto_out: str | None = None, period_ms: float | None = None,
+               deadline_ms: float | None = None) -> dict:
     """Analyse a recorded kernel trace on the host (traceprinter text, .gz, or .kev with
     the SDP installed). No target needed. Writes an HTML page beside the JSON result and,
     when `perfetto_out` is given ("" for the default path), Trace Event JSON for Perfetto."""
     tr = kev.parse(traceview.load_text(path))
-    result = traceview.analyse(tr, threads, process)
+    result = traceview.analyse(tr, threads, process, period_ms, deadline_ms)
     page = traceview.html(result, tr, path)
     stem = Path(path).name.split(".")[0] or "trace"
     reports = runs.home() / "reports"

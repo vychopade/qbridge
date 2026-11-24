@@ -135,6 +135,7 @@ The workload has fixed phases, so before and after runs are comparable. The faul
 | `analysis.py` | Deterministic rules over snapshots and deadline reports: findings with evidence, confidence and unknowns. |
 | `parsers/kev.py` | Decoded kernel traces (`traceprinter` output) to per-thread state spans, with the 32-bit time-stamp wrap handled. |
 | `traceconfirm.py` | Checks each step of a finding against a kernel trace from the same run; "confirmed" only if every step is seen. |
+| `tracecycles.py` | Deadline statistics for any periodic thread from a trace alone: finds the period, places releases, splits back-to-back cycles, and feeds them to the deadline analysis. |
 | `replaymode.py` | `serve --replay`: the loop's MCP tools answered from data recorded on the target, with qbridge's analysis run again on it, real human approval, and only recorded changes measurable. |
 | `traceview.py` | Analyses a recorded trace with no target (`trace --file`, `qnx_trace_file`): per-thread states and waits, who ran instead, CPU preemption and possible-inversion hints, and an HTML timeline page. Also builds the per-thread view for the live `trace` tool. |
 | `experiments.py` | Experiment states: baseline, proposed, approved, measured, then kept or rolled back. |

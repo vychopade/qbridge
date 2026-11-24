@@ -227,7 +227,9 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         "traceprinter text (also .txt.gz), or a .kev file if the QNX SDP is installed. Works on "
         "any program's trace. Reports, per thread, time in each state, ready-queue waits (p50, "
         "p99, max), and for its longest waits who held its CPU (READY) or which lower-priority "
-        "threads ran meanwhile (MUTEX/SEND/REPLY). Flags patterns as hints, not diagnoses: CPU "
+        "threads ran meanwhile (MUTEX/SEND/REPLY). For periodic threads it rebuilds every cycle "
+        "from the trace and gives deadline statistics (period found from the wake-ups, deadline = "
+        "period unless given), with late wake-up and overrun findings. Flags patterns as hints, not diagnoses: CPU "
         "preemption, and possible priority inversion (a thread blocked while a lower-priority "
         "thread was held off its CPU by a middle-priority one). The trace does not record what a "
         "blocked thread waits for, so say 'possible'; qnx_diagnose with trace=true identifies it "
@@ -242,9 +244,14 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
                                                          "(name or pid)"},
             "perfetto": {"type": "boolean", "description": "Also write Trace Event JSON the "
                                                           "user can open in ui.perfetto.dev"},
+            "period_ms": {"type": "number", "description": "Period of the named thread(s); "
+                                                           "default: found from the wake-ups"},
+            "deadline_ms": {"type": "number", "description": "Deadline of the named thread(s); "
+                                                             "default: the period"},
         }, ["path"]),
-        lambda s, path, threads=None, process=None, perfetto=False:
-            tools.trace_file(s, path, threads, process, perfetto_out="" if perfetto else None),
+        lambda s, path, threads=None, process=None, perfetto=False, period_ms=None, deadline_ms=None:
+            tools.trace_file(s, path, threads, process, perfetto_out="" if perfetto else None,
+                             period_ms=period_ms, deadline_ms=deadline_ms),
         False,
     ),
     "qnx_audit": (

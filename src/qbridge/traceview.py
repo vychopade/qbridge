@@ -23,6 +23,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+from . import deadlines
 from .parsers import kev
 
 KERNEL_PID = 1                     # procnto: idle, clock, IPI and kernel threads
@@ -334,11 +335,50 @@ def _default_keys(tr: kev.Trace, found: list[dict]) -> list:
 
 # -- whole analysis ---------------------------------------------------------------------
 
-def analyse(tr: kev.Trace, threads: list[str] | None = None, process: str | None = None) -> dict:
+def _deadline_findings(tr: kev.Trace, c: dict, found: list[dict]) -> list[dict]:
+    """Run the deadline-report rules on a periodic thread's rebuilt cycles. A hint that
+    another thread held it up (preemption, possible inversion) counts as another finding,
+    so the late wake-up and overrun rules stay quiet when that explains the misses."""
+    from . import analysis
+    others = [{"rule": analysis.RULE_CPU_PREEMPTION} for p in found
+              if (p["pid"], p["tid"]) == (c["pid"], c["tid"])]
+    out = []
+    for rule in (analysis.late_wakeup, analysis.own_work_overrun):
+        for f in rule([], c["report"], None, others):
+            f["subject"]["pid"], f["subject"]["task"]["tid"] = c["pid"], c["tid"]
+            f["could_not_determine"].append("These cycles were rebuilt from the kernel trace, "
+                                            "not reported by the program (see the limits).")
+            out.append(f)
+    return out
+
+
+def _periodic(tr: kev.Trace, chosen: list, found: list[dict], period_ms: float | None,
+              deadline_ms: float | None) -> list[dict]:
+    from . import tracecycles
+    if chosen:
+        got = [tracecycles.cycles(tr, k, period_ms, deadline_ms) for k in chosen]
+        got = [c for c in got if c]
+    else:
+        got = tracecycles.periodic_threads(tr)
+    for c in got:
+        c["thread"] = _label(tr, (c["pid"], c["tid"]))
+        c["findings"] = _deadline_findings(tr, c, found)
+    return got
+
+
+def analyse(tr: kev.Trace, threads: list[str] | None = None, process: str | None = None,
+            period_ms: float | None = None, deadline_ms: float | None = None) -> dict:
     idx = _RunIndex(tr)
     chosen, missing = resolve(tr, threads, process)
+    if (period_ms or deadline_ms) and not chosen:
+        raise ValueError("a period or deadline needs the thread it belongs to (--thread)")
     found = patterns(tr, chosen or None, idx)
+    periodic = _periodic(tr, chosen, found, period_ms, deadline_ms)
     keys = chosen or _default_keys(tr, found)
+    for c in periodic:                       # periodic threads that missed deadlines too
+        k = (c["pid"], c["tid"])
+        if not chosen and c["report"]["misses"] and k not in keys:
+            keys.append(k)
     busiest = sorted(((tr.state_totals(k).get("RUNNING", 0.0), k) for k in tr.spans
                       if not tr.thread_names.get(k, "").startswith("idle")), reverse=True)[:8]
     h = tr.header
@@ -351,13 +391,18 @@ def analyse(tr: kev.Trace, threads: list[str] | None = None, process: str | None
                   "threads": len(tr.spans)},
         "selected": "named" if chosen else "automatic (threads with a pattern, then the longest waits)",
         "patterns": [{k: v for k, v in p.items() if k not in ("longest", "lanes")} for p in found],
+        "periodic": periodic,
         "threads": [thread_report(tr, k, idx) for k in keys],
         "busiest": [{"thread": _label(tr, k), "running_ms": round(ms, 2)} for ms, k in busiest if ms > 0],
         "not_found": missing,
         "limits": [
             f"The trace covers {tr.duration_ms:.0f} ms; it shows what happened in that window only.",
             "Patterns are hints from thread states and priorities. The trace does not record what "
-            "a blocked thread waits for, or whether a thread has a deadline.",
+            "a blocked thread waits for.",
+            "Deadline numbers for periodic threads are rebuilt from the trace: the period is found "
+            "from the wake-ups and the deadline is taken as the period unless given. Checked "
+            "against rtdemo's own per-cycle log on Nov 23: the same cycles missed in three runs "
+            "of about 200 cycles each.",
         ],
         "_found": found,          # for the HTML page; removed before printing
     }
@@ -476,6 +521,31 @@ def html(result: dict, tr: kev.Trace, source: str) -> str:
         parts.append("<section><h2>Patterns worth a closer look</h2><p>None found: no selected "
                      "thread waited long for its CPU behind higher-priority threads, or was "
                      "blocked while a lower-priority thread was held off its CPU.</p></section>")
+    per = result.get("periodic") or []
+    if per:
+        prow = []
+        for c in per:
+            r = c["report"]
+            roots = ", ".join(f"{deadlines._CAUSE_TEXT.get(k, k)} ({n})"
+                              for k, n in sorted(r["chain_root_causes"].items(), key=lambda kv: -kv[1]))
+            prow.append(f"<tr><td>{e_(c['thread'])}</td><td class='num'>{c['period_ms']:.2f}</td>"
+                        f"<td class='num'>{c['cycles']}</td>"
+                        f"<td class='num'>{r['misses']} ({r['miss_rate']:.0%})</td>"
+                        f"<td class='num'>{r['response_us']['p50'] / 1000:.2f}</td>"
+                        f"<td class='num'>{r['response_us']['max'] / 1000:.1f}</td>"
+                        f"<td style='white-space:normal;min-width:180px'>{e_(roots or '-')}</td>"
+                        f"<td class='num'>{c['estimated_cycles']}</td></tr>")
+        notes = "".join(f"<li><strong>{e_(f['title'])}</strong> ({e_(f['confidence'])}): "
+                        f"{e_(f['explanation'])}</li>" for c in per for f in c.get("findings", []))
+        parts.append(f"""
+<section><h2>Periodic threads and their deadlines</h2>
+<p class="muted">Rebuilt from the trace alone: the period is found from each thread's wake-ups, and the
+deadline is taken as the period unless given. Times in ms. Median and worst are response times. "Est." counts cycles that ran back to back
+after an overrun, whose boundaries are not in the trace.</p>
+<div class="table-wrap"><table><thead><tr><th>Thread</th><th>Period</th><th>Cycles</th><th>Missed</th>
+<th>Median</th><th>Worst</th><th>What started each run of misses</th><th>Est.</th></tr></thead>
+<tbody>{''.join(prow)}</tbody></table></div>{('<ul>' + notes + '</ul>') if notes else ''}
+</section>""")
     rows = []
     for th in result["threads"]:
         st = th["state_ms"]

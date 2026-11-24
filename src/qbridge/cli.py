@@ -94,6 +94,10 @@ def build_parser() -> argparse.ArgumentParser:
     tc.add_argument("--process", help="with --file: report every thread of this process (name or pid)")
     tc.add_argument("--html", help="with --file: where to write the HTML page "
                                    "(default ~/.qbridge/reports/trace-<name>.html)")
+    tc.add_argument("--period-ms", type=float,
+                    help="with --file and --thread: the thread's period (default: found from its wake-ups)")
+    tc.add_argument("--deadline-ms", type=float,
+                    help="with --file and --thread: the thread's deadline (default: its period)")
     tc.add_argument("--perfetto", nargs="?", const="", metavar="PATH",
                     help="with --file: also write Trace Event JSON to open in ui.perfetto.dev "
                          "(default ~/.qbridge/reports/trace-<name>.perfetto.json)")
@@ -211,7 +215,8 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
             if a.file:
                 if a.program:
                     raise ValueError("give either a program to trace live or --file, not both")
-                return tools.trace_file(s, a.file, a.threads, a.process, a.html, a.perfetto)
+                return tools.trace_file(s, a.file, a.threads, a.process, a.html, a.perfetto,
+                                        a.period_ms, a.deadline_ms)
             return tools.trace(s, a.program, a.args, a.seconds, a.trace_seconds, a.threads)
         case "runs":
             return tools.list_runs(s, a.limit)

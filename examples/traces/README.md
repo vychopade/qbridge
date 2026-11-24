@@ -8,7 +8,7 @@ Try qbridge's trace analysis on them without a QNX target:
 qbridge trace --file examples/traces/msgpass.txt.gz
 ```
 
-It prints JSON and writes an HTML page with a thread-state timeline (the path is in the `html` field). Add `--perfetto` to also write a file for [ui.perfetto.dev](https://ui.perfetto.dev): a track per thread and per CPU, with priorities, and a marker at each hint. Name threads with `--thread A-control` (or `--thread <pid>/<tid>`), or a whole process with `--process rtdemo`. An AI assistant can do the same with the `qnx_trace_file` MCP tool.
+It prints JSON and writes an HTML page with a thread-state timeline (the path is in the `html` field). For every periodic thread it also rebuilds each cycle from the trace and reports deadline statistics (period found from the wake-ups, deadline taken as the period unless you pass `--period-ms` and `--deadline-ms` with `--thread`). Add `--perfetto` to also write a file for [ui.perfetto.dev](https://ui.perfetto.dev): a track per thread and per CPU, with priorities, and a marker at each hint. Name threads with `--thread A-control` (or `--thread <pid>/<tid>`), or a whole process with `--process rtdemo`. An AI assistant can do the same with the `qnx_trace_file` MCP tool.
 
 | File | Workload | What the analysis should point at |
 |---|---|---|

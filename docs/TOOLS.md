@@ -201,6 +201,28 @@ They are hints, not diagnoses. A trace does not say what a blocked thread waits 
 
 Without `--thread` or `--process` it reports the threads involved in a pattern, then the threads that waited longest for a CPU or a mutex (up to six). It prints JSON and writes an HTML page with a timeline around the longest wait of each pattern; the path is in the `html` field (default `~/.qbridge/reports/trace-<name>.html`).
 
+### Deadlines of an unmodified program
+
+qbridge's deadline numbers normally come from the task itself (rtdemo's samples, or a task that reports with `qbridge_task.h`). From a trace, `trace --file` also rebuilds them for any periodic thread, with no change to the program ([tracecycles.py](../src/qbridge/tracecycles.py)):
+
+1. Each thread's timeline is cut into busy intervals, from waking up to its next sleep (NANOSLEEP, RECEIVE, SIGWAITINFO, SEM, CONDVAR, ...). MUTEX, SEND and REPLY are not sleeps: a thread waiting for a lock or a server is in the middle of a cycle.
+2. The period is the spacing the wake-ups fall on, allowing for cycles that ran without sleeping. A fraction of the period would fit the wake-ups too, so the sleeps decide: a thread on a periodic timer never sleeps through more than one period.
+3. Releases are placed on that grid. A thread that slept through a release woke up late for it, which the trace shows directly.
+4. A busy interval that spans several releases holds several cycles run back to back after an overrun. The trace has no event at their boundaries, so they are estimated from the thread's median CPU time per cycle and counted as estimated.
+5. Each cycle goes through the same deadline analysis as measured samples, and the own-work-overrun and late-wake-up rules run on the result (they stay quiet when a preemption or inversion hint already explains the misses).
+
+The deadline is taken to be the period unless given: `qbridge trace --file t.txt --thread ctl --period-ms 10 --deadline-ms 8` (MCP: `period_ms`, `deadline_ms`).
+
+**Checked against ground truth.** On Nov 23 three 2-second traces were recorded on the target while rtdemo wrote its own log of every cycle in the same run (`tests/fixtures/tracecycles/`):
+
+| Run | Cycles in the trace | Missed (trace / rtdemo's log) | Same miss or no-miss | Response difference |
+|---|---|---|---|---|
+| Mutex inversion | 200 | 61 / 61 | 200 of 200 | median 0.04 ms, worst 0.28 ms |
+| CPU overload | 200 | 60 / 60 | 200 of 200 | median 0.06 ms, worst 0.41 ms |
+| Message passing | 191 | 152 / 152 | 191 of 191 | median 0.15 ms, worst 4.3 ms |
+
+A test repeats this comparison. It covers rtdemo's absolute-timer loop; a task that sleeps a fixed time after its work (so its period drifts) does not sit on one grid, and its wake-ups are reported as not periodic.
+
 ### Perfetto
 
 `--perfetto [PATH]` (MCP: `perfetto: true`) also writes the whole trace as Trace Event JSON, which [ui.perfetto.dev](https://ui.perfetto.dev) and `chrome://tracing` open (default `~/.qbridge/reports/trace-<name>.perfetto.json`). Open Perfetto and drop the file on the page; Perfetto reads it in the browser and uploads nothing.
