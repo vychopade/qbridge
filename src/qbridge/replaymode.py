@@ -24,7 +24,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from . import analysis, deadlines, experiments, traceconfirm, traceview, tools
+from . import analysis, deadlines, experiments, traceconfirm, tools
 from .experiments import ExperimentError
 from .parsers import kev
 from .policy import PolicyError

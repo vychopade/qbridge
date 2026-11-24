@@ -29,7 +29,6 @@ import subprocess
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from .parsers import kev as kevtext
 from .parsers import kevbin
 
 _LINE = re.compile(r"^t:0x([0-9a-f]+) CPU:(\d+) (\w+)\s+:(\S+)\s*(.*)$")

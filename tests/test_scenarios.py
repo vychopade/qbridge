@@ -11,7 +11,6 @@ thread), the deadline report of the same run and the timing checks used.
 import copy
 import json
 
-import pytest
 
 from qbridge import analysis
 

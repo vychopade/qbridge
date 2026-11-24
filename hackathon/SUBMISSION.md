@@ -59,6 +59,8 @@ The kernel trace showed each mechanism directly:
 
 After the message-passing fix a few misses remained. In those cycles the server's 4 ms of work and the task's own 1 ms took several times longer, with nothing at their priority competing for the CPU. That points to the virtual machine slowing the guest; the report says so and that it is not proven.
 
+**Any recorded kernel trace, with no QNX installed.** `qbridge trace --file` reads the binary `.kev` file that `tracelogger` writes and decodes it itself, on Linux, Windows or macOS, without the QNX SDP. The layouts follow the SDP's own headers and System Analysis Toolkit tables, and anything they do not describe is kept raw, not guessed. Checked against QNX's `traceprinter` on 36 real QNX 8.0 traces: 1,236,591 events, every one paired, 3,354,492 fields equal, every 64-bit timestamp equal (`docs/validation`). When the trace includes kernel calls and messages, qbridge says who each blocked thread waited for: the thread whose `SyncMutexUnlock` of the same mutex ended the wait (with wide events, the owner word in the waiter's `SyncMutexLock` equals the unlocker's), the server thread that received the message and replied to the client, or the thread that signalled the condition variable. Each wait is classified as a confirmed priority inversion, probable scheduling interference, no inversion (priority inheritance is visible as the holder running at the waiter's priority) or insufficient evidence, with the trace events it rests on. On traces of each fault and its fix, every fault is confirmed and no fix is.
+
 Anyone can check the analysis without a target: `qbridge replay` reruns the diagnosis rules, the trace checks and the experiment verdicts on the data recorded on the target, and reports that all 16 results are the same as on the target.
 
 ## How we built it
@@ -69,7 +71,7 @@ Anyone can check the analysis without a target: `qbridge replay` reruns the diag
   - Process-death and core-dump events arrive as pulses (`procmgr_event_notify_add`, `DCMD_DUMPER_NOTIFYEVENT`, `MsgRegisterEvent`). Readers of `/dev/qbridge/events` stay blocked on a held reply until an event arrives.
   - Real-time tasks register once with a `devctl` and report every cycle with `MsgSendPulse` (`qbridge_task.h`), so they never block on the monitor. qbridged keeps their statistics in memory set aside at startup.
   - The demo workload uses `SCHED_FIFO` priorities, CPU run masks, `clock_nanosleep(TIMER_ABSTIME)` and `pthread_mutexattr_setprotocol`. Its message-passing scenario forks a server process that answers with `MsgReceive`/`MsgReply` on a channel made with `ChannelCreate(_NTO_CHF_FIXED_PRIORITY | _NTO_CHF_DISCONNECT)`, reached through `ConnectAttach` and `MsgSend`.
-  - Kernel traces are recorded with `tracelogger` on the instrumented kernel (`procnto-smp-instr`) and decoded on the host with the SDP's `traceprinter`. qbridge turns the `THREAD` events (`THRUNNING`, `THREADY`, `THMUTEX`, `THSEND`, `THREPLY`, ...) into per-thread state spans, handling the 32-bit time stamp that wraps about every second.
+  - Kernel traces are recorded with `tracelogger` on the instrumented kernel (`procnto-smp-instr`) and decoded on the host by qbridge's own `.kev` decoder: `traceevent_t` slots, combine events reassembled across interlacing, per-CPU timestamps rebuilt from `CONTROL TIME` and the 32-bit rollover, wide and fast modes, layouts from `<sys/trace.h>`, `<sys/states.h>` and the SAT event table. `THREAD` events become per-thread state spans; `SyncMutexLock`/`Unlock`, `SyncCondvarWait`/`Signal`, `SyncSemWait`/`Post` and COMM message events tie each wait to its holder.
   - qbridged is built into the target image with `mkqnximage` snippets and starts at boot.
 - **Host side: Python, standard library only.**
   - An MCP server written directly on JSON-RPC over stdio, and a CLI with the same tools.
@@ -85,7 +87,7 @@ Anyone can check the analysis without a target: `qbridge replay` reruns the diag
   - A command allowlist at the single point where commands leave for the target, with shell scripts only as fixed templates.
   - Everything confined to one deploy folder, with timeouts.
   - Rollback, and a hash-chained audit log of every action and refusal.
-- **Testing.** 254 automated tests run against output recorded on the real target, so they need no target. Every feature was also run against the real target before it was called done, and the README's commands were rerun from a fresh clone.
+- **Testing.** 378 automated tests run against output recorded on the real target, so they need no target, in CI on Linux, Windows and macOS. CI also reruns the `.kev` decoder against traceprinter's output for seven real traces. Every feature was also run against the real target before it was called done, and the README's commands were rerun from a fresh clone.
 - **Codelab.** "Write a QNX resource manager that serves live data as files" (`docs/codelab`) teaches the technique qbridged is built on, with its own two-step example. Every command and output in it was run on the target.
 
 ## How it meets the judging criteria
@@ -95,8 +97,8 @@ For human and automated judging alike, this section points to the evidence for e
 - **Technological Implementation.**
   - Native QNX 8.0 C on the target: `target/qbridged/qbridged.c` (`resmgr_attach`, `iofunc`, `read_sync` reading `sync_t` from `/proc/<pid>/as`, held replies), `qb_deadlines.c` (devctl and pulse handlers) and `qbridge_task.h` (`MsgSendPulse`).
   - `examples/rtdemo/rtdemo.c` (`run_server`: `ChannelCreate`, `MsgReceive`, `MsgReply`).
-  - Kernel traces from `tracelogger`, decoded and checked step by step (`src/qbridge/parsers/kev.py`, `src/qbridge/traceconfirm.py`).
-  - 310 tests, and `qbridge replay` reproduces all 16 recorded results.
+  - Kernel traces from `tracelogger`, decoded natively from the binary `.kev` (`src/qbridge/parsers/kevbin.py`, validated on 1,236,591 real events against traceprinter, `docs/validation`), checked step by step (`src/qbridge/traceconfirm.py`), and each wait tied to its holder from kernel-call events (`src/qbridge/kevdeps.py`).
+  - 378 tests, and `qbridge replay` reproduces all 16 recorded results.
   - The README's "How it uses QNX" table names every file and function, and a test checks that they exist.
 - **Design.**
   - One loop from detection to a verified, reversible fix, with the same tools in an AI assistant (MCP) and a terminal (CLI).
@@ -124,8 +126,9 @@ For human and automated judging alike, this section points to the evidence for e
 - **Message-passing details found only on the target.** A task's `close()` overtook its own last low-priority pulses, losing the final cycle. The rcvid of a client that gives up arrives in the unblock pulse's value, not where we first looked. Both were found by comparing qbridged's numbers with the task's own, and fixed.
 - **Reading the kernel trace correctly.**
   - The trace's time stamps are the low 32 bits of a 3.9 GHz cycle counter, so they wrap about every 1.1 seconds; we track the wrap per CPU.
-  - The mutex and message events name only the waiting thread, not the owner or the server. Those still come from the snapshot, and the report says so.
+  - The thread events name only the waiting thread, not the owner or the server. The live diagnosis reads those from the snapshot. For recorded traces, the kernel-call and message events do it, but only when the trace was recorded with those classes, and only where an event names the holder: anything else is reported as insufficient evidence.
   - A bug in our own fixture filter attached stray lines to the wrong event. It was caught by checking every thread's totals against the unfiltered trace.
+- **Decoding `.kev` files without traceprinter.** The SDP documents the event slot and most event layouts but not the file around them. We followed the headers and the SAT table, found the buffer framing on real files (traceprinter rejects files that break it), and checked every event against traceprinter. Where the documented layout disagrees with what QNX 8.0 logs (for example `ThreadCreate`, where traceprinter's output is one word off from the table), the fields are left undecoded rather than picking a side.
 - **Being honest about what a measurement proves.** We made the verdict strict ("improved" only if every run after beat every run before), kept execution time, latency, lock wait and server wait separate, and wrote the limits into every report.
 
 ## Accomplishments that we're proud of
@@ -142,7 +145,7 @@ For human and automated judging alike, this section points to the evidence for e
 
 ## What's next for qbridge RT
 
-- Run on real hardware (a Raspberry Pi 5) and compare with the virtual machine.
+- Run on real hardware (a Raspberry Pi 5) and compare with the virtual machine; that also checks the `.kev` decoder on ARM.
 - Catch rare stalls: one 376 ms stall of the control task was seen once during a diagnosis run and never inside a trace window, so its cause is still unknown. Longer, repeated traces could catch it.
 - More rules: deadlocks are already detected in the general tools; next are priority-ceiling misuse and servers with several worker threads.
 
@@ -159,11 +162,12 @@ QNX SDP 8.0, QNX Neutrino RTOS 8.0, C, `qcc` (gcc 12.2), `tracelogger`, `tracepr
 - QNX-specific code: README, "How it uses QNX", and [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
 - Check without a target: README, "Quick check without a target" (`qbridge replay`)
 - Codelab: https://vychopade.github.io/qbridge/codelab/ ([docs/codelab/README.md](../docs/codelab/README.md))
-- Example reports: [mutex inversion](../docs/example-report.html), [message-passing inversion](../docs/example-report-msgpass.html), [CPU overload](../docs/example-report-overload.html)
+- Example reports: [mutex inversion](../docs/example-report.html), [message-passing inversion](../docs/example-report-msgpass.html), [CPU overload](../docs/example-report-overload.html), [condition-variable inversion](../docs/example-report-condvar.html), [wrong fix](../docs/example-report-wrongfix.html)
+- `.kev` decoder validation: [docs/validation](../docs/validation/README.md)
 
 ## GitHub About (set these on the repository page, gear icon next to "About")
 
-- **Description:** Find out why a real-time task on QNX 8.0 missed its deadline, test a fix and measure it: an MCP server and CLI with a native QNX resource manager, kernel-trace-confirmed diagnosis, and human-approved experiments.
+- **Description:** Find out why a real-time task on QNX 8.0 missed its deadline, test a fix and measure it: an MCP server and CLI with a native QNX resource manager, a native .kev trace decoder, kernel-trace-confirmed diagnosis, and human-approved experiments.
 - **Website:** https://vychopade.github.io/qbridge/
 - **Topics:** `qnx`, `qnx-neutrino`, `rtos`, `real-time`, `embedded`, `mcp`, `model-context-protocol`, `developer-tools`, `resource-manager`, `priority-inversion`, `message-passing`, `scheduling`, `kernel-tracing`, `performance-analysis`, `ai-tools`
 - Untick "Releases" and "Packages" if unused, so the sidebar stays short.

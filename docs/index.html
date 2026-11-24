@@ -135,9 +135,10 @@ footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
     <tr><th>Part</th><th>What it does</th></tr>
     <tr><td>qbridged (QNX C)</td><td>A resource manager serving live thread state, mutex holders read from process memory, process-death events and per-task deadline statistics as files under <code>/dev/qbridge</code>. Started at boot from the target image.</td></tr>
     <tr><td>qbridge_task.h</td><td>A real-time task registers once with a <code>devctl</code> and reports every cycle with <code>MsgSendPulse</code>, so it never blocks on the monitor.</td></tr>
-    <tr><td>Diagnosis rules</td><td>Deterministic rules for mutex inversion, message-passing inversion and CPU preemption, plus own work overrun and late wake-up when no other thread explains the misses, each with evidence, a confidence level and what it could not determine.</td></tr>
-    <tr><td>Trace check</td><td>Records one second with <code>tracelogger</code>, decodes it with the SDP's <code>traceprinter</code>, and checks every step of a finding against the thread state changes.</td></tr>
-    <tr><td>Recorded traces</td><td>Analyses any <code>traceprinter</code> output on the host, with no target: per-thread states and waits, preemption and possible-inversion hints, an HTML timeline and a Perfetto export.</td></tr>
+    <tr><td>Diagnosis rules</td><td>Deterministic rules for mutex inversion, message-passing inversion, condition-variable inversion and CPU preemption, plus own work overrun and late wake-up when no other thread explains the misses, each with evidence, a confidence level and what it could not determine.</td></tr>
+    <tr><td>Trace check</td><td>Records one second with <code>tracelogger</code>, decodes it on the host, and checks every step of a finding against the thread state changes.</td></tr>
+    <tr><td>Native .kev decoder</td><td>Reads the raw <code>.kev</code> file <code>tracelogger</code> writes, on any computer, without the QNX SDP. Checked against QNX's <code>traceprinter</code> on 1,236,591 real events with no mismatch (<a href="https://github.com/vychopade/qbridge/tree/main/docs/validation">validation</a>).</td></tr>
+    <tr><td>Recorded traces</td><td>Analyses any recorded trace on the host, with no target: per-thread states and waits, deadlines rebuilt from the trace, and, with kernel calls in the trace, who each blocked thread waited for (mutex holder, server, signaller) with the events that show it, classified as confirmed inversion, probable interference, no inversion or insufficient evidence. An HTML page and a Perfetto export with an arrow from each waiter to its holder.</td></tr>
     <tr><td>Experiment loop</td><td>Proposes one exact change, waits for a person's typed approval tied to the diff's hash, rebuilds with <code>qcc</code>, redeploys, reruns, compares and rolls back.</td></tr>
     <tr><td>MCP server and CLI</td><td>The same tools for an AI assistant (any MCP client) and for a terminal. Read-only by default; every call is in a hash-chained audit log.</td></tr>
   </table>
@@ -152,7 +153,8 @@ python -m venv .venv
 .venv\Scripts\activate          (Linux/macOS: source .venv/bin/activate)
 pip install -e .
 qbridge replay
-qbridge trace --file examples/traces/msgpass.txt.gz --perfetto</pre>
+qbridge trace --file examples/traces/msgpass.txt.gz --perfetto
+qbridge trace --file tests/fixtures/kev/msgpass_fault.kev.gz --process rtdemo</pre>
   <p class="small">Building and running on a QNX 8.0 target (QNX SDP 8.0, <code>qcc</code> with gcc 12.2, an x86_64 image made with <code>mkqnximage</code>) is described in the <a href="https://github.com/vychopade/qbridge#build-and-run">README</a>.</p>
 
   <footer>

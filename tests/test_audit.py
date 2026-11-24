@@ -2,7 +2,6 @@
 
 import json
 
-import pytest
 
 from qbridge import audit, cli, server, tools
 from qbridge.policy import Policy

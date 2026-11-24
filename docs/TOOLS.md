@@ -196,7 +196,7 @@ qbridge trace --file trace.txt --thread A-control --thread 21372930/1
 qbridge trace --file trace.kev --process rtdemo --html out.html
 ```
 
-Input is `traceprinter` text (also gzipped). A `.kev` file is decoded first with the SDP's `traceprinter`, so that needs the QNX SDP on this computer. To record your own: `tracelogger -w -n 0 -s 1 -F1 -F2 -F6 -f trace.kev` on the instrumented kernel, then `traceprinter -f trace.kev -o trace.txt`.
+Input is a raw `.kev` file (also gzipped), decoded by qbridge itself with no QNX SDP ([parsers/kevbin.py](../src/qbridge/parsers/kevbin.py), checked against traceprinter in [docs/validation](validation/README.md)), or `traceprinter` text (also gzipped). `--decoder traceprinter` decodes a `.kev` with the SDP's traceprinter instead. To record your own on the instrumented kernel: `tracelogger -w -n 0 -s 1 -f trace.kev` (all classes; add `-k 128` if the kernel reports dropped events). The `-F1 -F2 -F6` that `qbridge trace` uses make the file smaller but leave out the kernel calls and messages that tie a wait to its holder.
 
 For each thread it reports ([traceview.py](../src/qbridge/traceview.py)):
 
@@ -211,7 +211,7 @@ It also looks for two patterns across all threads (except the kernel's and `trac
 | CPU preemption | A thread is READY for at least 5% of the trace, and higher-priority threads have its CPU for at least half of that time |
 | Possible priority inversion | A thread is blocked (MUTEX, SEND or REPLY) for at least 1% of the trace. Meanwhile a lower-priority thread is READY for at least half of the wait it did not spend running, and threads between the two priorities have its CPU for at least half of that READY time |
 
-They are hints, not diagnoses. A trace does not say what a blocked thread waits for: `THMUTEX`, `THSEND` and `THREPLY` name only the waiter. So the lower thread is a candidate, not a proven holder, and the output says so. On a live target, `qbridge diagnose --trace` reads the mutex owner or the blocked-on server and checks each step against a trace from the same run (above). A preemption hint for the lower thread of an inversion is left out, since it is part of the same story.
+When the trace has kernel-call and communication events, `dependencies` ties each mutex, message, condition-variable and semaphore wait to the thread that ended it, classifies it (confirmed priority inversion, probable scheduling interference, no inversion, insufficient evidence) and lists the events it rests on ([kevdeps.py](../src/qbridge/kevdeps.py), [README](../README.md#raw-kernel-traces-no-qnx-needed)); a confirmed hint says so. Otherwise they are hints, not diagnoses. Thread events alone do not say what a blocked thread waits for: `THMUTEX`, `THSEND` and `THREPLY` name only the waiter. So the lower thread is a candidate, not a proven holder, and the output says so. On a live target, `qbridge diagnose --trace` reads the mutex owner or the blocked-on server and checks each step against a trace from the same run (above). A preemption hint for the lower thread of an inversion is left out, since it is part of the same story.
 
 Without `--thread` or `--process` it reports the threads involved in a pattern, then the threads that waited longest for a CPU or a mutex (up to six). It prints JSON and writes an HTML page with a timeline around the longest wait of each pattern; the path is in the `html` field (default `~/.qbridge/reports/trace-<name>.html`).
 
@@ -319,5 +319,5 @@ A session to try: ask the assistant why rtdemo misses its deadline with `-s msgp
 - Windows OpenSSH fails against the QNX 8.0 sshd with "Corrupted MAC on input" unless the MAC is forced to `hmac-sha2-256`; qbridge does this for you.
 - `dumper` runs as `dumper -U 30:30 -d /data/var/dumper -M 1000 -D cores`, so core files for root's processes land in `/data/var/dumper/<program>.core`, overwritten on each crash.
 - A process killed by a signal shows exit code 128+N in the target shell (SIGSEGV is 139).
-- Kernel tracing: the target has `/system/bin/tracelogger` and runs the instrumented kernel `procnto-smp-instr`; `traceprinter` is not on the target, so traces are decoded on the host with the SDP's `traceprinter`. Its time stamps are the low 32 bits of the cycle counter (3,901,841,142 cycles per second here), which wrap about every 1.1 s; `CONTROL TIME` events carry the high bits.
+- Kernel tracing: the target has `/system/bin/tracelogger` and runs the instrumented kernel `procnto-smp-instr`; `traceprinter` is not on the target; qbridge decodes traces on the host itself (the SDP's `traceprinter` is used only to validate that decoder). Its time stamps are the low 32 bits of the cycle counter (3,901,841,142 cycles per second here), which wrap about every 1.1 s; `CONTROL TIME` events carry the high bits.
 - gdb is the SDP's `ntox86_64-gdb` (14.2). Shared libraries are resolved from `$QNX_TARGET/x86_64/lib` and `usr/lib`.
