@@ -174,6 +174,9 @@ def build_parser() -> argparse.ArgumentParser:
     # Also accepted after 'serve', which is how MCP client configs usually read.
     sv.add_argument("--allow-write", dest="serve_allow_write", action="store_true",
                     help="allow deploy and run")
+    sv.add_argument("--replay", action="store_true",
+                    help="no target: answer from data recorded on the target (for trying the "
+                         "assistant loop without QNX)")
     return p
 
 
@@ -314,7 +317,7 @@ def main(argv: list[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
     if a.command == "serve":
         from .server import serve
-        serve(allow_write=a.allow_write or a.serve_allow_write)
+        serve(allow_write=a.allow_write or a.serve_allow_write, replay=a.replay)
         return 0
     if a.command == "replay":                 # offline: no target, no audit entry
         from . import replay

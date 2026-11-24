@@ -252,6 +252,22 @@ claude mcp add qbridge -- C:\path\to\qbridge\.venv\Scripts\qbridge.exe serve
 
 Add `--allow-write` after `serve` to let the assistant deploy and run programs. Any MCP client that can start a stdio server works the same way: the command is `qbridge serve [--allow-write]`.
 
+### Replay mode (no target)
+
+```
+claude mcp add qbridge-replay -- C:\path\to\qbridge\.venv\Scripts\qbridge.exe serve --replay
+```
+
+`serve --replay` needs no QNX target and no SDP. It offers the loop's tools (info, timing check, measure, diagnose, trace, the experiment tools, report, audit), all read-only, and answers from data recorded on the reference target ([replaymode.py](../src/qbridge/replaymode.py)):
+
+- **Recorded workloads:** `rtdemo` (mutex inversion), `rtdemo -s overload -a 15` (CPU preemption), `-s overload -a 30`, `-s msgpass` (message-passing inversion), `-s msgpass -a 50`. Anything else is refused with that list.
+- **Real analysis:** diagnoses, trace checks, trace analysis and experiment verdicts are qbridge's code run again on the recordings. Every result says when its data was recorded and that nothing ran now.
+- **Real approval:** a proposed change still needs a person to run `qbridge experiment approve <id>` in a terminal and type `yes`. Replay experiments have ids starting with `replay-`. The source file is read to build the diff, never edited.
+- **Only measured changes are measured:** the four changes measured on the target (priority inheritance on the lock, dropping `_NTO_CHF_FIXED_PRIORITY`, `-a 15` to `-a 30`, and the wrong fix `-a 50`) give their recorded verdicts. The same fix phrased differently is recognised by what the edited source says. Any other change is refused, with the recorded ones listed; no number is made up.
+- **State:** after `qnx_experiment_keep`, later measurements and diagnoses of that workload use the recording of the fixed build. `qnx_report` returns the HTML report qbridge wrote on the target for that experiment.
+
+A session to try: ask the assistant why rtdemo misses its deadline with `-s msgpass`, let it measure, diagnose with a trace and propose a fix, approve it in a terminal, and ask for the verdict.
+
 ## Configuration
 
 | Variable | Default | Meaning |

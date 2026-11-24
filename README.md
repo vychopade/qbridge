@@ -9,7 +9,7 @@ Built during the QNX Global Hackathon, November 2026 (Developer Tooling & Host T
 > **For judges, a 5-minute path**
 > 1. Watch the demo video (under 3 minutes): *link added at submission*.
 > 2. Open an example report in the browser: [mutex inversion](https://vychopade.github.io/qbridge/example-report.html), [message-passing inversion](https://vychopade.github.io/qbridge/example-report-msgpass.html), [CPU overload](https://vychopade.github.io/qbridge/example-report-overload.html).
-> 3. Check the analysis on your own computer, no QNX needed: [Quick check without a target](#quick-check-without-a-target) (`qbridge replay`, 12 of 12 recorded results reproduced).
+> 3. Check the analysis on your own computer, no QNX needed: [Quick check without a target](#quick-check-without-a-target) (`qbridge replay`, 12 of 12 recorded results reproduced), or let your own AI assistant run the whole loop on the recorded data with `qbridge serve --replay`.
 > 4. See the QNX-specific code: [How it uses QNX](#how-it-uses-qnx).
 
 | Fault planted in the demo workload | Diagnosis (confirmed by a kernel trace) | Approved fix | Misses per 999 cycles, 3 runs before → 3 after |
@@ -144,6 +144,7 @@ qbridge replay
 It measures nothing new. It shows that the analysis is deterministic and reproduces the recorded results. On Linux or macOS, activate the venv with `source .venv/bin/activate`.
 
 Then:
+- **Let an AI assistant run the loop, with no target:** `qbridge serve --replay` is the MCP server answering from data recorded on the target. In Claude Code: `claude mcp add qbridge-replay -- <path to the clone>\.venv\Scripts\qbridge.exe serve --replay`, then ask why `rtdemo -s msgpass` misses its deadline. The assistant measures, diagnoses (with the recorded kernel trace), proposes one change and asks you to approve it with `qbridge experiment approve <id>` in a terminal, then gets the verdict. The analysis is qbridge's real code; every result says when its data was recorded; only the changes measured on the target can be measured, anything else is refused ([details](docs/TOOLS.md#replay-mode-no-target)).
 - `qbridge trace --file examples/traces/msgpass.txt.gz` analyses a full kernel trace recorded on the target: per-thread states, who held the CPU during each wait, and a hint that the control task was blocked while its server was held off the CPU by a middle-priority thread. It writes an HTML page with the timeline, and with `--perfetto` a file to open in [Perfetto](https://ui.perfetto.dev) ([this trace in Perfetto](https://ui.perfetto.dev/#!/?url=https://vychopade.github.io/qbridge/traces/msgpass.perfetto.json)). It works on any program's `traceprinter` output, not only the demo's ([examples/traces](examples/traces/README.md)).
 - `pip install -e ".[dev]"` and `pytest` run the full test suite, which also uses recorded target output.
 - Open [docs/example-report.html](docs/example-report.html) (priority inversion, fixed in the source) [docs/example-report-overload.html](docs/example-report-overload.html) (CPU preemption, fixed by a priority change) and [docs/example-report-msgpass.html](docs/example-report-msgpass.html) (priority inversion through message passing, fixed in the source) in a browser. These are the HTML reports from the recorded experiments, with the kernel trace timelines.
@@ -246,6 +247,8 @@ claude mcp add qbridge -- C:\path\to\qbridge\.venv\Scripts\qbridge.exe serve --a
 ```
 
 Leave out `--allow-write` to give the assistant read-only access. Any MCP client that can start a stdio server works the same way. The assistant can measure, diagnose, propose and run experiments, but it cannot approve its own change.
+
+No target? `qbridge serve --replay` runs the same loop on data recorded on the target (see [Quick check without a target](#quick-check-without-a-target)).
 
 ### 7. Keep it fixed: a regression check for CI
 

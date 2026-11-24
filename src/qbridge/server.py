@@ -397,12 +397,15 @@ _EXPECTED_ERRORS = (TargetError, PolicyError, QnxEnvError, FileNotFoundError, Va
 
 
 class Server:
-    def __init__(self, session: tools.Session):
+    def __init__(self, session: tools.Session, table: dict | None = None,
+                 instructions: str | None = None):
         self.session = session
+        self.tools = table if table is not None else TOOLS
+        self.instructions = instructions or INSTRUCTIONS
 
     def tool_list(self) -> list[dict]:
         out = []
-        for name, (desc, schema, _, writes) in TOOLS.items():
+        for name, (desc, schema, _, writes) in self.tools.items():
             out.append({
                 "name": name,
                 "description": desc,
@@ -413,9 +416,9 @@ class Server:
         return out
 
     def call_tool(self, name: str, args: dict) -> dict:
-        if name not in TOOLS:
+        if name not in self.tools:
             raise KeyError(name)
-        handler, writes = TOOLS[name][2], TOOLS[name][3]
+        handler, writes = self.tools[name][2], self.tools[name][3]
         try:
             result = handler(self.session, **(args or {}))
         except _EXPECTED_ERRORS as e:
@@ -448,7 +451,7 @@ class Server:
                     "protocolVersion": version,
                     "capabilities": {"tools": {"listChanged": False}},
                     "serverInfo": {"name": "qbridge", "version": __version__},
-                    "instructions": INSTRUCTIONS,
+                    "instructions": self.instructions,
                 }
             elif method == "ping":
                 result = {}
@@ -471,7 +474,7 @@ def _error(mid: Any, code: int, message: str) -> dict:
     return {"jsonrpc": "2.0", "id": mid, "error": {"code": code, "message": message}}
 
 
-def serve(allow_write: bool = False, stdin=None, stdout=None) -> None:
+def serve(allow_write: bool = False, stdin=None, stdout=None, replay: bool = False) -> None:
     if stdin is None:
         stdin = sys.stdin
         stdin.reconfigure(encoding="utf-8")
@@ -479,10 +482,19 @@ def serve(allow_write: bool = False, stdin=None, stdout=None) -> None:
         stdout = sys.stdout
         # Plain \n line endings and UTF-8, also on Windows.
         stdout.reconfigure(encoding="utf-8", newline="\n")
-    session = tools.Session(Target.from_env(), Policy.from_env(allow_write))
-    server = Server(session)
-    print(f"qbridge MCP server {__version__} (write {'on' if session.policy.allow_write else 'off'})",
-          file=sys.stderr)
+    if replay:
+        from . import replaymode
+        # No target: write tools are replayed, so nothing needs --allow-write.
+        session = tools.Session(Target(host=None), Policy(allow_write=False))
+        server = Server(session, replaymode.tool_table(replaymode.ReplayState()),
+                        replaymode.INSTRUCTIONS)
+        print(f"qbridge MCP server {__version__} in REPLAY mode: answers from data recorded on "
+              "the target; nothing runs on a target", file=sys.stderr)
+    else:
+        session = tools.Session(Target.from_env(), Policy.from_env(allow_write))
+        server = Server(session)
+        print(f"qbridge MCP server {__version__} (write {'on' if session.policy.allow_write else 'off'})",
+              file=sys.stderr)
     for line in stdin:
         # Windows PowerShell adds a UTF-8 BOM when it pipes text in.
         line = line.lstrip("﻿").strip()
