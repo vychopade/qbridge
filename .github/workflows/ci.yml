@@ -1,6 +1,7 @@
-# Runs without a QNX target: the unit tests and `qbridge replay`, which reruns
-# the analysis on data recorded on the reference target and fails if any
-# result differs from what qbridge reported there.
+# Runs without a QNX target and without the QNX SDP: the unit tests, `qbridge
+# replay` (reruns the analysis on data recorded on the reference target and fails
+# if any result differs from what qbridge reported there), the native .kev decoder
+# against saved traceprinter output, and the raw-trace workflow.
 name: ci
 
 on:
@@ -16,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python: ["3.10", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
@@ -30,3 +31,9 @@ jobs:
         run: python -m pytest -q
       - name: Replay recorded results (no target)
         run: qbridge replay
+      - name: Native .kev decoder vs traceprinter output (no SDP)
+        shell: bash
+        run: qbridge validate-kev tests/fixtures/kev/*.kev.gz --out kev-validation.json
+      - name: Analyse a raw kernel trace (no target, no SDP)
+        shell: bash
+        run: qbridge trace --file tests/fixtures/kev/inversion_fault.kev.gz --process rtdemo --perfetto > trace.json && grep -q confirmed_priority_inversion trace.json
