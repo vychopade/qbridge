@@ -10,7 +10,8 @@ Built during the QNX Global Hackathon, November 2026 (Developer Tooling & Host T
 > 1. Watch the demo video (under 3 minutes): *link added at submission*.
 > 2. Open an example report in the browser: [mutex inversion](https://vychopade.github.io/qbridge/example-report.html), [message-passing inversion](https://vychopade.github.io/qbridge/example-report-msgpass.html), [CPU overload](https://vychopade.github.io/qbridge/example-report-overload.html), [condition-variable inversion](https://vychopade.github.io/qbridge/example-report-condvar.html).
 > 3. Check the analysis on your own computer, no QNX needed: [Quick check without a target](#quick-check-without-a-target) (`qbridge replay`, 16 of 16 recorded results reproduced), or let your own AI assistant run the whole loop on the recorded data with `qbridge serve --replay`.
-> 4. See the QNX-specific code: [How it uses QNX](#how-it-uses-qnx).
+> 4. Analyse a raw QNX kernel trace, no QNX needed: `qbridge trace --file tests/fixtures/kev/msgpass_fault.kev.gz --process rtdemo --perfetto`. qbridge decodes the binary `.kev` itself ([checked against QNX's traceprinter on 1,236,591 real events, 0 mismatches](docs/validation/README.md)) and names the thread each wait was for, with the trace events that show it ([Raw kernel traces](#raw-kernel-traces-no-qnx-needed)).
+> 5. See the QNX-specific code: [How it uses QNX](#how-it-uses-qnx).
 
 | Fault planted in the demo workload | Diagnosis (confirmed by a kernel trace) | Approved fix | Misses per 999 cycles, 3 runs before → 3 after |
 |---|---|---|---|
@@ -128,7 +129,10 @@ The target side is native QNX 8.0 C code. These are the places to look:
 | [target/tools/vmjitter.c](target/tools/vmjitter.c) `timer_mode` | Measures how late timers fire on each CPU (the environment's noise floor) | `clock_nanosleep`, run masks |
 | [target/image/snippets](target/image/snippets) | Builds qbridged into the target image and starts it at boot | `mkqnximage` snippets |
 | [docs/codelab/livedata](docs/codelab/livedata) `live_read`, `live_write`, `live_ocb_calloc` | The codelab's stand-alone example: a resource manager serving `/dev/livedata/uptime` (live, read-only) and `/dev/livedata/message` (writable) | `resmgr_attach`, custom attribute and OCB, `iofunc_read_verify` / `iofunc_write_verify`, `resmgr_msgget` |
-| [src/qbridge/tools.py](src/qbridge/tools.py) `capture_trace`; [commands.py](src/qbridge/commands.py) `_rule_tracelogger` | Records a short kernel trace on the target in the same run as the diagnosis and decodes it on the host | instrumented kernel `procnto-smp-instr`, `tracelogger` (wide mode, class filters), SDP `traceprinter` |
+| [src/qbridge/tools.py](src/qbridge/tools.py) `capture_trace`; [commands.py](src/qbridge/commands.py) `_rule_tracelogger` | Records a short kernel trace on the target in the same run as the diagnosis and decodes it on the host | instrumented kernel `procnto-smp-instr`, `tracelogger` (wide mode, class filters) |
+| [src/qbridge/parsers/kevbin.py](src/qbridge/parsers/kevbin.py) `decode`, `parse_header`, `buffer_slots`, `DISPUTED`; [src/qbridge/parsers/kevspec.py](src/qbridge/parsers/kevspec.py) `KERCALL_LAYOUTS` | Decodes raw `.kev` files on any host without the SDP: header, system page, buffers, combine events across interlacing, per-CPU timestamp rollover, wide and fast modes | `traceevent_t`, `_NTO_TRACE_GETCPU`, `_TRACE_GET_STRUCT`, `_TRACE_PR_TH_*`, `_TRACECOOKIE` from `<sys/trace.h>`; `<sys/states.h>`; the SAT event table; `<sys/kercalls.h>` |
+| [src/qbridge/kevvalidate.py](src/qbridge/kevvalidate.py) `compare`, `validate` | `qbridge validate-kev`: the decoder against the SDP's `traceprinter`, event by event | SDP `traceprinter` output |
+| [src/qbridge/kevdeps.py](src/qbridge/kevdeps.py) `analyse_wait`, `waits` | Ties each blocked interval to the thread that ended it, across processes and CPUs, and classifies it | `SyncMutexLock`/`SyncMutexUnlock` (`sync_p`, owner word, `_NTO_SYNC_WAITING`), COMM `SND_MESSAGE`/`REC_MESSAGE`/`REPLY_MESSAGE` (rcvid), `SyncCondvarWait`/`Signal`, `SyncSemWait`/`Post` |
 | [src/qbridge/parsers/kev.py](src/qbridge/parsers/kev.py) `parse`; [src/qbridge/traceconfirm.py](src/qbridge/traceconfirm.py) `confirm_preemption`, `confirm_inversion`, `confirm_msgpass`, `confirm_sync` | Turns kernel events into per-thread state spans and checks each step of a finding against them | `THREAD` class events (`THRUNNING`, `THREADY`, `THMUTEX`, `THCONDVAR`, `THSEND`, `THREPLY`, ...), `PROCTHREAD_NAME`, `CONTROL TIME` |
 
 The host side (Python, no dependencies beyond the standard library) builds with the SDP's `qcc`, talks to the target over ssh, and analyses gdb output when crash analysis is used. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the pieces fit together.
@@ -156,10 +160,50 @@ It measures nothing new. It shows that the analysis is deterministic and reprodu
 
 Then:
 - **Let an AI assistant run the loop, with no target:** `qbridge serve --replay` is the MCP server answering from data recorded on the target. In Claude Code: `claude mcp add qbridge-replay -- <path to the clone>\.venv\Scripts\qbridge.exe serve --replay`, then ask why `rtdemo -s msgpass` misses its deadline. The assistant measures, diagnoses (with the recorded kernel trace), proposes one change and asks you to approve it with `qbridge experiment approve <id>` in a terminal, then gets the verdict. The analysis is qbridge's real code; every result says when its data was recorded; only the changes measured on the target can be measured, anything else is refused ([details](docs/TOOLS.md#replay-mode-no-target)).
-- `qbridge trace --file examples/traces/msgpass.txt.gz` analyses a full kernel trace recorded on the target: per-thread states, who held the CPU during each wait, deadline statistics for every periodic thread rebuilt from the trace alone (checked cycle by cycle against rtdemo's own log: the same cycles missed, 61 of 61, 60 of 60 and 152 of 152), and a hint that the control task was blocked while its server was held off the CPU by a middle-priority thread. It writes an HTML page with the timeline, and with `--perfetto` a file to open in [Perfetto](https://ui.perfetto.dev) ([this trace in Perfetto](https://ui.perfetto.dev/#!/?url=https://vychopade.github.io/qbridge/traces/msgpass.perfetto.json)). It works on any program's `traceprinter` output, not only the demo's ([examples/traces](examples/traces/README.md)).
+- `qbridge trace --file examples/traces/msgpass.txt.gz` analyses a full kernel trace recorded on the target: per-thread states, who held the CPU during each wait, deadline statistics for every periodic thread rebuilt from the trace alone (checked cycle by cycle against rtdemo's own log: the same cycles missed, 61 of 61, 60 of 60 and 152 of 152), and a hint that the control task was blocked while its server was held off the CPU by a middle-priority thread. It writes an HTML page with the timeline, and with `--perfetto` a file to open in [Perfetto](https://ui.perfetto.dev) ([this trace in Perfetto](https://ui.perfetto.dev/#!/?url=https://vychopade.github.io/qbridge/traces/msgpass.perfetto.json)). It works on any program's trace, raw `.kev` or `traceprinter` text, not only the demo's ([examples/traces](examples/traces/README.md)).
 - `pip install -e ".[dev]"` and `pytest` run the full test suite, which also uses recorded target output.
 - Open [docs/example-report.html](docs/example-report.html) (priority inversion, fixed in the source) [docs/example-report-overload.html](docs/example-report-overload.html) (CPU preemption, fixed by a priority change) [docs/example-report-msgpass.html](docs/example-report-msgpass.html) (priority inversion through message passing, fixed in the source) and [docs/example-report-condvar.html](docs/example-report-condvar.html) (priority inversion on a condition variable, fixed by a priority change) in a browser. These are the HTML reports from the recorded experiments, with the kernel trace timelines.
 - The codelab, [docs/codelab](docs/codelab/README.md), walks through writing a small QNX resource manager; that part needs the QNX SDP and a target.
+
+## Raw kernel traces, no QNX needed
+
+`qbridge trace --file` takes the binary `.kev` that `tracelogger` writes, as it is (or gzipped), and decodes it on Linux, Windows or macOS without the QNX SDP. The decoder follows the SDP's own headers and System Analysis Toolkit tables. Events those do not describe keep their name, time, CPU and raw words and are marked as not decoded, never guessed. It was checked against QNX's `traceprinter` on 36 real QNX 8.0 traces: 1,236,591 events, every one paired, 3,354,492 fields equal, every 64-bit timestamp equal ([report and method](docs/validation/README.md)). `qbridge validate-kev <file.kev>` repeats the check on any trace where the SDP is installed; CI repeats it on every push against saved traceprinter output.
+
+When the trace was recorded with kernel calls and communication events (`tracelogger` without `-F1 -F6`), qbridge also says **who each blocked thread waited for**, from the trace alone:
+
+```
+qbridge trace --file tests/fixtures/kev/msgpass_fault.kev.gz --process rtdemo --perfetto
+```
+
+```
+"classification": "confirmed_priority_inversion",
+"holder": "rtdemo[21245979] 'S-server'",
+"proof": "rtdemo[21245979] 'S-server' replied to this thread (REPLY_MESSAGE naming tid 3, pid 21237785)
+          when the wait ended; the message went to process 21245979 (rcvid 0x00020001)",
+"interference": {"middle": [{"thread": "rtdemo[21237785] 'B-worker'", "priority": 20, "cpu": 1, "ms": 40.05}]}
+```
+
+| Wait | How the holder is identified |
+|---|---|
+| Mutex | the waiter's `SyncMutexLock` and the `SyncMutexUnlock` of the same `sync_p` that ended it; with wide events the owner word in the lock equals the unlocker's own |
+| Message | the client's `SND_MESSAGE`, the server thread's `REC_MESSAGE` with the same rcvid, and its `REPLY_MESSAGE` naming the client, across processes |
+| Condition variable, semaphore | the `SyncCondvarSignal` / `SyncSemPost` of the same object that ended the wait |
+
+Each wait is then classified: **confirmed priority inversion** (holder proven, below the waiter, and kept off its CPU by threads between the two priorities), **probable scheduling interference** (dependency not proven, or held off by higher-priority work, or events dropped), **no inversion** (the holder ran promptly, or at the waiter's priority: inheritance), or **insufficient evidence**. Chains (a holder itself blocked) are followed and judged at the first waiter's priority. Every finding lists the events it rests on, with time, CPU, thread and file offset. The HTML page shows them in a "Who waited for whom" table, and the Perfetto file draws an arrow from each waiter to its holder.
+
+On the recorded fault/fix pairs ([tests/fixtures/kev](tests/fixtures/kev/README.md)), each fault is confirmed and each fix is not:
+
+| Trace | Result |
+|---|---|
+| mutex, `PTHREAD_PRIO_NONE` | confirmed: `C-logger` held `A-control`'s mutex; `B-worker` ran 33 ms on its CPU |
+| mutex, `PTHREAD_PRIO_INHERIT` | no inversion: `C-logger` ran at priority 30 (its own is 10) |
+| message passing, `_NTO_CHF_FIXED_PRIORITY` | confirmed, across processes: `S-server` (10) replied, `B-worker` (20) ran 40 ms meanwhile |
+| message passing, fixed | no inversion: `S-server` ran at the client's priority |
+| condition variable, producer at 10 | confirmed: `P-producer` signalled, `B-worker` ran 40 ms meanwhile |
+| condition variable, producer at 25 | no inversion |
+| CPU overload | no inversion reported |
+
+A trace with thread events only (the default `qbridge trace` capture) cannot name holders. There the inversion pattern stays a hint, marked "probable", and `qbridge diagnose --trace` reads the holder from the live target instead.
 
 ## Build and run
 

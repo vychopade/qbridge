@@ -1,6 +1,6 @@
 # Recorded kernel traces
 
-Five one-second kernel traces from a QNX 8.0 virtual machine (2 CPUs), recorded with `tracelogger` while [rtdemo](../rtdemo/README.md) ran, and decoded with the SDP's `traceprinter`. Each is the full trace: every process on the target, not just rtdemo. They are gzipped text; qbridge reads them as they are.
+Five one-second kernel traces from a QNX 8.0 virtual machine (2 CPUs), recorded with `tracelogger` while [rtdemo](../rtdemo/README.md) ran. Each is the full trace: every process on the target, not just rtdemo, as the raw `.kev` and as `traceprinter` text; qbridge reads both.
 
 Try qbridge's trace analysis on them without a QNX target:
 
@@ -20,4 +20,12 @@ It prints JSON and writes an HTML page with a thread-state timeline (the path is
 
 These are hints from thread states and priorities. A trace does not record what a blocked thread waits for, so a trace on its own cannot prove which thread held the mutex or answered the message. On a live target, `qbridge diagnose --trace` reads that from the target and checks each finding against a trace from the same run.
 
-Your own trace works the same way: record it with `tracelogger` on the instrumented kernel (`procnto-smp-instr`), then either decode it with `traceprinter -f trace.kev -o trace.txt` and pass the text, or pass the `.kev` file directly if the QNX SDP is installed on this computer.
+Each trace is also here as the raw file `tracelogger` wrote (`<name>.kev.gz`); the `.txt.gz` beside it is exactly what the SDP's `traceprinter` printed for it. qbridge decodes the raw file itself, with no SDP, and gets the same per-thread states (`tests/test_kevbin.py` checks this):
+
+```
+qbridge trace --file examples/traces/msgpass.kev.gz
+```
+
+These five traces have thread, process and system events only, so a waiting thread's holder is a hint here. For traces recorded with every class on, where qbridge names the holder from kernel calls and messages, see [tests/fixtures/kev](../../tests/fixtures/kev/README.md).
+
+Your own trace works the same way: record it with `tracelogger` on the instrumented kernel (`procnto-smp-instr`) and pass the `.kev` file. Record without `-F1` and `-F6` (keep kernel calls and communication) to have waits tied to their holders, and add `-k 128` if the kernel reports dropped events. `--decoder traceprinter` uses the SDP's traceprinter instead, if it is installed.

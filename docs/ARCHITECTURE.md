@@ -133,7 +133,10 @@ The workload has fixed phases, so before and after runs are comparable. The faul
 | `tools.py` | The tool implementations: `measure`, `diagnose`, `deadline_stats`, `timing_check`, `make_report`, `deploy`, `run`, `kill` and the rest. |
 | `deadlines.py` | Statistics, miss attribution, `compare` and `compare_sets` (strict: every run must beat every run), and cross-checks. |
 | `analysis.py` | Deterministic rules over snapshots and deadline reports: findings with evidence, confidence and unknowns. |
-| `parsers/kev.py` | Decoded kernel traces (`traceprinter` output) to per-thread state spans, with the 32-bit time-stamp wrap handled. |
+| `parsers/kev.py` | Kernel trace events (from either decoder) to per-thread state spans, names, dropped-event intervals, and the kernel-call/communication events that link threads, each attributed to the thread running on that CPU. Also parses `traceprinter` text. |
+| `parsers/kevbin.py`, `parsers/kevspec.py` | Native decoder for raw `.kev` files (no SDP), and the kernel-call layouts generated from the SDP's documentation by `tools/gen_kevspec.py`. |
+| `kevvalidate.py` | `qbridge validate-kev`: the native decoder against traceprinter, event by event ([docs/validation](validation/README.md)). |
+| `kevdeps.py` | Who waited for whom: ties each blocked interval to the thread that ended it from kernel-call and communication events, and classifies it. |
 | `traceconfirm.py` | Checks each step of a finding against a kernel trace from the same run; "confirmed" only if every step is seen. |
 | `tracecycles.py` | Deadline statistics for any periodic thread from a trace alone: finds the period, places releases, splits back-to-back cycles, and feeds them to the deadline analysis. |
 | `replaymode.py` | `serve --replay`: the loop's MCP tools answered from data recorded on the target, with qbridge's analysis run again on it, real human approval, and only recorded changes measurable. |
