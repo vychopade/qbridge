@@ -180,7 +180,7 @@ qbridge trace --file tests/fixtures/kev/msgpass_fault.kev.gz --process rtdemo --
 "holder": "rtdemo[21245979] 'S-server'",
 "proof": "rtdemo[21245979] 'S-server' replied to this thread (REPLY_MESSAGE naming tid 3, pid 21237785)
           when the wait ended; the message went to process 21245979 (rcvid 0x00020001)",
-"interference": {"middle": [{"thread": "rtdemo[21237785] 'B-worker'", "priority": 20, "cpu": 1, "ms": 40.05}]}
+"interference": {"middle": [{"thread": "rtdemo[21237785] 'B-worker'", "priority": 20, "cpu": 1, "ms": 40.047}]}
 ```
 
 | Wait | How the holder is identified |
