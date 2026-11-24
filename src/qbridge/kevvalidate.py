@@ -290,19 +290,34 @@ def traceprinter_text(kev_path: Path, text_path: Path | None = None) -> str:
     return out.read_bytes().decode("utf-8", errors="replace").replace("\r\n", "\n")
 
 
+def _label(p: Path) -> str:
+    """A file's name in the report: with its folder when the name alone is generic."""
+    return f"{p.parent.name}/{p.name}" if _stem(p) in ("trace", "tracebuffer") else p.name
+
+
+def _tp_version(text: str) -> str | None:
+    m = re.search(r"TRACEPRINTER version ([\w.]+)", text[:400])
+    return m[1] if m else None
+
+
 def validate(paths: list[Path]) -> dict:
+    from . import __version__
     files, totals, types = [], Counter(), defaultdict(Counter)
+    versions = set()
     for p in paths:
         data = _readz(p)
         try:
             text = traceprinter_text(p)
         except Exception as e:                        # noqa: BLE001 - reported, not raised
-            files.append({"file": p.name, "sha256": hashlib.sha256(data).hexdigest(),
+            files.append({"file": _label(p), "sha256": hashlib.sha256(data).hexdigest(),
                           "traceprinter_failure": str(e)})
             totals["traceprinter_failures"] += 1
             continue
+        if _tp_version(text):
+            versions.add(_tp_version(text))
         r = compare(data, text)
-        r = {"file": p.name, "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data), **r}
+        r = {"file": _label(p), "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data),
+             "traceprinter_version": _tp_version(text), **r}
         files.append(r)
         if "parse_failure" in r:
             totals["parse_failures"] += 1
@@ -318,14 +333,37 @@ def validate(paths: list[Path]) -> dict:
     totals["files"] = len(paths)
     tot = dict(totals)
     tot["not_decoded_matched"] = tot.get("matched", 0) - tot.get("decoded_by_qbridge", 0)
+    by_type = {k: dict(v) for k, v in sorted(types.items(), key=lambda kv: -kv[1]["traceprinter"])}
+    summary = {
+        "events_examined": tot.get("events_traceprinter", 0),
+        "supported_events": tot.get("decoded_by_qbridge", 0),
+        "supported_events_fully_matched": tot.get("decoded_fully_equal", 0),
+        "unsupported_events_matched_on_identity_time_cpu": tot["not_decoded_matched"],
+        "mismatches": (tot.get("missing_in_qbridge", 0) + tot.get("extra_in_qbridge", 0)
+                       + tot.get("field_mismatch_events", 0)),
+        "parsing_failures": tot.get("parse_failures", 0) + tot.get("traceprinter_failures", 0),
+        "event_types": len(by_type),
+        "event_types_with_fields_decoded": sum(1 for c in by_type.values() if c.get("decoded")),
+        "event_types_name_time_cpu_only": [k for k, c in by_type.items() if not c.get("decoded")],
+        "event_types_partly_decoded": {k: f"{c['decoded']} of {c['traceprinter']}"
+                                       for k, c in by_type.items()
+                                       if 0 < c.get("decoded", 0) < c["traceprinter"]},
+        "largest_event_types": {k: round(c["traceprinter"] / max(1, tot.get("events_traceprinter", 0)), 4)
+                                for k, c in list(by_type.items())[:5]},
+    }
     return {
         "report": "qbridge native .kev decoder vs QNX traceprinter",
         "generated": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
+        "qbridge_version": __version__,
+        "traceprinter_versions": sorted(versions),
         "method": ("Events paired by (timestamp low 32 bits, CPU, class, event); fields compared "
-                   "by value where both decoders print the same field name. 'decoded' means "
+                   "by value where both decoders print the same field name. 'supported' means "
                    "qbridge decodes that event's fields from the documented layout; other events "
-                   "are matched on identity, time and CPU only."),
+                   "are matched on identity, time and CPU only. 64-bit timestamps are checked "
+                   "against a reconstruction from traceprinter's text (CONTROL TIME msb plus "
+                   "rollovers); order per CPU against traceprinter's."),
+        "summary": summary,
         "totals": tot,
-        "by_type": {k: dict(v) for k, v in sorted(types.items(), key=lambda kv: -kv[1]["traceprinter"])},
+        "by_type": by_type,
         "files": files,
     }
