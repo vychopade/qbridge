@@ -53,6 +53,11 @@ SCENARIOS = {
     "msgpass-50": {"args": ["-s", "msgpass", "-a", "50"],
                    "runs": ("experiment_live_wrongfix", "candidate")},
     "inversion-fixed": {"args": [], "runs": ("experiment_live", "candidate")},
+    "condvar": {"args": ["-s", "condvar"], "snapshots": "scenario_condvar_fault",
+                "trace": "condvar_fault", "runs": ("experiment_live_condvar", "baseline"),
+                "full_trace": "condvar", "trace_recorded": "2026-11-23"},
+    "condvar-25": {"args": ["-s", "condvar", "-p", "25"], "snapshots": "scenario_condvar_fixed",
+                   "trace": "condvar_fixed", "runs": ("experiment_live_condvar", "candidate")},
 }
 
 # The changes that were measured on the target, by recording.
@@ -75,6 +80,11 @@ RECORDED_CHANGES = {
         "new_args": ["-s", "msgpass", "-a", "50"],
         "what": "arguments: -s msgpass -> -s msgpass -a 50 (should not help)",
         "report": "example-report-wrongfix.html"},
+    "experiment_live_condvar": {
+        "baseline_args": ["-s", "condvar"], "kind": "args",
+        "new_args": ["-s", "condvar", "-p", "25"],
+        "what": "arguments: -s condvar -> -s condvar -p 25 (producer above the worker)",
+        "report": "example-report-condvar.html"},
 }
 
 
@@ -111,7 +121,8 @@ def _scenario(args: list[str] | None, st: ReplayState) -> str:
     raise ExperimentError(
         f"no recording for 'rtdemo {' '.join(a)}'. Replay mode has: rtdemo (mutex inversion), "
         "rtdemo -s overload -a 15 (CPU preemption), rtdemo -s overload -a 30, rtdemo -s msgpass "
-        "(message-passing inversion) and rtdemo -s msgpass -a 50.")
+        "(message-passing inversion), rtdemo -s msgpass -a 50, rtdemo -s condvar "
+        "(condition-variable inversion) and rtdemo -s condvar -p 25.")
 
 
 def _check_program(program: str | None) -> None:
@@ -130,7 +141,8 @@ def info(s) -> dict:
     return {"mode": "replay", "host": None, "write_allowed": False,
             "target": "recorded: QNX 8.0.0 x86_64, 2 CPUs (VirtualBox VM), Nov 17-23, 2026",
             "workloads": ["rtdemo", "rtdemo -s overload -a 15", "rtdemo -s overload -a 30",
-                          "rtdemo -s msgpass", "rtdemo -s msgpass -a 50"],
+                          "rtdemo -s msgpass", "rtdemo -s msgpass -a 50", "rtdemo -s condvar",
+                          "rtdemo -s condvar -p 25"],
             "recorded_changes": [c["what"] for c in RECORDED_CHANGES.values()],
             "note": ("Replay mode: no target is connected. Tools answer from data recorded on "
                      "the target, re-analysed by qbridge's code. A proposed change still needs "
@@ -218,7 +230,7 @@ def trace(s, st: ReplayState, program: str | None = None, args: list[str] | None
         raise ExperimentError(f"no kernel trace was recorded for 'rtdemo {' '.join(SCENARIOS[key]['args'])}'")
     path = EXAMPLES / "traces" / f"{full}.txt.gz"
     out = tools.trace_file(s, str(path), threads, PROGRAM if not threads else None)
-    out["replay"] = _note("2026-11-22") + f" Full trace: examples/traces/{full}.txt.gz."
+    out["replay"] = _note(SCENARIOS[key].get("trace_recorded", "2026-11-22")) + f" Full trace: examples/traces/{full}.txt.gz."
     return out
 
 
@@ -229,9 +241,9 @@ def exp_start(s, st: ReplayState, program: str, project_dir: str | None = None,
               args: list[str] | None = None) -> dict:
     _check_program(program)
     key = _scenario(args, st)
-    if key not in ("inversion", "overload-15", "msgpass"):
+    if key not in ("inversion", "overload-15", "msgpass", "condvar"):
         raise ExperimentError("replay experiments start from a recorded fault: rtdemo, "
-                              "rtdemo -s overload -a 15 or rtdemo -s msgpass")
+                              "rtdemo -s overload -a 15, rtdemo -s msgpass or rtdemo -s condvar")
     name, side = SCENARIOS[key]["runs"]
     rec = _load(f"{name}/experiment.json")
     base = f"replay-{time.strftime('%Y%m%d-%H%M%S')}-{PROGRAM}"
@@ -412,8 +424,9 @@ INSTRUCTIONS = (
     "on a QNX 8.0 target (a 2-CPU VirtualBox VM, Nov 17-23, 2026) and run qbridge's real analysis "
     "on it again; every result says when its data was recorded. Say so when you report results. "
     "The workload is rtdemo, a 10 ms control task 'A-control' (priority 30) with a CPU-heavy "
-    "worker (20) and a low-priority logger or server (10). Recorded workloads: 'rtdemo' (no "
-    "args), '-s overload -a 15', '-s overload -a 30', '-s msgpass', '-s msgpass -a 50'. Typical "
+    "worker (20) and a low-priority logger, server or condition-variable producer (10). "
+    "Recorded workloads: 'rtdemo' (no args), '-s overload -a 15', '-s overload -a 30', "
+    "'-s msgpass', '-s msgpass -a 50', '-s condvar', '-s condvar -p 25'. Typical "
     "order, as on a target: qnx_timing_check, qnx_measure, qnx_diagnose (trace=true to check "
     "findings against a recorded kernel trace), qnx_experiment_start, qnx_experiment_propose "
     "(one exact change; the source is examples/rtdemo/rtdemo.c), then ask the user to approve it "

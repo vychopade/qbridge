@@ -27,7 +27,11 @@ from . import deadlines
 from .parsers import kev
 
 KERNEL_PID = 1                     # procnto: idle, clock, IPI and kernel threads
-BLOCKED = ("MUTEX", "SEND", "REPLY")   # waiting for another thread to release or answer
+BLOCKED = ("MUTEX", "SEND", "REPLY", "CONDVAR", "SEM")   # waiting for another thread
+# A thread also sits in CONDVAR or SEM while idle, waiting for work; only short waits of
+# those (under this share of the trace) count as blocked in the middle of something.
+SYNC_IDLE = ("CONDVAR", "SEM")
+SYNC_SHORT = 0.1
 WAITS = ("READY",) + BLOCKED
 SHARE = 0.5                        # "most of": at least half
 DEFAULT_THREADS = 6
@@ -193,7 +197,15 @@ def _inversion(tr: kev.Trace, key, idx: _RunIndex) -> dict | None:
     """Blocked (mutex, send, reply) while a lower-priority thread was ready and a thread
     between the two priorities had that thread's CPU: the shape of a priority inversion,
     with the lower thread as a candidate for whoever the waiter was waiting for."""
-    waits = [s for s in tr.spans.get(key, []) if s.state in BLOCKED and s.priority > 0]
+    from .tracecycles import IDLE
+    spans = tr.spans.get(key, [])
+    # A thread whose only way to idle is a condition variable or semaphore is waiting for
+    # work there, not for another thread to finish something it needs; only a thread that
+    # sleeps some other way (NANOSLEEP, RECEIVE, ...) counts those waits as blocked.
+    sync_ok = any(s.state in IDLE for s in spans)
+    waits = [s for s in spans if s.state in BLOCKED and s.priority > 0
+             and not (s.state in SYNC_IDLE
+                      and (not sync_ok or s.ms > SYNC_SHORT * tr.duration_ms))]
     wait_ms = sum(s.ms for s in waits)
     if wait_ms < _min_ms(tr):
         return None

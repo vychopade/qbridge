@@ -3,7 +3,7 @@
 The repository keeps data recorded on the reference QNX 8.0 target (a 2-CPU
 VirtualBox VM) under tests/fixtures: thread-state snapshots and deadline
 reports from diagnose runs, kernel traces from the same kind of runs, and the
-per-run reports of four fix experiments (one of them a fix that should not help). This command runs qbridge's real
+per-run reports of five fix experiments (one of them a fix that should not help). This command runs qbridge's real
 analysis code on that data on this computer, and compares each result with
 what qbridge reported on the target at the time.
 
@@ -29,21 +29,27 @@ SCENARIOS = [
     ("scenario_overload_fixed", "rtdemo -s overload -a 30 (the fix)"),
     ("scenario_msgpass_fault", "rtdemo -s msgpass, server channel with _NTO_CHF_FIXED_PRIORITY"),
     ("scenario_msgpass_fixed", "rtdemo -s msgpass, server inherits its client's priority (the fix)"),
+    ("scenario_condvar_fault", "rtdemo -s condvar, producer (10) below the CPU-heavy worker"),
+    ("scenario_condvar_fixed", "rtdemo -s condvar -p 25, producer above the worker (the fix)"),
 ]
 TRACES = [
     ("inversion", "rtdemo, mutex without priority inheritance"),
     ("overload_fault", "rtdemo -s overload -a 15"),
     ("msgpass_fault", "rtdemo -s msgpass (fixed-priority server channel)"),
+    ("condvar_fault", "rtdemo -s condvar (producer below the worker)"),
 ]
 RULE_NAMES = {analysis.RULE_MUTEX_INVERSION: "Priority inversion on a mutex",
               analysis.RULE_CPU_PREEMPTION: "CPU preemption",
-              analysis.RULE_MSGPASS_INVERSION: "Priority inversion through message passing"}
+              analysis.RULE_MSGPASS_INVERSION: "Priority inversion through message passing",
+              analysis.RULE_SYNC_INVERSION: "Priority inversion on a condition variable"}
 EXPERIMENTS = [
     ("experiment_live", "source change: PTHREAD_PRIO_NONE -> PTHREAD_PRIO_INHERIT"),
     ("experiment_live_overload", "scheduling change: A's priority 15 -> 30"),
     ("experiment_live_msgpass", "source change: drop _NTO_CHF_FIXED_PRIORITY from the server's channel"),
     ("experiment_live_wrongfix", "a fix that should not help: A's priority 30 -> 50, server channel "
                                  "still _NTO_CHF_FIXED_PRIORITY"),
+    ("experiment_live_condvar", "scheduling change: the condition-variable producer's priority "
+                                "10 -> 25"),
 ]
 
 
@@ -70,10 +76,12 @@ def run() -> dict:
         d = _load(f"{name}.json")
         res = analysis.diagnose(d["snapshots"], d["deadline_report"], d["timing_checks"])
         rec = d["result"]
-        # The recording was made with the rules of that day; compare those. Findings of
-        # rules added since are shown, but they are new analysis, not a reproduction.
-        old = [f for f in res["findings"] if f["rule"] in analysis.ORIGINAL_RULES]
-        new = [f for f in res["findings"] if f["rule"] not in analysis.ORIGINAL_RULES]
+        # The recording was made with the rules of that day (stored as "rules" since the
+        # condvar scenario; the first three before); compare those. Findings of rules
+        # added since are shown, but they are new analysis, not a reproduction.
+        then = tuple(d.get("rules") or analysis.ORIGINAL_RULES)
+        old = [f for f in res["findings"] if f["rule"] in then]
+        new = [f for f in res["findings"] if f["rule"] not in then]
         same = [_finding_key(f) for f in old] == [_finding_key(f) for f in rec["findings"]]
         checks.append({
             "kind": "diagnosis", "name": name, "what": what, "matches_target": same,
@@ -147,5 +155,5 @@ def text(out: dict) -> str:
     lines.append(f"{ok} of {n} results are the same as qbridge reported on the target.")
     lines.append("Full reports from those runs: docs/example-report.html, "
                  "docs/example-report-overload.html, docs/example-report-msgpass.html, "
-                 "docs/example-report-wrongfix.html")
+                 "docs/example-report-wrongfix.html, docs/example-report-condvar.html")
     return "\n".join(lines) + "\n"

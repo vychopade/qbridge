@@ -76,9 +76,17 @@ For the fixed build it reports no inversion ("this does not prove there is none;
 
 Confidence is high when at least three independent pieces of evidence agree: holder below the waiter, a middle-priority thread running, the PRIO_NONE flag, and lock-rooted deadline misses. With fewer it is medium or low, and the fix suggestion becomes more cautious. Diagnoses are saved under `~/.qbridge/diagnoses/` with the snapshots that support them.
 
+### Condition variables and semaphores
+
+A condition variable or semaphore has no owner, so neither the kernel nor qbridged can say which thread will signal it, and no protocol (not even `PTHREAD_PRIO_INHERIT` on the condition variable's mutex) raises that thread's priority. The sync-inversion rule looks for the shape this leaves: the deadline task is blocked in `CONDVAR` or `SEM` while a lower-priority thread of the same process is READY and a middle-priority thread runs on that thread's CPU. Because the signaller is inferred, the finding names it as a *candidate* and never goes above medium confidence; it rises from low with how often the pattern was seen and how many runs of misses started with a long synchronisation wait. It stays quiet if the run's deadline report shows no misses. On `rtdemo -s condvar`:
+
+> **Priority inversion on a condition variable (medium confidence).** 'A-control' (priority 30) was blocked on a condition variable in 13 of 17 snapshots; in 7 of those 'P-producer' (priority 10) was READY but not running while 'B-worker' (priority 20) ran on its CPU. 110 of 110 runs of misses started with a long wait in the task's synchronisation step (worst 44.4 ms).
+
+The suggested fixes: raise the signaller above the middle-priority work, have the waiting task do the work itself, or hand the work to a server over `MsgSend`, where QNX passes the client's priority to the server.
+
 ### When no other thread is to blame
 
-The three rules above find another thread that keeps the deadline task waiting. Two more rules cover the other causes a deadline report can show. Both look at the runs of consecutive misses and what the first cycle of each run spent its time on (later misses in a run are knock-on: the previous cycle ran past the next release). Each reports only if its cause started at least a quarter of the runs, or if no other finding explains them.
+The four rules above find another thread that keeps the deadline task waiting. Two more rules cover the other causes a deadline report can show. Both look at the runs of consecutive misses and what the first cycle of each run spent its time on (later misses in a run are knock-on: the previous cycle ran past the next release). Each reports only if its cause started at least a quarter of the runs, or if no other finding explains them.
 
 | Rule | What the deadline report shows | Checked against |
 |---|---|---|
@@ -160,6 +168,7 @@ runs the diagnosis as usual, then, while the same processes are still running, r
 | CPU preemption | the task is READY (not blocked on a lock); the named higher-priority thread is RUNNING on the task's CPU for at least half of that READY time; it runs at a priority above the task's |
 | Priority inversion | the waiter is MUTEX-blocked; the holder is READY below the waiter's priority for at least half of the wait (no inheritance); threads between the two priorities run on the holder's CPU for at least half of the holder's READY time; every completed wait ends while the holder is RUNNING (it released the mutex) |
 | Priority inversion through message passing | the client is SEND- or REPLY-blocked; of the wait the server did not spend running, it is READY below the client's priority for at least half (no inheritance); threads between the two priorities run on the server's CPU for at least half of the server's READY time; every completed REPLY wait ends while the server is RUNNING (it replied) |
+| Priority inversion on a condition variable | the waiter is CONDVAR- or SEM-blocked; the candidate signaller is READY below the waiter's priority for at least half of the wait; threads between the two priorities run on its CPU for at least half of its READY time; every completed wait ends while the candidate is RUNNING (it signals) |
 | Late wake-up | the task's cycles can be rebuilt from the trace (it wakes on a regular period); some cycles start late by at least a quarter of the period (and 3 times the usual delay); while they waited, threads above the task's priority ran on its CPU for at most 10% of that time; the task was still asleep after its release for at least half of it |
 | Own work overrun | the task's cycles can be rebuilt from the trace; some cycles use more CPU time than a quarter of the period and 3 times the median; in those cycles lock and server waits are at most 10% of their CPU time |
 
@@ -169,6 +178,7 @@ Live results on Nov 22 (2-CPU VirtualBox VM, rtdemo on CPU 1, 1 s traces):
 
 - **Overload (`-s overload -a 15`).** Confirmed. A-control was READY 334.4 ms in 71 spans with no MUTEX time; B-worker (priority 20) was RUNNING on that CPU for 319.2 ms of it (95%).
 - **Inversion (`-s inversion`).** Confirmed. A-control was MUTEX-blocked 351.9 ms in 10 spans; C-logger was READY at priority 10 for 330.7 ms of that (94%), never raised to 30; B-worker (priority 20) ran for 330.5 ms of C-logger's READY time; 10 of 10 waits ended while C-logger was running.
+- **Condition variable (`-s condvar`, Nov 23).** Confirmed. A-control was CONDVAR-blocked 705.0 ms in 101 spans; P-producer was READY below priority 30 for 402.0 ms of that (57%; it ran for most of the rest, doing the work); B-worker ran for 400.2 ms of P-producer's READY time; 101 of 101 waits ended while P-producer was running. On the fixed run (`-p 25`) the rule first named B-worker as a candidate during A's normal 3 ms waits; the trace check refused it (0 of 100 waits ended while B-worker ran), and the rule now stays quiet when the deadline report has no misses.
 - **Fixed overload (`-a 30`).** No finding, so nothing to confirm; the tests also point the fault's finding at this trace and check it is *not* confirmed.
 
 The report draws the window around the longest wait: one lane per thread, coloured running / ready / blocked on a mutex. Raw `.kev` and decoded files stay in `~/.qbridge/traces/<id>/` (git ignores `*.kev`); the tests use small filtered, gzipped copies in `tests/fixtures/traces/`.
@@ -285,10 +295,10 @@ claude mcp add qbridge-replay -- C:\path\to\qbridge\.venv\Scripts\qbridge.exe se
 
 `serve --replay` needs no QNX target and no SDP. It offers the loop's tools (info, timing check, measure, diagnose, trace, the experiment tools, report, audit), all read-only, and answers from data recorded on the reference target ([replaymode.py](../src/qbridge/replaymode.py)):
 
-- **Recorded workloads:** `rtdemo` (mutex inversion), `rtdemo -s overload -a 15` (CPU preemption), `-s overload -a 30`, `-s msgpass` (message-passing inversion), `-s msgpass -a 50`. Anything else is refused with that list.
+- **Recorded workloads:** `rtdemo` (mutex inversion), `rtdemo -s overload -a 15` (CPU preemption), `-s overload -a 30`, `-s msgpass` (message-passing inversion), `-s msgpass -a 50`, `-s condvar` (condition-variable inversion), `-s condvar -p 25`. Anything else is refused with that list.
 - **Real analysis:** diagnoses, trace checks, trace analysis and experiment verdicts are qbridge's code run again on the recordings. Every result says when its data was recorded and that nothing ran now.
 - **Real approval:** a proposed change still needs a person to run `qbridge experiment approve <id>` in a terminal and type `yes`. Replay experiments have ids starting with `replay-`. The source file is read to build the diff, never edited.
-- **Only measured changes are measured:** the four changes measured on the target (priority inheritance on the lock, dropping `_NTO_CHF_FIXED_PRIORITY`, `-a 15` to `-a 30`, and the wrong fix `-a 50`) give their recorded verdicts. The same fix phrased differently is recognised by what the edited source says. Any other change is refused, with the recorded ones listed; no number is made up.
+- **Only measured changes are measured:** the five changes measured on the target (priority inheritance on the lock, dropping `_NTO_CHF_FIXED_PRIORITY`, `-a 15` to `-a 30`, the producer's `-p 25`, and the wrong fix `-a 50`) give their recorded verdicts. The same fix phrased differently is recognised by what the edited source says. Any other change is refused, with the recorded ones listed; no number is made up.
 - **State:** after `qnx_experiment_keep`, later measurements and diagnoses of that workload use the recording of the fixed build. `qnx_report` returns the HTML report qbridge wrote on the target for that experiment.
 
 A session to try: ask the assistant why rtdemo misses its deadline with `-s msgpass`, let it measure, diagnose with a trace and propose a fix, approve it in a terminal, and ask for the verdict.

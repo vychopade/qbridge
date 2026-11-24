@@ -1,0 +1,428 @@
+{
+ "diagnosis_id": "20261123-201549-diagnose-rtdemo",
+ "trace_id": "20261123-201543-trace",
+ "workload_args": [
+  "-s",
+  "condvar"
+ ],
+ "rtdemo_pids": [
+  15847445
+ ],
+ "threads": {
+  "P-producer": [
+   15847445,
+   2
+  ],
+  "B-worker": [
+   15847445,
+   3
+  ],
+  "A-control": [
+   15847445,
+   4
+  ]
+ },
+ "findings": [
+  {
+   "rule": "sync_priority_inversion",
+   "title": "Priority inversion on a condition variable: rtdemo[15847445] likely waits for P-producer",
+   "confidence": "medium",
+   "explanation": "rtdemo[15847445] 'A-control' waits on a condition variable. Nobody owns a condition variable, so QNX cannot raise the thread that will signal it to the waiter's priority. rtdemo[15847445] 'P-producer' (priority 10) was ready to run but rtdemo[15847445] 'B-worker' (priority 20) had its CPU; if it is the thread that signals, the waiter waits for the middle-priority thread. This is a priority inversion without a lock.",
+   "evidence": [
+    "rtdemo[15847445] 'A-control' (priority 30) was blocked on a condition variable in 13 of 17 snapshots (sync object 0x485a1ba018).",
+    "In 7 of those, rtdemo[15847445] 'P-producer' (priority 10), a thread of the same process below the waiter, was READY but not running, while rtdemo[15847445] 'B-worker' (priority 20) ran on its CPU (CPU 1).",
+    "The deadline report for A-control shows 678 misses in 110 run(s) of consecutive misses; 110 started with a long wait in the task's synchronisation step (worst 44.4 ms)."
+   ],
+   "could_not_determine": [
+    "Which thread will signal the condition variable: it has no owner, so this is the likeliest candidate (same process, below the waiter, held off its CPU), not a proven one. A kernel trace (--trace) can show whether each wait ends right after it runs.",
+    "Snapshots are instants, not totals.",
+    "A worst case: finite runs cannot prove the deadline will always be met after a fix."
+   ],
+   "suggested_fix": "There is no priority inheritance on a condition variable, and PTHREAD_PRIO_INHERIT on its mutex does not change that. Run the signalling thread above the middle-priority work (now 10 vs 20); or let the waiter do the work itself; or ask for it with MsgSend from a server, which on QNX runs at its client's priority.",
+   "subject": {
+    "pid": 15847445,
+    "cpu": 1,
+    "waiter": {
+     "tid": 4,
+     "thread_name": "A-control",
+     "priority": 30
+    },
+    "holder": {
+     "tid": 2,
+     "thread_name": "P-producer",
+     "priority": 10
+    },
+    "middle": [
+     {
+      "pid": 15847445,
+      "tid": 3,
+      "thread_name": "B-worker",
+      "priority": 20
+     }
+    ],
+    "states": [
+     "CONDVAR"
+    ]
+   },
+   "observations": {
+    "snapshots": 17,
+    "waiting": 13,
+    "candidate_ready_with_middle": 7
+   },
+   "trace": {
+    "trace_id": "20261123-201543-trace",
+    "status": "confirmed",
+    "trace_ms": 1001.2,
+    "steps": [
+     {
+      "claim": "rtdemo[15847445] 'A-control' blocks on a condition variable",
+      "supported": true,
+      "detail": "CONDVAR 705.0 ms in 101 span(s) in a 1001 ms trace"
+     },
+     {
+      "claim": "Meanwhile the candidate signaller rtdemo[15847445] 'P-producer' is ready but not running, below the waiter's priority (no inheritance)",
+      "supported": true,
+      "detail": "candidate signaller READY 402.0 ms of the 705.0 ms wait (57%), 402.0 ms of it below priority 30; RUNNING 302.9 ms"
+     },
+     {
+      "claim": "A middle-priority thread holds the candidate signaller's CPU",
+      "supported": true,
+      "detail": "rtdemo[15847445] 'B-worker' (priority 20, 400.2 ms), io-usb-otg[307222] 'usbdi_resmgr' (priority 21, 0.3 ms), io-sock[188432] 'iousb_poll_tq' (priority 21, 0.1 ms) and others ran for 400.6 ms of the candidate signaller's 402.0 ms READY time (100%)"
+     },
+     {
+      "claim": "Each wait ends while the candidate signaller is running (it signals)",
+      "supported": true,
+      "detail": "101 of 101 completed waits ended while the candidate signaller was RUNNING"
+     }
+    ],
+    "not_shown": [],
+    "limits": [
+     "The trace does not name the condition variable or semaphore, or who signals it (THCONDVAR and THSEM only name the waiter); the candidate comes from the snapshots, and the trace shows whether each wait ends while it runs.",
+     "The trace covers 1001 ms of the run; it shows what happened in that window only."
+    ],
+    "timeline": {
+     "window_start_ms": 225.541,
+     "window_ms": 55.481,
+     "lanes": [
+      {
+       "lane": "waiter",
+       "thread": "rtdemo[15847445] 'A-control'",
+       "spans": [
+        {
+         "state": "NANOSLEEP",
+         "start": 0.0,
+         "end": 5.767,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 5.767,
+         "end": 5.779,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 5.779,
+         "end": 6.0,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "CONDVAR",
+         "start": 6.0,
+         "end": 49.481,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "MUTEX",
+         "start": 49.481,
+         "end": 49.484,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 49.484,
+         "end": 49.49,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 49.49,
+         "end": 50.539,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "CONDVAR",
+         "start": 50.539,
+         "end": 53.59,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "MUTEX",
+         "start": 53.59,
+         "end": 53.594,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 53.594,
+         "end": 53.601,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 53.601,
+         "end": 54.651,
+         "priority": 30,
+         "cpu": 1
+        },
+        {
+         "state": "CONDVAR",
+         "start": 54.651,
+         "end": 55.481,
+         "priority": 30,
+         "cpu": 1
+        }
+       ]
+      },
+      {
+       "lane": "candidate signaller",
+       "thread": "rtdemo[15847445] 'P-producer'",
+       "spans": [
+        {
+         "state": "CONDVAR",
+         "start": 0.0,
+         "end": 5.993,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "MUTEX",
+         "start": 5.993,
+         "end": 5.996,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 5.996,
+         "end": 6.002,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 6.002,
+         "end": 6.005,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 6.005,
+         "end": 6.009,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 6.009,
+         "end": 8.732,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 8.732,
+         "end": 49.202,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 49.202,
+         "end": 49.488,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "CONDVAR",
+         "start": 49.488,
+         "end": 50.534,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "MUTEX",
+         "start": 50.534,
+         "end": 50.536,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 50.536,
+         "end": 50.577,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 50.577,
+         "end": 50.58,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 50.58,
+         "end": 50.584,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 50.584,
+         "end": 53.598,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "CONDVAR",
+         "start": 53.598,
+         "end": 54.645,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "MUTEX",
+         "start": 54.645,
+         "end": 54.647,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 54.647,
+         "end": 54.653,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 54.653,
+         "end": 54.656,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 54.656,
+         "end": 54.66,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 54.66,
+         "end": 54.729,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 54.729,
+         "end": 54.759,
+         "priority": 10,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 54.759,
+         "end": 55.481,
+         "priority": 10,
+         "cpu": 1
+        }
+       ]
+      },
+      {
+       "lane": "middle",
+       "thread": "rtdemo[15847445] 'B-worker'",
+       "spans": [
+        {
+         "state": "NANOSLEEP",
+         "start": 0.0,
+         "end": 8.762,
+         "priority": 20,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 8.762,
+         "end": 8.842,
+         "priority": 20,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 8.842,
+         "end": 9.731,
+         "priority": 20,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 9.731,
+         "end": 10.043,
+         "priority": 20,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 10.043,
+         "end": 10.732,
+         "priority": 20,
+         "cpu": 1
+        },
+        {
+         "state": "READY",
+         "start": 10.732,
+         "end": 10.76,
+         "priority": 20,
+         "cpu": 1
+        },
+        {
+         "state": "RUNNING",
+         "start": 10.76,
+         "end": 49.199,
+         "priority": 20,
+         "cpu": 1
+        },
+        {
+         "state": "NANOSLEEP",
+         "start": 49.199,
+         "end": 55.481,
+         "priority": 20,
+         "cpu": 1
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "confirmed_by_trace": true
+  }
+ ],
+ "live_status": [
+  "confirmed"
+ ]
+}

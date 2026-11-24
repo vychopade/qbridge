@@ -34,9 +34,11 @@ from . import deadlines
 from .parsers import kev
 
 # States a periodic thread waits in between cycles. A blocked state that waits for
-# another thread to act (MUTEX, SEND, REPLY, JOIN) is part of a cycle.
-IDLE = {"NANOSLEEP", "RECEIVE", "SIGWAITINFO", "SIGSUSPEND", "SEM", "CONDVAR", "INTR",
+# another thread to act (MUTEX, SEND, REPLY, CONDVAR, SEM, JOIN) is part of a cycle:
+# a task that waits on a condition variable for a producer's result is mid-cycle.
+IDLE = {"NANOSLEEP", "RECEIVE", "SIGWAITINFO", "SIGSUSPEND", "INTR",
         "NET_REPLY", "NET_SEND", "STOPPED", "WAITCTX", "WAITPAGE", "WAITTHREAD"}
+SYNC_WAIT = ("MUTEX", "CONDVAR", "SEM")     # counted as waiting for another thread
 IGNORE = {"CREATE", "DEAD", "DESTROY"}
 MIN_WAKES = 8           # fewer wake-ups than this: too few to call it periodic
 REGULAR = 0.8           # share of wake-up gaps that must sit on the period grid
@@ -218,7 +220,7 @@ def cycles(tr: kev.Trace, key, period_ms: float | None = None,
             samples.append(deadlines.Sample(
                 release=rel * 1000, response=max(0.0, c_end - rel) * 1000,
                 backlog=backlog * 1000, latency=latency * 1000,
-                lock_wait=st.get("MUTEX", 0.0) * 1000,
+                lock_wait=sum(st.get(x, 0.0) for x in SYNC_WAIT) * 1000,
                 server_wait=(st.get("SEND", 0.0) + st.get("REPLY", 0.0)) * 1000,
                 exec=st.get("RUNNING", 0.0) * 1000))
             last = c_end

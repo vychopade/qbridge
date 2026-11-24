@@ -35,13 +35,25 @@
  * A stays REPLY-blocked for the whole burst. The fix is to create the
  * channel without the flag (SERVER_CHANNEL_FLAGS below).
  *
+ * Fourth scenario, "-s condvar": A asks a producer thread in the same
+ * process, P "producer" (priority 10, same CPU), for a result each cycle and
+ * waits on a condition variable until P has done 3 ms of work and signals.
+ * A condition variable (like a semaphore) has no owner, so no priority
+ * inheritance is possible: while A waits, P keeps its own priority 10, B's
+ * burst (20) preempts P, and A waits for the whole burst. The mutex that
+ * goes with the condition variable is held only briefly and inherits as
+ * usual, so changing its protocol does not help. The fix is a scheduling
+ * change with the same binary: run P above B ("-p 25").
+ *
  * The workload is fixed (same phases every run) so before/after runs are
  * comparable. Timing on a virtual machine is noisy; finite runs show the
  * effect, they do not prove a worst case.
  *
  * Usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n]
- *               [-s inversion|overload|msgpass] [-a A-priority]
+ *               [-s inversion|overload|msgpass|condvar] [-a A-priority]
+ *               [-p P-priority]
  *   -s  scenario (default inversion); -a  A's priority, 1..63 (default 30)
+ *   -p  -s condvar: the producer's priority, 1..63 (default 10)
  *   Prints one JSON summary line on stdout when done.
  *   If qbridged is running, A registers with it and reports every cycle by
  *   message passing (see target/qbridged/qbridge_task.h); -n turns that off.
@@ -95,8 +107,10 @@
 #define C_HOLD_NS      3000000LL   /* 3 ms of work while holding the lock */
 #define S_PRIO        10           /* -s msgpass: the server's own priority */
 #define S_WORK_NS      4000000LL   /* 4 ms of server work per request */
+#define P_PRIO        10           /* -s condvar: the producer's default priority */
+#define P_WORK_NS      3000000LL   /* 3 ms of producer work per request */
 
-enum scenario { SCEN_INVERSION, SCEN_OVERLOAD, SCEN_MSGPASS };
+enum scenario { SCEN_INVERSION, SCEN_OVERLOAD, SCEN_MSGPASS, SCEN_CONDVAR };
 
 static int server_coid = -1;    /* -s msgpass: A's connection to S */
 static pid_t server_pid = -1;
@@ -105,6 +119,14 @@ static pthread_mutex_t shared_lock;
 static int run_cpu = 1;         /* all three threads run on this CPU */
 static enum scenario scenario = SCEN_INVERSION;
 static int a_prio = A_PRIO;     /* -a: A's priority (scheduling parameter) */
+static int p_prio = P_PRIO;     /* -p: the producer's priority (-s condvar) */
+
+/* -s condvar: A posts a request and waits on cv_done; P waits on cv_req. */
+static pthread_mutex_t cv_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t cv_req = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t cv_done = PTHREAD_COND_INITIALIZER;
+static int64_t cv_request, cv_served;   /* request number asked for / answered */
+static int cv_stop;
 static int report_to_qbridged = 1;
 static int qbt_status = -1;     /* qbt_register() result; -1 = not tried */
 static int qbt_slot = -1;
@@ -119,7 +141,8 @@ struct sample {
     int64_t latency;    /* scheduling latency: wake-up time minus the moment
                            A could first have started (release, or the end of
                            the previous cycle if that was later) */
-    int64_t lock_wait;  /* time spent waiting for the shared lock */
+    int64_t lock_wait;  /* time spent waiting for the shared lock (-s condvar:
+                           waiting on the condition variable for P's result) */
     int64_t server_wait;/* -s msgpass: time in MsgSend, from send to reply
                            (the server's own work plus any wait for it) */
     int64_t exec;       /* CPU time A actually used this cycle */
@@ -205,6 +228,17 @@ static void *task_a(void *arg)
         } else {
             burn(A_LOCKED_NS);      /* same work, no lock: lock_wait stays 0 */
         }
+        if (scenario == SCEN_CONDVAR) {
+            l0 = mono_ns();
+            pthread_mutex_lock(&cv_lock);
+            cv_request = k;
+            pthread_cond_signal(&cv_req);
+            while (cv_served != k) {
+                pthread_cond_wait(&cv_done, &cv_lock);
+            }
+            pthread_mutex_unlock(&cv_lock);
+            l1 = mono_ns();
+        }
         if (scenario == SCEN_MSGPASS) {
             int64_t req = k, rep = 0;
             m0 = mono_ns();
@@ -233,6 +267,37 @@ static void *task_a(void *arg)
                                    s->response);
     }
     qbt_close(&qbt);
+    if (scenario == SCEN_CONDVAR) {
+        pthread_mutex_lock(&cv_lock);
+        cv_stop = 1;
+        pthread_cond_signal(&cv_req);
+        pthread_mutex_unlock(&cv_lock);
+    }
+    return NULL;
+}
+
+/* -s condvar: the producer. Waits for a request, does P_WORK_NS of work
+ * outside the lock, then publishes the result and signals A. */
+static void *task_p(void *arg)
+{
+    (void)arg;
+    setup_thread(p_prio, "P-producer");
+    pthread_mutex_lock(&cv_lock);
+    for (;;) {
+        while (cv_request == cv_served && !cv_stop) {
+            pthread_cond_wait(&cv_req, &cv_lock);
+        }
+        if (cv_stop) {
+            break;
+        }
+        int64_t r = cv_request;
+        pthread_mutex_unlock(&cv_lock);
+        burn(P_WORK_NS);
+        pthread_mutex_lock(&cv_lock);
+        cv_served = r;
+        pthread_cond_signal(&cv_done);
+    }
+    pthread_mutex_unlock(&cv_lock);
     return NULL;
 }
 
@@ -381,13 +446,14 @@ int main(int argc, char **argv)
     int seconds = 10;
     const char *csv = "/data/qbridge/rtdemo_samples.csv";
     int c;
-    while ((c = getopt(argc, argv, "d:o:c:ns:a:")) != -1) {
+    while ((c = getopt(argc, argv, "d:o:c:ns:a:p:")) != -1) {
         switch (c) {
         case 'd': seconds = atoi(optarg); break;
         case 'o': csv = optarg; break;
         case 'c': run_cpu = atoi(optarg); break;
         case 'n': report_to_qbridged = 0; break;
         case 'a': a_prio = atoi(optarg); break;
+        case 'p': p_prio = atoi(optarg); break;
         case 's':
             if (strcmp(optarg, "inversion") == 0) {
                 scenario = SCEN_INVERSION;
@@ -395,19 +461,26 @@ int main(int argc, char **argv)
                 scenario = SCEN_OVERLOAD;
             } else if (strcmp(optarg, "msgpass") == 0) {
                 scenario = SCEN_MSGPASS;
+            } else if (strcmp(optarg, "condvar") == 0) {
+                scenario = SCEN_CONDVAR;
             } else {
-                fprintf(stderr, "rtdemo: -s must be inversion, overload or msgpass\n");
+                fprintf(stderr, "rtdemo: -s must be inversion, overload, msgpass or condvar\n");
                 return EXIT_FAILURE;
             }
             break;
         default:
             fprintf(stderr, "usage: rtdemo [-d seconds] [-o samples.csv] [-c cpu] [-n] "
-                            "[-s inversion|overload|msgpass] [-a A-priority]\n");
+                            "[-s inversion|overload|msgpass|condvar] [-a A-priority] "
+                            "[-p P-priority]\n");
             return EXIT_FAILURE;
         }
     }
     if (a_prio < 1 || a_prio > 63) {
         fprintf(stderr, "rtdemo: -a must be 1..63\n");
+        return EXIT_FAILURE;
+    }
+    if (p_prio < 1 || p_prio > 63) {
+        fprintf(stderr, "rtdemo: -p must be 1..63\n");
         return EXIT_FAILURE;
     }
     if (run_cpu < 0 || run_cpu >= _syspage_ptr->num_cpu) {
@@ -446,9 +519,12 @@ int main(int argc, char **argv)
     t0 = (mono_ns() / 1000000LL + 50) * 1000000LL;
     t_end = t0 + (int64_t)seconds * 1000000000LL;
 
-    pthread_t ta, tb, tc;
+    pthread_t ta, tb, tc, tp;
     if (scenario == SCEN_INVERSION) {
         pthread_create(&tc, NULL, task_c, NULL);   /* C shares the lock with A */
+    }
+    if (scenario == SCEN_CONDVAR) {
+        pthread_create(&tp, NULL, task_p, NULL);   /* P answers A's requests */
     }
     pthread_create(&tb, NULL, task_b, NULL);
     pthread_create(&ta, NULL, task_a, NULL);
@@ -456,6 +532,9 @@ int main(int argc, char **argv)
     pthread_join(tb, NULL);
     if (scenario == SCEN_INVERSION) {
         pthread_join(tc, NULL);
+    }
+    if (scenario == SCEN_CONDVAR) {
+        pthread_join(tp, NULL);
     }
     if (scenario == SCEN_MSGPASS) {
         ConnectDetach(server_coid);     /* the server gets a disconnect pulse and exits */
@@ -490,7 +569,10 @@ int main(int argc, char **argv)
                                                                  : "OTHER";
     const char *scen_name = scenario == SCEN_INVERSION ? "inversion"
                           : scenario == SCEN_OVERLOAD  ? "overload"
-                                                       : "msgpass";
+                          : scenario == SCEN_MSGPASS   ? "msgpass"
+                                                       : "condvar";
+    const char *third = scenario == SCEN_MSGPASS ? "S" : scenario == SCEN_CONDVAR ? "P" : "C";
+    int third_prio = scenario == SCEN_MSGPASS ? S_PRIO : scenario == SCEN_CONDVAR ? p_prio : C_PRIO;
     const char *channel = scenario != SCEN_MSGPASS ? "none"
                         : (SERVER_CHANNEL_FLAGS & _NTO_CHF_FIXED_PRIORITY) ? "_NTO_CHF_FIXED_PRIORITY"
                                                                           : "inherits client priority";
@@ -499,8 +581,8 @@ int main(int argc, char **argv)
            "\"lock_protocol\": \"%s\", \"server_channel\": \"%s\", "
            "\"period_us\": %lld, \"deadline_us\": %lld, \"seconds\": %d, "
            "\"cycles\": %zu, \"misses\": %zu, ",
-           scen_name, run_cpu, a_prio, B_PRIO, scenario == SCEN_MSGPASS ? "S" : "C",
-           scenario == SCEN_MSGPASS ? S_PRIO : C_PRIO, scenario == SCEN_INVERSION ? "true" : "false",
+           scen_name, run_cpu, a_prio, B_PRIO, third, third_prio,
+           scenario == SCEN_INVERSION ? "true" : "false",
            protocol, channel,
            A_PERIOD_NS / 1000, A_DEADLINE_NS / 1000, seconds, n_samples, misses);
     print_stats("response", stats_of(offsetof(struct sample, response)), 0);

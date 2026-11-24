@@ -65,13 +65,13 @@ footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
     <ol class="path">
       <li><strong>Watch the demo video</strong> (under 3 minutes): <span class="small">link added at submission</span>.</li>
       <li><strong>Open one report</strong> below. Each is a self-contained page built only from data recorded on the QNX 8.0 target.</li>
-      <li><strong>Check the analysis yourself, no QNX needed:</strong> clone the repo and run <code>qbridge replay</code>. It reruns the diagnosis rules, kernel-trace checks and experiment verdicts on the recorded data and compares them with what qbridge reported on the target (12 of 12 the same). Or connect your own AI assistant to <code>qbridge serve --replay</code> and let it run the whole loop on the recorded data: measure, diagnose, propose, you approve, verdict.</li>
+      <li><strong>Check the analysis yourself, no QNX needed:</strong> clone the repo and run <code>qbridge replay</code>. It reruns the diagnosis rules, kernel-trace checks and experiment verdicts on the recorded data and compares them with what qbridge reported on the target (16 of 16 the same). Or connect your own AI assistant to <code>qbridge serve --replay</code> and let it run the whole loop on the recorded data: measure, diagnose, propose, you approve, verdict.</li>
       <li><strong>See the QNX code:</strong> the README's <a href="https://github.com/vychopade/qbridge#how-it-uses-qnx">How it uses QNX</a> table names every QNX-specific file and function.</li>
     </ol>
   </div>
 
-  <h2>Three faults, three diagnoses, three measured fixes</h2>
-  <p>All three run on the same demo workload: a control task (priority 30) that must finish every 10 ms, a CPU-heavy worker (20), and a low-priority thread or server (10), all on one CPU of a QNX 8.0 virtual machine. Each fault was diagnosed live, confirmed step by step by a kernel trace, fixed through an approved experiment and measured 3 runs before and 3 after (999 cycles each).</p>
+  <h2>Four faults, four diagnoses, four measured fixes</h2>
+  <p>All four run on the same demo workload: a control task (priority 30) that must finish every 10 ms, a CPU-heavy worker (20), and a low-priority thread or server (10), all on one CPU of a QNX 8.0 virtual machine. Each fault was diagnosed live, confirmed step by step by a kernel trace, fixed through an approved experiment and measured 3 runs before and 3 after (999 cycles each).</p>
   <div class="grid">
     <div class="card">
       <h3>Priority inversion on a mutex</h3>
@@ -93,6 +93,13 @@ footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
       <p class="num">Misses <span class="b">301, 309, 305</span> &rarr; <span class="a">0, 1, 0</span></p>
       <p class="small">Worst response 36.1&ndash;46.2 ms &rarr; 5.0&ndash;10.6 ms</p>
       <p><a href="example-report-overload.html">Open the report</a></p>
+    </div>
+    <div class="card">
+      <h3>Priority inversion on a condition variable</h3>
+      <p class="what">The control task waits on a condition variable for a low-priority producer. A condition variable has no owner, so priority inheritance cannot help; the signaller is inferred, so confidence is medium. Fix: the producer above the worker, <code>-p 25</code>.</p>
+      <p class="num">Misses <span class="b">599, 600, 601</span> &rarr; <span class="a">0, 0, 0</span></p>
+      <p class="small">Worst response 45.2&ndash;47.8 ms &rarr; 5.4&ndash;8.2 ms</p>
+      <p><a href="example-report-condvar.html">Open the report</a></p>
     </div>
   </div>
 

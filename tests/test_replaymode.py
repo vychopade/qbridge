@@ -121,6 +121,25 @@ def test_scheduling_fix_and_the_same_fix_phrased_differently(srv):
     assert call(srv, "qnx_experiment_run", experiment_id=eid)["verdict"] == "improved"
 
 
+def test_condition_variable_loop(srv):
+    d = call(srv, "qnx_diagnose", program="rtdemo", args=["-s", "condvar"], trace=True)
+    (f,) = d["findings"]
+    assert f["rule"] == "sync_priority_inversion" and f["confidence"] == "medium"
+    assert f["subject"]["holder"]["thread_name"] == "P-producer" and f["confirmed_by_trace"] is True
+    t = call(srv, "qnx_trace", program="rtdemo", args=["-s", "condvar"])
+    assert "examples/traces/condvar.txt.gz" in t["replay"] and "2026-11-23" in t["replay"]
+    eid = call(srv, "qnx_experiment_start", program="rtdemo", project_dir="x",
+               args=["-s", "condvar"])["experiment_id"]
+    call(srv, "qnx_experiment_propose", experiment_id=eid, args=["-s", "condvar", "-p", "25"],
+         description="producer above the worker")
+    approve(eid)
+    r = call(srv, "qnx_experiment_run", experiment_id=eid)
+    assert r["verdict"] == "improved" and r["comparison"]["misses"]["after"]["runs"] == [0, 0, 0]
+    assert call(srv, "qnx_report", experiment_id=eid)["url"].endswith("example-report-condvar.html")
+    after = call(srv, "qnx_diagnose", program="rtdemo", args=["-s", "condvar", "-p", "25"])
+    assert after["findings"] == []
+
+
 def test_an_unrecorded_change_is_refused_not_invented(srv):
     eid = call(srv, "qnx_experiment_start", program="rtdemo", project_dir="x",
                args=["-s", "overload", "-a", "15"])["experiment_id"]
@@ -144,7 +163,7 @@ def test_measure_steps_through_the_recorded_runs_and_trace_uses_the_full_trace(s
     assert any(p["pattern"] == "cpu_preemption" for p in t["patterns"])
     assert "examples/traces/overload.txt.gz" in t["replay"]
     info = call(srv, "qnx_info")
-    assert info["mode"] == "replay" and len(info["recorded_changes"]) == 4
+    assert info["mode"] == "replay" and len(info["recorded_changes"]) == 5
 
 
 def test_replayed_calls_are_audited(srv):

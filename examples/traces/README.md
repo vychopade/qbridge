@@ -1,6 +1,6 @@
 # Recorded kernel traces
 
-Four one-second kernel traces from a QNX 8.0 virtual machine (2 CPUs), recorded with `tracelogger` while [rtdemo](../rtdemo/README.md) ran, and decoded with the SDP's `traceprinter`. Each is the full trace: every process on the target, not just rtdemo. They are gzipped text; qbridge reads them as they are.
+Five one-second kernel traces from a QNX 8.0 virtual machine (2 CPUs), recorded with `tracelogger` while [rtdemo](../rtdemo/README.md) ran, and decoded with the SDP's `traceprinter`. Each is the full trace: every process on the target, not just rtdemo. They are gzipped text; qbridge reads them as they are.
 
 Try qbridge's trace analysis on them without a QNX target:
 
@@ -15,6 +15,7 @@ It prints JSON and writes an HTML page with a thread-state timeline (the path is
 | `inversion.txt.gz` | `rtdemo -s inversion` | Possible priority inversion: `A-control` (priority 30) blocked on a mutex while `C-logger` (10) is held off its CPU by `B-worker` (20) |
 | `msgpass.txt.gz` | `rtdemo -s msgpass` | Possible priority inversion: `A-control` (30) blocked in SEND/REPLY while the server `S-server` (10) is held off its CPU by `B-worker` (20) |
 | `msgpass_fixed.txt.gz` | `rtdemo -s msgpass`, fixed | No inversion: the server now runs at its client's priority (30), so `B-worker` waits behind it instead |
+| `condvar.txt.gz` | `rtdemo -s condvar` | Possible priority inversion: `A-control` (30) blocked on a condition variable while `P-producer` (10), the thread that signals it, is held off its CPU by `B-worker` (20); A-control's rebuilt cycles miss about 60% of deadlines |
 | `overload.txt.gz` | `rtdemo -s overload -a 15` | CPU preemption: `A-control` (15) ready but not running while `B-worker` (20) has its CPU |
 
 These are hints from thread states and priorities. A trace does not record what a blocked thread waits for, so a trace on its own cannot prove which thread held the mutex or answered the message. On a live target, `qbridge diagnose --trace` reads that from the target and checks each finding against a trace from the same run.

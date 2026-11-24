@@ -1,0 +1,29 @@
+{
+ "diagnosis_id": "20261123-201602-diagnose-rtdemo",
+ "trace_id": "20261123-201556-trace",
+ "workload_args": [
+  "-s",
+  "condvar",
+  "-p",
+  "25"
+ ],
+ "rtdemo_pids": [
+  16842754
+ ],
+ "threads": {
+  "P-producer": [
+   16842754,
+   2
+  ],
+  "B-worker": [
+   16842754,
+   3
+  ],
+  "A-control": [
+   16842754,
+   4
+  ]
+ },
+ "findings": [],
+ "live_status": []
+}

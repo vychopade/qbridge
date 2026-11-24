@@ -560,6 +560,124 @@ def inheritance_observed(snapshots: list[list[dict]]) -> list[dict]:
     return seen
 
 
+# -- Priority inversion on a condition variable or semaphore -------------------------
+#
+# A condition variable or a semaphore has no owner, so the kernel cannot pass the
+# waiter's priority to whoever will signal it: there is no priority inheritance, and
+# PTHREAD_PRIO_INHERIT on the condition variable's mutex does not change that. If the
+# thread that signals runs below the waiter and a middle-priority thread takes its CPU,
+# the waiter waits for the middle thread. The signaller is not recorded anywhere, so
+# this rule names a candidate (a lower-priority thread of the same process that was
+# ready while the waiter waited) and never reports more than medium confidence.
+
+RULE_SYNC_INVERSION = "sync_priority_inversion"
+_SYNC_STATES = ("CONDVAR", "SEM")
+
+
+def sync_inversion(snapshots: list[list[dict]], deadline_report: dict | None = None) -> list[dict]:
+    # Waiting on a condition variable is normal (that is what it is for), and with no
+    # owner the evidence is circumstantial; with a deadline report that shows no misses
+    # there is nothing to explain. (Found live on Nov 23: after the fix, a ready worker
+    # held off by the producer itself looked like a candidate.)
+    if deadline_report is not None and not deadline_report.get("misses"):
+        return []
+    name = (deadline_report or {}).get("task")
+    waits: dict = {}                       # waiter key -> observations
+    for snap in snapshots:
+        for w in snap:
+            if w.get("state") not in _SYNC_STATES or w["pid"] == _KERNEL_PID:
+                continue
+            if name and w.get("thread_name") != name:
+                continue
+            o = waits.setdefault((w["pid"], w["tid"]), {"waiter": w, "seen": 0, "cands": {},
+                                                         "states": set(), "syncs": set()})
+            o["seen"] += 1
+            o["states"].add(w["state"])
+            o["syncs"].add((w.get("blocked_on") or {}).get("sync"))
+            for c in snap:
+                if (c["pid"] != w["pid"] or c is w or c.get("state") != "READY"
+                        or c["priority"] >= w["priority"]):
+                    continue
+                middle = [x for x in snap
+                          if x.get("state") == "RUNNING" and x["pid"] != _KERNEL_PID
+                          and c["priority"] < x.get("priority", 0) < w["priority"]
+                          and x.get("last_cpu") == c.get("last_cpu")]
+                if not middle:
+                    continue
+                r = o["cands"].setdefault((c["pid"], c["tid"]), {"thread": c, "count": 0, "middle": {}})
+                r["count"] += 1
+                for x in middle:
+                    m = r["middle"].setdefault((x["pid"], x["tid"]), {"thread": x, "count": 0})
+                    m["count"] += 1
+    findings = []
+    for key, o in waits.items():
+        if not o["cands"]:
+            continue
+        cand = max(o["cands"].values(), key=lambda r: r["count"])
+        if cand["count"] < 2 and not name:
+            continue                        # a one-off, and no deadline task to anchor it
+        w, c = o["waiter"], cand["thread"]
+        mid = max(cand["middle"].values(), key=lambda m: m["count"])["thread"]
+        what = "condition variable" if o["states"] == {"CONDVAR"} else (
+            "semaphore" if o["states"] == {"SEM"} else "condition variable or semaphore")
+        n = len(snapshots)
+        evidence = [
+            f"{_label(w)} (priority {w['priority']}) was blocked on a {what} in {o['seen']} of {n} "
+            f"snapshots" + (f" (sync object {sorted(s for s in o['syncs'] if s)[0]})"
+                            if any(o["syncs"]) else "") + ".",
+            f"In {cand['count']} of those, {_label(c)} (priority {c['priority']}), a thread of the "
+            f"same process below the waiter, was READY but not running, while {_label(mid)} "
+            f"(priority {mid['priority']}) ran on its CPU (CPU {c.get('last_cpu')}).",
+        ]
+        points = 1 + (cand["count"] >= 3 and cand["count"] >= o["seen"] / 2)
+        r = deadline_report or {}
+        if r.get("misses"):
+            roots = r.get("chain_root_causes", {})
+            rooted = roots.get("lock_wait", 0)
+            evidence.append(
+                f"The deadline report for {r.get('task')} shows {r['misses']} misses in "
+                f"{r.get('miss_chains', 0)} run(s) of consecutive misses; {rooted} started with a "
+                f"long wait in the task's synchronisation step (worst "
+                f"{r['parts_us']['lock_wait']['max'] / 1000:.1f} ms).")
+            points += rooted >= max(1, r.get("miss_chains", 0)) / 2
+        # The signaller is not recorded, so the finding stays a candidate: medium at most.
+        confidence = "medium" if points >= 2 else "low"
+        findings.append({
+            "rule": RULE_SYNC_INVERSION,
+            "title": f"Priority inversion on a {what}: {w['name']}[{w['pid']}] likely waits for "
+                     f"{c.get('thread_name') or 'tid ' + str(c['tid'])}",
+            "confidence": confidence,
+            "explanation": (
+                f"{_label(w)} waits on a {what}. Nobody owns a {what}, so QNX cannot raise the "
+                f"thread that will signal it to the waiter's priority. {_label(c)} (priority "
+                f"{c['priority']}) was ready to run but {_label(mid)} (priority {mid['priority']}) "
+                f"had its CPU; if it is the thread that signals, the waiter waits for the "
+                "middle-priority thread. This is a priority inversion without a lock."),
+            "evidence": evidence,
+            "could_not_determine": [
+                f"Which thread will signal the {what}: it has no owner, so this is the likeliest "
+                "candidate (same process, below the waiter, held off its CPU), not a proven one. A "
+                "kernel trace (--trace) can show whether each wait ends right after it runs.",
+                "Snapshots are instants, not totals.",
+                "A worst case: finite runs cannot prove the deadline will always be met after a fix.",
+            ],
+            "suggested_fix": (
+                f"There is no priority inheritance on a {what}, and PTHREAD_PRIO_INHERIT on its mutex "
+                "does not change that. Run the signalling thread above the middle-priority work "
+                f"(now {c['priority']} vs {mid['priority']}); or let the waiter do the work itself; "
+                "or ask for it with MsgSend from a server, which on QNX runs at its client's "
+                "priority."),
+            "subject": {"pid": w["pid"], "cpu": c.get("last_cpu"),
+                        "waiter": {k: w.get(k) for k in ("tid", "thread_name", "priority")},
+                        "holder": {k: c.get(k) for k in ("tid", "thread_name", "priority")},
+                        "middle": [{k: mid.get(k) for k in ("pid", "tid", "thread_name", "priority")}],
+                        "states": sorted(o["states"])},
+            "observations": {"snapshots": n, "waiting": o["seen"], "candidate_ready_with_middle":
+                             cand["count"]},
+        })
+    return findings
+
+
 # -- Causes inside the task or below the scheduler -----------------------------------
 #
 # The rules above find another thread that keeps the deadline task waiting. These two
@@ -573,6 +691,8 @@ RULE_LATE_WAKEUP = "late_wakeup"
 # Rules that existed when the recorded scenarios in tests/fixtures were taken; replay
 # compares only these with the recorded results (see replay.py).
 ORIGINAL_RULES = (RULE_MUTEX_INVERSION, RULE_MSGPASS_INVERSION, RULE_CPU_PREEMPTION)
+# Every rule; a recording made later stores this list as "rules" (replay compares those).
+ALL_RULES = ORIGINAL_RULES + ("sync_priority_inversion", "own_work_overrun", "late_wakeup")
 MIN_SHARE = 0.25      # a cause must start at least a quarter of the runs of misses...
                       # ...unless no other finding explains them
 
@@ -784,7 +904,8 @@ def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None,
     """Run every rule; say plainly when nothing was found."""
     findings = (mutex_inversion(snapshots, deadline_report)
                 + msgpass_inversion(snapshots, deadline_report)
-                + cpu_preemption(snapshots, deadline_report, timing_checks))
+                + cpu_preemption(snapshots, deadline_report, timing_checks)
+                + sync_inversion(snapshots, deadline_report))
     first = list(findings)
     findings += (own_work_overrun(snapshots, deadline_report, timing_checks, first)
                  + late_wakeup(snapshots, deadline_report, timing_checks, first))
@@ -798,8 +919,9 @@ def diagnose(snapshots: list[list[dict]], deadline_report: dict | None = None,
     else:
         waits = sum(1 for s in snapshots for t in s if t.get("state") == "MUTEX")
         summary = (f"No priority inversion or CPU preemption seen in {len(snapshots)} snapshot(s) "
-                   "(rules: mutex and message-passing priority inversion, CPU preemption, own "
-                   "work overrun, late wake-up)"
+                   "(rules: priority inversion on a mutex, through message passing and on a "
+                   "condition variable or semaphore, CPU preemption, own work overrun, late "
+                   "wake-up)"
                    + (f" ({waits} brief mutex waits, all with the holder at or above the "
                       "waiter's priority or the holder unknown)" if waits else "")
                    + ". This does not prove there is none; it was not observed.")

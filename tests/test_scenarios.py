@@ -218,3 +218,59 @@ def test_trace_summary_says_when_a_rule_has_no_trace_check(fixture_text):
     assert "have no trace check yet" in res["summary"] and "0 of" not in res["summary"]
     assert "trace" not in res["findings"][0]                  # nothing to show in a report
     assert traceconfirm.confirm({"rule": "some_future_rule"}, tr)["status"] == "not checked"
+
+
+# -- -s condvar: priority inversion on a condition variable (recorded Nov 23) -----------
+
+def test_condvar_fault_names_the_producer_as_candidate(fixture_text):
+    d = _load(fixture_text, "condvar_fault")
+    assert d["args"] == ["-s", "condvar"]
+    res = analysis.diagnose(d["snapshots"], d["deadline_report"], d["timing_checks"])
+    (f,) = res["findings"]                     # no other rule fires on it
+    assert f["rule"] == analysis.RULE_SYNC_INVERSION
+    assert f["confidence"] == "medium"         # the signaller is never proven
+    sub = f["subject"]
+    assert sub["waiter"]["thread_name"] == "A-control" and sub["waiter"]["priority"] == 30
+    assert sub["holder"]["thread_name"] == "P-producer" and sub["holder"]["priority"] == 10
+    assert sub["middle"][0]["thread_name"] == "B-worker" and sub["states"] == ["CONDVAR"]
+    assert any("candidate" in u and "no owner" in u for u in f["could_not_determine"])
+    assert "no priority inheritance" in f["suggested_fix"]
+    assert "PTHREAD_PRIO_INHERIT on its mutex" in f["suggested_fix"]
+    assert [x["rule"] for x in d["result"]["findings"]] == [analysis.RULE_SYNC_INVERSION]
+
+
+def test_condvar_fix_and_the_no_misses_guard(fixture_text):
+    d = _load(fixture_text, "condvar_fixed")
+    assert d["args"] == ["-s", "condvar", "-p", "25"] and d["deadline_report"]["misses"] == 0
+    assert analysis.diagnose(d["snapshots"], d["deadline_report"], d["timing_checks"])["findings"] == []
+    # Without the guard the producer (25) holding off the ready worker (20) while A waits
+    # its normal 3 ms looks like a candidate; with no deadline report it still needs 2+ hits.
+    assert analysis.sync_inversion(d["snapshots"], d["deadline_report"]) == []
+
+
+def test_condvar_rule_is_quiet_on_the_other_scenarios(fixture_text):
+    for name in ("inversion", "overload_fault", "overload_fixed", "msgpass_fault", "msgpass_fixed"):
+        d = _load(fixture_text, name)
+        assert analysis.sync_inversion(d["snapshots"], d["deadline_report"]) == [], name
+
+
+def test_condvar_trace_check_confirms_each_step(fixture_text):
+    import gzip
+    from pathlib import Path
+    from qbridge import traceconfirm
+    from qbridge.parsers import kev
+    fx = Path(__file__).parent / "fixtures" / "traces"
+    meta = json.loads((fx / "condvar_fault.json").read_text(encoding="utf-8"))
+    tr = kev.parse(gzip.decompress((fx / "condvar_fault.txt.gz").read_bytes()).decode("utf-8"))
+    (f,) = meta["findings"]
+    c = traceconfirm.confirm(dict(f), tr, meta["trace_id"])
+    assert c["status"] == "confirmed" == meta["live_status"][0]
+    assert "blocks on a condition variable" in c["steps"][0]["claim"]
+    assert "candidate signaller" in c["steps"][3]["claim"]
+    assert any("THCONDVAR" in x for x in c["limits"])
+
+
+def test_all_rules_list_matches_the_rule_names():
+    assert set(analysis.ALL_RULES) == {
+        analysis.RULE_MUTEX_INVERSION, analysis.RULE_MSGPASS_INVERSION, analysis.RULE_CPU_PREEMPTION,
+        analysis.RULE_SYNC_INVERSION, analysis.RULE_OVERRUN, analysis.RULE_LATE_WAKEUP}

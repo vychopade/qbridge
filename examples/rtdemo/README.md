@@ -34,10 +34,20 @@ No mutex is involved. A asks a separate server process, S (`S-server`, priority 
 
 The results measured on the reference target are in the [main README](../../README.md#result-on-the-reference-target) and [docs/example-report-msgpass.html](../../docs/example-report-msgpass.html); the record is in `tests/fixtures/experiment_live_msgpass/`.
 
-## How qbridge tells the three faults apart
+### Condition-variable scenario
+
+```
+rtdemo -s condvar          # the fault
+rtdemo -s condvar -p 25    # the fix: the producer above B
+```
+
+Each cycle A asks a producer thread, P (`P-producer`, priority 10, same CPU), for a result: it signals one condition variable and waits on another until P has done 3 ms of work (outside the lock) and signalled back. The wait counts as `lock_wait_us`. **Planted fault:** P runs below B. A condition variable has no owner, so no protocol raises P to A's priority, and `PTHREAD_PRIO_INHERIT` on the mutex would not help: the mutex is free while A waits. B's burst preempts P and A waits for the whole burst. The fix used here is a scheduling change, `-p 25` (P's priority, 1-63). Measured on the reference target (Nov 23, 2026), 3 runs of 10 s each way: misses 599, 600, 601 → 0, 0, 0; worst response 45.2–47.8 ms → 5.4–8.2 ms. The report is [docs/example-report-condvar.html](../../docs/example-report-condvar.html), and the record is in `tests/fixtures/experiment_live_condvar/`.
+
+## How qbridge tells the four faults apart
 
 - **Priority inversion on a mutex** (the default scenario): A is MUTEX-blocked on a lock held by a lower-priority thread.
 - **Priority inversion through message passing** (`-s msgpass`): A is SEND- or REPLY-blocked on a server process running below A's priority, while a middle-priority thread has the server's CPU.
+- **Priority inversion on a condition variable** (`-s condvar`): A is CONDVAR-blocked while a lower-priority thread of its process (the likely signaller) is READY and a middle-priority thread has its CPU. The signaller is inferred, so confidence is at most medium.
 - **CPU preemption** (`-s overload`): A is READY while a higher-priority thread is RUNNING on its CPU, the misses start with waiting for the CPU, and lock wait is zero.
 
 Each rule was checked on recorded target data from the other scenarios and fires only on its own fault (`tests/test_scenarios.py`, `tests/test_msgpass.py`).

@@ -34,6 +34,7 @@ qbridge RT connects an AI coding assistant (any MCP client) or a developer's ter
 2. **Diagnose and confirm.** It snapshots every thread's state through the resource manager while the workload runs and applies deterministic rules:
    - **Priority inversion on a mutex.** It reads who holds the mutex, and its protocol, directly from process memory.
    - **Priority inversion through message passing,** a QNX-specific fault. The task waits for a reply from a server process whose thread runs below it while a middle-priority thread has the server's CPU. On QNX a server normally takes its client's priority, so this means inheritance is off, for example because the channel was created with `_NTO_CHF_FIXED_PRIORITY`.
+   - **Priority inversion on a condition variable or semaphore.** The task waits for a signal from a lower-priority thread of its process while a middle-priority thread has that thread's CPU. No priority inheritance exists for a condition variable, and the signaller is inferred, so this finding is at most medium confidence.
    - **CPU preemption.** The deadline task is ready while a higher-priority thread holds its CPU.
 
    Each finding lists its evidence, a confidence level and what it could not determine. Then it records a one-second kernel trace with `tracelogger` in the same run and checks every step of the finding against the thread state changes. A finding is marked "confirmed by kernel trace" only if every step is seen.
@@ -48,15 +49,17 @@ Results on the demo workload, a 10 ms control task, over three runs of 999 cycle
 | Mutex created with `PTHREAD_PRIO_NONE` | Priority inversion on a mutex | `PTHREAD_PRIO_INHERIT` | 310, 304, 302 → 0, 0, 0 | 37.0-37.1 → 4.1-5.4 ms |
 | Server channel with `_NTO_CHF_FIXED_PRIORITY` | Priority inversion through message passing | drop the flag | 825, 819, 812 → 9, 4, 24 | 54.2-96.0 → 19.0-28.0 ms |
 | Control task below a CPU-heavy thread | CPU preemption | priority 15 → 30, same binary | 301, 309, 305 → 0, 1, 0 | 36.1-46.2 → 5.0-10.6 ms |
+| Control task waits on a condition variable for a low-priority producer | Priority inversion on a condition variable (medium) | producer 10 → 25, same binary | 599, 600, 601 → 0, 0, 0 | 45.2-47.8 → 5.4-8.2 ms |
 
 The kernel trace showed each mechanism directly:
 - **Mutex.** The control task was blocked on the mutex for 351.9 ms of one second. The holder waited for the CPU at its own low priority for 94% of that time, and the middle-priority worker ran instead.
 - **Message passing.** Whenever the server was not doing the work during the control task's waits, it sat ready at priority 10 (100% of that time) while the worker ran.
+- **Condition variable.** The producer was ready below the control task for 402 ms of its 705 ms of waits in one second, the worker ran for 400 ms of that, and all 101 waits ended while the producer was running.
 - **Overload.** The control task was ready for 334.4 ms of one second, and the worker ran on its CPU for 95% of that time.
 
 After the message-passing fix a few misses remained. In those cycles the server's 4 ms of work and the task's own 1 ms took several times longer, with nothing at their priority competing for the CPU. That points to the virtual machine slowing the guest; the report says so and that it is not proven.
 
-Anyone can check the analysis without a target: `qbridge replay` reruns the diagnosis rules, the trace checks and the experiment verdicts on the data recorded on the target, and reports that all 12 results are the same as on the target.
+Anyone can check the analysis without a target: `qbridge replay` reruns the diagnosis rules, the trace checks and the experiment verdicts on the data recorded on the target, and reports that all 16 results are the same as on the target.
 
 ## How we built it
 
@@ -93,7 +96,7 @@ For human and automated judging alike, this section points to the evidence for e
   - Native QNX 8.0 C on the target: `target/qbridged/qbridged.c` (`resmgr_attach`, `iofunc`, `read_sync` reading `sync_t` from `/proc/<pid>/as`, held replies), `qb_deadlines.c` (devctl and pulse handlers) and `qbridge_task.h` (`MsgSendPulse`).
   - `examples/rtdemo/rtdemo.c` (`run_server`: `ChannelCreate`, `MsgReceive`, `MsgReply`).
   - Kernel traces from `tracelogger`, decoded and checked step by step (`src/qbridge/parsers/kev.py`, `src/qbridge/traceconfirm.py`).
-  - 254 tests, and `qbridge replay` reproduces all 11 recorded results.
+  - 310 tests, and `qbridge replay` reproduces all 16 recorded results.
   - The README's "How it uses QNX" table names every file and function, and a test checks that they exist.
 - **Design.**
   - One loop from detection to a verified, reversible fix, with the same tools in an AI assistant (MCP) and a terminal (CLI).

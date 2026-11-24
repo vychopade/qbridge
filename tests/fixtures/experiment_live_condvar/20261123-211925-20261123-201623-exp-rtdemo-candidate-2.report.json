@@ -1,0 +1,92 @@
+{
+  "task": "A-control",
+  "period_us": 10000.0,
+  "deadline_us": 10000.0,
+  "cycles": 999,
+  "misses": 0,
+  "miss_rate": 0.0,
+  "miss_chains": 0,
+  "longest_chain": 0,
+  "response_us": {
+    "count": 999,
+    "min": 4240.2,
+    "max": 5412.2,
+    "mean": 4343.084784784785,
+    "stddev": 224.91213719625472,
+    "p50": 4268.5,
+    "p99": 5199.6
+  },
+  "parts_us": {
+    "backlog": {
+      "count": 999,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0,
+      "stddev": 0.0,
+      "p50": 0.0,
+      "p99": 0.0
+    },
+    "latency": {
+      "count": 999,
+      "min": 205.5,
+      "max": 1374.6,
+      "mean": 290.28168168168173,
+      "stddev": 219.58849888739255,
+      "p50": 225.8,
+      "p99": 1150.3
+    },
+    "lock_wait": {
+      "count": 999,
+      "min": 3014.3,
+      "max": 3631.7,
+      "mean": 3035.007707707708,
+      "stddev": 35.99898217127838,
+      "p50": 3025.7,
+      "p99": 3184.5
+    },
+    "server_wait": {
+      "count": 999,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0,
+      "stddev": 0.0,
+      "p50": 0.0,
+      "p99": 0.0
+    },
+    "exec": {
+      "count": 999,
+      "min": 1014.8,
+      "max": 1282.1,
+      "mean": 1025.5432432432433,
+      "stddev": 22.218875541354787,
+      "p50": 1019.4,
+      "p99": 1120.6
+    },
+    "preempted": {
+      "count": 999,
+      "min": 0.0,
+      "max": 30.40000000000009,
+      "mean": 0.13533533533533287,
+      "stddev": 1.400036701457522,
+      "p50": 0.0,
+      "p99": 3.399999999999636
+    }
+  },
+  "exec_budget_us": 1019.4,
+  "server_budget_us": 0.0,
+  "chain_root_causes": {},
+  "per_miss_primary_cause": {},
+  "worst_chains": [],
+  "summary": "A-control: 0 of 999 cycles missed the 10 ms deadline (0.0%); worst response 5.4 ms, 99th percentile 5.2 ms, mean 4.34 ms.",
+  "cross_check": {
+    "checked": true,
+    "agrees": true,
+    "problems": []
+  },
+  "qbridged_check": {
+    "checked": true,
+    "slot": 4,
+    "agrees": true,
+    "problems": []
+  }
+}

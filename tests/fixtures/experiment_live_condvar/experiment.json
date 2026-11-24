@@ -1,0 +1,227 @@
+{
+ "id": "20261123-201623-exp-rtdemo",
+ "state": "rolled_back",
+ "created": "2026-11-23T20:16:58",
+ "program": "rtdemo",
+ "project_dir": "examples/rtdemo",
+ "binary": "build/rtdemo",
+ "workload": {
+  "seconds": 10,
+  "repeats": 3,
+  "args": [
+   "-s",
+   "condvar"
+  ]
+ },
+ "baseline": {
+  "binary_sha256": "8cc0540c55e7fe9eef330243bb537db792e10daa4d5076cda57237aef6763cb9",
+  "source_files": [
+   "Makefile",
+   "rtdemo.c"
+  ],
+  "runs": [
+   {
+    "run_id": "20261123-201635-20261123-201623-exp-rtdemo-baseline-1",
+    "binary_sha256": "8cc0540c55e7fe9eef330243bb537db792e10daa4d5076cda57237aef6763cb9",
+    "summary": "A-control: 599 of 999 cycles missed the 10 ms deadline (60.0%); worst response 45.4 ms, 99th percentile 44.9 ms, mean 19.87 ms. The misses form 100 run(s) of consecutive misses (longest 6); what started each run: waiting for a lock (100).",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261123-201647-20261123-201623-exp-rtdemo-baseline-2",
+    "binary_sha256": "8cc0540c55e7fe9eef330243bb537db792e10daa4d5076cda57237aef6763cb9",
+    "summary": "A-control: 600 of 999 cycles missed the 10 ms deadline (60.1%); worst response 45.2 ms, 99th percentile 44.4 ms, mean 19.85 ms. The misses form 100 run(s) of consecutive misses (longest 7); what started each run: waiting for a lock (100).",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261123-201658-20261123-201623-exp-rtdemo-baseline-3",
+    "binary_sha256": "8cc0540c55e7fe9eef330243bb537db792e10daa4d5076cda57237aef6763cb9",
+    "summary": "A-control: 601 of 999 cycles missed the 10 ms deadline (60.2%); worst response 47.8 ms, 99th percentile 44.7 ms, mean 19.91 ms. The misses form 100 run(s) of consecutive misses (longest 7); what started each run: waiting for a lock (100).",
+    "cross_check": true,
+    "qbridged_check": true
+   }
+  ],
+  "build_warnings": 0
+ },
+ "history": [
+  {
+   "time": "2026-11-23T20:16:58",
+   "event": "baseline measured"
+  },
+  {
+   "time": "2026-11-23T20:17:02",
+   "event": "change proposed (arguments)"
+  },
+  {
+   "time": "2026-11-23T21:18:50",
+   "event": "approved (qbridge CLI prompt)"
+  },
+  {
+   "time": "2026-11-23T21:19:02",
+   "event": "arguments applied: -s condvar -p 25"
+  },
+  {
+   "time": "2026-11-23T21:19:36",
+   "event": "candidate measured: improved"
+  },
+  {
+   "time": "2026-11-23T21:19:43",
+   "event": "rolled back"
+  }
+ ],
+ "updated": "2026-11-23T21:19:43",
+ "proposal": {
+  "kind": "args",
+  "old_args": [
+   "-s",
+   "condvar"
+  ],
+  "new_args": [
+   "-s",
+   "condvar",
+   "-p",
+   "25"
+  ],
+  "description": "Run the producer above the CPU-heavy worker (10 -> 25), as the condition-variable diagnosis suggests: a condition variable has no priority inheritance, so the signalling thread's own priority must be above the middle-priority work. Same binary.",
+  "diagnosis_id": "20261123-201549-diagnose-rtdemo",
+  "diff": "--- a/workload arguments\n+++ b/workload arguments\n@@ -1 +1 @@\n-rtdemo -s condvar\n+rtdemo -s condvar -p 25\n",
+  "diff_sha256": "3bee9e4f7c17cbc5a7d5760c9b17d193b63b49eedf9ddaaf4942ce03cdcbf55e",
+  "proposed": "2026-11-23T20:17:02"
+ },
+ "approval": {
+  "diff_sha256": "3bee9e4f7c17cbc5a7d5760c9b17d193b63b49eedf9ddaaf4942ce03cdcbf55e",
+  "via": "qbridge CLI prompt",
+  "time": "2026-11-23T21:18:50"
+ },
+ "candidate": {
+  "binary_sha256": "8cc0540c55e7fe9eef330243bb537db792e10daa4d5076cda57237aef6763cb9",
+  "runs": [
+   {
+    "run_id": "20261123-211914-20261123-201623-exp-rtdemo-candidate-1",
+    "binary_sha256": "8cc0540c55e7fe9eef330243bb537db792e10daa4d5076cda57237aef6763cb9",
+    "summary": "A-control: 0 of 999 cycles missed the 10 ms deadline (0.0%); worst response 8.2 ms, 99th percentile 5.3 ms, mean 4.37 ms.",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261123-211925-20261123-201623-exp-rtdemo-candidate-2",
+    "binary_sha256": "8cc0540c55e7fe9eef330243bb537db792e10daa4d5076cda57237aef6763cb9",
+    "summary": "A-control: 0 of 999 cycles missed the 10 ms deadline (0.0%); worst response 5.4 ms, 99th percentile 5.2 ms, mean 4.34 ms.",
+    "cross_check": true,
+    "qbridged_check": true
+   },
+   {
+    "run_id": "20261123-211936-20261123-201623-exp-rtdemo-candidate-3",
+    "binary_sha256": "8cc0540c55e7fe9eef330243bb537db792e10daa4d5076cda57237aef6763cb9",
+    "summary": "A-control: 0 of 999 cycles missed the 10 ms deadline (0.0%); worst response 7.2 ms, 99th percentile 5.3 ms, mean 4.35 ms.",
+    "cross_check": true,
+    "qbridged_check": true
+   }
+  ],
+  "args": [
+   "-s",
+   "condvar",
+   "-p",
+   "25"
+  ],
+  "build_warnings": 0
+ },
+ "comparison": {
+  "runs_before": 3,
+  "runs_after": 3,
+  "misses": {
+   "before": {
+    "runs": [
+     599,
+     600,
+     601
+    ],
+    "min": 599,
+    "max": 601
+   },
+   "after": {
+    "runs": [
+     0,
+     0,
+     0
+    ],
+    "min": 0,
+    "max": 0
+   }
+  },
+  "worst_response_us": {
+   "before": {
+    "runs": [
+     45368.8,
+     45226.2,
+     47814.7
+    ],
+    "min": 45226.2,
+    "max": 47814.7
+   },
+   "after": {
+    "runs": [
+     8241.8,
+     5412.2,
+     7190.3
+    ],
+    "min": 5412.2,
+    "max": 8241.8
+   }
+  },
+  "p99_response_us": {
+   "before": {
+    "runs": [
+     44949.9,
+     44396.4,
+     44747.4
+    ],
+    "min": 44396.4,
+    "max": 44949.9
+   },
+   "after": {
+    "runs": [
+     5346.2,
+     5199.6,
+     5272.4
+    ],
+    "min": 5199.6,
+    "max": 5346.2
+   }
+  },
+  "worst_lock_wait_us": {
+   "before": {
+    "runs": [
+     43660.7,
+     43211.7,
+     43547.9
+    ],
+    "min": 43211.7,
+    "max": 43660.7
+   },
+   "after": {
+    "runs": [
+     3723.5,
+     3631.7,
+     3637.6
+    ],
+    "min": 3631.7,
+    "max": 3723.5
+   }
+  },
+  "deadline_us": 10000.0,
+  "verdict": "improved",
+  "explanation": "Every run after the change beat every run before it. Misses: 599-601 before, 0-0 after; worst response 45.2-47.8 ms before, 5.4-8.2 ms after. No deadline was missed after the change. Based on 3 + 3 finite runs on this target; this does not prove a worst case, and virtual-machine timing adds noise."
+ },
+ "rollback": {
+  "restored_files": [],
+  "target_sha256": "8cc0540c55e7fe9eef330243bb537db792e10daa4d5076cda57237aef6763cb9",
+  "matches_baseline": true,
+  "workload_args": [
+   "-s",
+   "condvar"
+  ],
+  "time": "2026-11-23T21:19:43"
+ }
+}

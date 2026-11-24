@@ -20,7 +20,7 @@ the other threads were doing while the waiter was blocked.
 from __future__ import annotations
 
 from .analysis import (RULE_CPU_PREEMPTION, RULE_LATE_WAKEUP, RULE_MSGPASS_INVERSION,
-                       RULE_MUTEX_INVERSION, RULE_OVERRUN)
+                       RULE_MUTEX_INVERSION, RULE_OVERRUN, RULE_SYNC_INVERSION)
 from .parsers import kev
 
 KERNEL_PID = 1
@@ -117,7 +117,8 @@ def confirm_preemption(f: dict, tr: kev.Trace) -> dict:
     return {"steps": steps, "timeline": _timeline(tr, lanes, longest)}
 
 
-def confirm_inversion(f: dict, tr: kev.Trace) -> dict:
+def confirm_inversion(f: dict, tr: kev.Trace, states: tuple = ("MUTEX",), obj: str = "a mutex",
+                      who: str = "holder", releases: str = "it releases the mutex") -> dict:
     sub = f["subject"]
     w, h = sub["waiter"], sub["holder"]
     wk, why_w = _key(tr, sub["pid"], w["tid"], w.get("thread_name"))
@@ -127,12 +128,12 @@ def confirm_inversion(f: dict, tr: kev.Trace) -> dict:
         steps.append(_step("The finding's threads appear in the trace", False, why_w or why_h))
         return {"steps": steps, "timeline": None}
 
-    waits = _spans(tr, wk, "MUTEX")
+    waits = [s for s in tr.spans.get(wk, []) if s.state in states]
     wait_ms = sum(s.ms for s in waits)
     steps.append(_step(
-        f"{tr.label(wk)} blocks on a mutex",
+        f"{tr.label(wk)} blocks on {obj}",
         wait_ms >= 1.0,
-        f"MUTEX {wait_ms:.1f} ms in {len(waits)} span(s) in a {tr.duration_ms:.0f} ms trace"))
+        f"{'/'.join(states)} {wait_ms:.1f} ms in {len(waits)} span(s) in a {tr.duration_ms:.0f} ms trace"))
 
     # What the holder did during the waits, and at which priority.
     h_ready = h_ready_low = h_run = 0.0
@@ -156,18 +157,18 @@ def confirm_inversion(f: dict, tr: kev.Trace) -> dict:
                     middle_names[(tr.label(k), p)] = middle_names.get((tr.label(k), p), 0.0) + ms
     top = sorted(middle_names.items(), key=lambda kv: -kv[1])[:3]
     steps.append(_step(
-        f"Meanwhile the holder {tr.label(hk)} is ready but not running, below the waiter's "
+        f"Meanwhile the {who} {tr.label(hk)} is ready but not running, below the waiter's "
         f"priority (no inheritance)",
         wait_ms > 0 and h_ready_low >= SHARE * wait_ms,
-        f"holder READY {h_ready:.1f} ms of the {wait_ms:.1f} ms wait ({_pct(h_ready, wait_ms)}), "
+        f"{who} READY {h_ready:.1f} ms of the {wait_ms:.1f} ms wait ({_pct(h_ready, wait_ms)}), "
         f"{h_ready_low:.1f} ms of it below priority {w['priority']}; RUNNING {h_run:.1f} ms"))
     steps.append(_step(
-        "A middle-priority thread holds the holder's CPU",
+        f"A middle-priority thread holds the {who}'s CPU",
         h_ready > 0 and middle >= SHARE * h_ready,
         (f"{', '.join(f'{n} (priority {p}, {ms:.1f} ms)' for (n, p), ms in top)}"
          + (" and others" if len(middle_names) > 3 else "") + " ran "
          if middle_names else "No thread between the two priorities ran ")
-        + f"for {middle:.1f} ms of the holder's {h_ready:.1f} ms READY time "
+        + f"for {middle:.1f} ms of the {who}'s {h_ready:.1f} ms READY time "
           f"({_pct(middle, h_ready)})"))
 
     # Each wait should end while the holder is running (it unlocked the mutex).
@@ -176,17 +177,26 @@ def confirm_inversion(f: dict, tr: kev.Trace) -> dict:
     woken = sum(1 for s in ended
                 if any(r.start - WAKE_SLACK_MS <= s.end <= r.end + WAKE_SLACK_MS for r in h_running))
     steps.append(_step(
-        "Each wait ends while the holder is running (it releases the mutex)",
+        f"Each wait ends while the {who} is running ({releases})",
         bool(ended) and woken == len(ended),
-        f"{woken} of {len(ended)} completed waits ended while the holder was RUNNING"))
+        f"{woken} of {len(ended)} completed waits ended while the {who} was RUNNING"))
     if waits:
         longest = max(waits, key=lambda s: s.ms)
-    lanes = [("waiter", wk), ("holder", hk)]
+    lanes = [("waiter", wk), (who, hk)]
     for m in sub.get("middle", [])[:2]:
         mk, _ = _key(tr, m["pid"], m["tid"], m.get("thread_name"))
         if mk:
             lanes.append(("middle", mk))
     return {"steps": steps, "timeline": _timeline(tr, lanes, longest)}
+
+
+def confirm_sync(f: dict, tr: kev.Trace) -> dict:
+    """A wait on a condition variable or semaphore: the same steps as a mutex inversion,
+    with the snapshot's candidate signaller in place of the mutex holder."""
+    states = tuple(f["subject"].get("states") or ("CONDVAR", "SEM"))
+    obj = "a condition variable" if states == ("CONDVAR",) else (
+        "a semaphore" if states == ("SEM",) else "a condition variable or semaphore")
+    return confirm_inversion(f, tr, states, obj, "candidate signaller", "it signals")
 
 
 def confirm_msgpass(f: dict, tr: kev.Trace) -> dict:
@@ -376,6 +386,10 @@ def confirm_overrun(f: dict, tr: kev.Trace) -> dict:
 
 
 NOT_IN_TRACE = {
+    RULE_SYNC_INVERSION: ("The trace does not name the condition variable or semaphore, or who "
+                          "signals it (THCONDVAR and THSEM only name the waiter); the candidate "
+                          "comes from the snapshots, and the trace shows whether each wait ends "
+                          "while it runs."),
     RULE_LATE_WAKEUP: ("The trace shows when the task woke and what ran, not why a timer fired "
                        "late: a late timer and a virtual machine pausing the guest look the same."),
     RULE_OVERRUN: ("The trace counts the time the task was RUNNING; a virtual machine that paused "
@@ -399,6 +413,8 @@ def confirm(finding: dict, tr: kev.Trace, trace_id: str | None = None) -> dict:
         r = confirm_inversion(finding, tr)
     elif rule == RULE_MSGPASS_INVERSION:
         r = confirm_msgpass(finding, tr)
+    elif rule == RULE_SYNC_INVERSION:
+        r = confirm_sync(finding, tr)
     elif rule == RULE_LATE_WAKEUP:
         r = confirm_late_wakeup(finding, tr)
     elif rule == RULE_OVERRUN:
