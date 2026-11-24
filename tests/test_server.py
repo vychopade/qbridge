@@ -107,8 +107,17 @@ def test_cli_measure_options_are_not_program_args():
     from qbridge.cli import build_parser
     a = build_parser().parse_args(["measure", "rtdemo", "--seconds", "5", "--label", "base"])
     assert (a.program, a.seconds, a.label, a.args) == ("rtdemo", 5, "base", [])
-    b = build_parser().parse_args(["measure", "rtdemo", "--seconds", "5", "--", "-c", "1"])
+    # Through cli.parse_args, as main() does: plain argparse before Python 3.12 rejects this.
+    from qbridge.cli import parse_args
+    b = parse_args(["measure", "rtdemo", "--seconds", "5", "--", "-c", "1"])
     assert b.args == ["-c", "1"] and b.seconds == 5
+    c = parse_args(["--allow-write", "diagnose", "rtdemo", "--trace", "--", "-s", "msgpass", "--", "x"])
+    assert c.args == ["-s", "msgpass", "--", "x"] and c.trace and c.allow_write
+    d = parse_args(["experiment", "start", "rtdemo", "--project", "p", "--", "-s", "overload"])
+    assert d.args == ["-s", "overload"] and d.project == "p"
+    import pytest
+    with pytest.raises(SystemExit):
+        parse_args(["info", "--", "x"])               # no workload arguments to pass
 
 
 def test_serve_loop_reads_lines():

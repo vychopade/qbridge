@@ -184,6 +184,25 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse the command line, with everything after the first '--' passed to the workload.
+
+    argparse before Python 3.12 rejects 'measure rtdemo --seconds 5 -- -c 1' ("unrecognized
+    arguments") when a subcommand ends in a list of positional arguments, so the split
+    is done here and the same on every Python version."""
+    argv = list(sys.argv[1:] if argv is None else argv)
+    extra = None
+    if "--" in argv:
+        i = argv.index("--")
+        argv, extra = argv[:i], argv[i + 1:]
+    a = build_parser().parse_args(argv)
+    if extra is not None:
+        if not isinstance(getattr(a, "args", None), list):
+            build_parser().error(f"'{a.command}' takes no workload arguments after --")
+        a.args = list(a.args) + extra
+    return a
+
+
 def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
     match a.command:
         case "info":
@@ -319,7 +338,7 @@ def _audit_name(a: argparse.Namespace) -> tuple[str, bool]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    a = build_parser().parse_args(argv)
+    a = parse_args(argv)
     if a.command == "serve":
         from .server import serve
         serve(allow_write=a.allow_write or a.serve_allow_write, replay=a.replay)
