@@ -89,8 +89,11 @@ def build_parser() -> argparse.ArgumentParser:
     tc = sub.add_parser("trace", help="capture a short kernel trace and show what threads did, "
                                       "or analyse a recorded one with --file (no target needed)")
     tc.add_argument("program", nargs="?", help="workload to start first (needs --allow-write)")
-    tc.add_argument("--file", help="analyse this recorded trace instead: traceprinter text, "
-                                   ".txt.gz, or .kev (needs the QNX SDP's traceprinter)")
+    tc.add_argument("--file", help="analyse this recorded trace instead: a raw .kev (decoded by "
+                                   "qbridge, no QNX SDP needed), or traceprinter text (.txt, .gz)")
+    tc.add_argument("--decoder", choices=("auto", "native", "traceprinter"), default="auto",
+                    help="with --file and a .kev: qbridge's own decoder (default) or the SDP's "
+                         "traceprinter")
     tc.add_argument("--process", help="with --file: report every thread of this process (name or pid)")
     tc.add_argument("--html", help="with --file: where to write the HTML page "
                                    "(default ~/.qbridge/reports/trace-<name>.html)")
@@ -107,6 +110,13 @@ def build_parser() -> argparse.ArgumentParser:
                     help="thread name, or pid/tid, to report (repeatable); default: the program's "
                          "threads, or with --file the threads with a pattern and the longest waits")
     tc.add_argument("args", nargs="*", help="extra workload arguments, after --")
+
+    vk = sub.add_parser("validate-kev", help="no target needed: check qbridge's .kev decoder "
+                                             "against the QNX SDP's traceprinter, event by event")
+    vk.add_argument("files", nargs="+", help=".kev files (also .kev.gz); traceprinter output is "
+                                             "read from <name>.txt / <name>.traceprinter.txt "
+                                             "(optionally .gz) beside each, or made with the SDP")
+    vk.add_argument("--out", help="write the JSON report here (default: print it)")
 
     rp_ = sub.add_parser("replay", help="no target needed: rerun the analysis on data recorded "
                                         "on the reference target and compare with its results")
@@ -235,7 +245,7 @@ def dispatch(s: tools.Session, a: argparse.Namespace) -> dict:
                 if a.program:
                     raise ValueError("give either a program to trace live or --file, not both")
                 return tools.trace_file(s, a.file, a.threads, a.process, a.html, a.perfetto,
-                                        a.period_ms, a.deadline_ms)
+                                        a.period_ms, a.deadline_ms, a.decoder)
             return tools.trace(s, a.program, a.args, a.seconds, a.trace_seconds, a.threads)
         case "runs":
             return tools.list_runs(s, a.limit)
@@ -343,6 +353,20 @@ def main(argv: list[str] | None = None) -> int:
         from .server import serve
         serve(allow_write=a.allow_write or a.serve_allow_write, replay=a.replay)
         return 0
+    if a.command == "validate-kev":           # offline: no target, no audit entry
+        from pathlib import Path
+        from . import kevvalidate
+        out = kevvalidate.validate([Path(f) for f in a.files])
+        t = out["totals"]
+        if a.out:
+            Path(a.out).write_text(json.dumps(out, indent=1), encoding="utf-8", newline="\n")
+            print(json.dumps({"report": a.out, "totals": t}, indent=2))
+        else:
+            print(json.dumps(out, indent=1))
+        bad = (t.get("missing_in_qbridge", 0) + t.get("extra_in_qbridge", 0)
+               + t.get("field_mismatch_events", 0) + t.get("parse_failures", 0)
+               + t.get("traceprinter_failures", 0))
+        return 1 if bad else 0
     if a.command == "replay":                 # offline: no target, no audit entry
         from . import replay
         out = replay.run()

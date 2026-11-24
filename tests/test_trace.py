@@ -17,6 +17,7 @@ from qbridge.policy import Policy, PolicyError
 from qbridge.target import Result, Target
 
 FIX = Path(__file__).parent / "fixtures" / "traces"
+KEV_OVERLOAD = Path(__file__).parents[1] / "examples" / "traces" / "overload.kev.gz"
 
 
 def _load(name):
@@ -207,8 +208,9 @@ class TraceTarget(Target):
         return Result(" ".join(map(str, argv)), 0, "", "")
 
     def get(self, remote, local, timeout=300):
+        # The raw trace of the same run as the overload fixture (examples/traces).
         self.calls.append(["get", remote])
-        Path(local).write_bytes(b"kev")
+        Path(local).write_bytes(gzip.decompress(KEV_OVERLOAD.read_bytes()))
 
 
 def test_capture_trace_needs_write_and_uses_the_allowed_form(monkeypatch, overload):
@@ -231,6 +233,7 @@ def test_capture_trace_needs_write_and_uses_the_allowed_form(monkeypatch, overlo
     d = runs.home() / "traces" / trace_id
     assert (d / "trace.kev").is_file() and (d / "trace.txt").is_file()
     assert tr.find_thread("A-control")
+    assert tr.decoder == "qbridge native .kev decoder"     # traceprinter only adds trace.txt
 
     out = tools.trace(s, threads=["A-control", "nobody"])
     assert out["not_found"] == ["nobody"]

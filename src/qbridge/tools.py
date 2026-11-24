@@ -419,9 +419,10 @@ def _traceprinter() -> str:
 
 def capture_trace(s: Session, seconds: float = 1.0) -> tuple[str, kev.Trace]:
     """Record a short kernel trace on the target with tracelogger, fetch it and
-    decode it on the host. Thread, process and system classes are kept;
-    kernel calls, interrupts and communication are off to keep it small.
-    Raw files go to <home>/traces/<id>/ (trace.kev, trace.txt)."""
+    decode it on the host with qbridge's own decoder (no SDP needed). Thread,
+    process and system classes are kept; kernel calls, interrupts and
+    communication are off to keep it small. Raw files go to <home>/traces/<id>/
+    (trace.kev, and trace.txt from traceprinter if the SDP is installed)."""
     s.policy.require_write("kernel trace (runs tracelogger)")
     seconds = max(0.1, min(float(seconds), commands.TRACE_MAX_SECONDS))
     remote = s.policy.deploy_path(TRACE_FILE)
@@ -433,11 +434,14 @@ def capture_trace(s: Session, seconds: float = 1.0) -> tuple[str, kev.Trace]:
     d = runs.home() / "traces" / trace_id
     d.mkdir(parents=True, exist_ok=True)
     s.target.get(remote, d / "trace.kev")
-    p = subprocess.run([_traceprinter(), "-f", str(d / "trace.kev"), "-o", str(d / "trace.txt")],
-                       env=qnxenv.load(), capture_output=True, text=True, errors="replace", timeout=120)
-    if p.returncode != 0 or not (d / "trace.txt").is_file():
-        raise TargetError(f"traceprinter failed: {(p.stderr or p.stdout).strip()[-300:]}")
-    return trace_id, kev.parse((d / "trace.txt").read_text(encoding="utf-8", errors="replace"))
+    tr = kev.parse_kev((d / "trace.kev").read_bytes())
+    try:                                    # a human-readable copy, when the SDP is here
+        subprocess.run([_traceprinter(), "-f", str(d / "trace.kev"), "-o", str(d / "trace.txt")],
+                       env=qnxenv.load(), capture_output=True, text=True, errors="replace",
+                       timeout=120)
+    except (TargetError, OSError, subprocess.SubprocessError):
+        pass
+    return trace_id, tr
 
 
 def trace(s: Session, program: str | None = None, args: list[str] | None = None,
@@ -471,11 +475,12 @@ def trace(s: Session, program: str | None = None, args: list[str] | None = None,
 def trace_file(s: Session, path: str, threads: list[str] | None = None,
                process: str | None = None, html_out: str | None = None,
                perfetto_out: str | None = None, period_ms: float | None = None,
-               deadline_ms: float | None = None) -> dict:
-    """Analyse a recorded kernel trace on the host (traceprinter text, .gz, or .kev with
-    the SDP installed). No target needed. Writes an HTML page beside the JSON result and,
-    when `perfetto_out` is given ("" for the default path), Trace Event JSON for Perfetto."""
-    tr = kev.parse(traceview.load_text(path))
+               deadline_ms: float | None = None, decoder: str = "auto") -> dict:
+    """Analyse a recorded kernel trace on the host: a raw .kev (decoded by qbridge, no SDP
+    needed; decoder="traceprinter" uses the SDP's instead) or traceprinter text (.txt, .gz).
+    No target needed. Writes an HTML page beside the JSON result and, when `perfetto_out`
+    is given ("" for the default path), Trace Event JSON for Perfetto."""
+    tr = traceview.load_trace(path, decoder)
     result = traceview.analyse(tr, threads, process, period_ms, deadline_ms)
     page = traceview.html(result, tr, path)
     stem = Path(path).name.split(".")[0] or "trace"
@@ -493,6 +498,14 @@ def trace_file(s: Session, path: str, threads: list[str] | None = None,
                                   "(or use Open trace file). Nothing is uploaded: Perfetto reads "
                                   "it in the browser.")
     result.pop("_found", None)
+    result["decoder"] = tr.decoder
+    if tr.decode_stats:
+        result["decode"] = {k: tr.decode_stats.get(k, 0) for k in
+                            ("events", "decoded_events", "not_decoded", "problems",
+                             "dropped_events", "incomplete_combine", "orphan_slots",
+                             "truncated_tail_bytes")}
+        if tr.decode_problems:
+            result["decode"]["problem_samples"] = tr.decode_problems[:5]
     result["file"] = str(Path(path))
     result["html"] = str(out)
     return result

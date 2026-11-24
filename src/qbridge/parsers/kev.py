@@ -28,6 +28,12 @@ from dataclasses import dataclass, field
 
 _HEAD = re.compile(r"^t:0x([0-9a-f]+) CPU:(\d+) (\w+)\s+:(\w+)\s*(.*)$")
 _FIELD = re.compile(r"(\w+):(\S+)")
+_NAME = re.compile(r"^\s+name:(.*)$")
+
+# Kernel calls kept for linking threads (kevdeps.py).
+LINK_CALLS = {"SYNC_MUTEX_LOCK", "SYNC_MUTEX_UNLOCK", "SYNC_CONDVAR_WAIT", "SYNC_CONDVAR_SIGNAL",
+              "SYNC_SEM_WAIT", "SYNC_SEM_POST", "MSG_SENDV", "MSG_SENDVNC", "MSG_RECEIVEV",
+              "MSG_REPLYV", "MSG_ERROR", "SCHED_SET", "SYNC_MUTEX_REVIVE"}
 
 
 @dataclass
@@ -52,6 +58,13 @@ class Trace:
     thread_names: dict = field(default_factory=dict)     # (pid, tid) -> name
     spans: dict = field(default_factory=lambda: defaultdict(list))   # (pid, tid) -> [Span]
     event_counts: dict = field(default_factory=dict)
+    # Kernel calls and communication events that link threads (mutex owner, message
+    # client/server); present only if those classes were traced. Each has "by": the
+    # thread RUNNING on that CPU when it was logged (the caller), if known.
+    links: list = field(default_factory=list)
+    decoder: str = "traceprinter text"
+    decode_stats: dict = field(default_factory=dict)
+    decode_problems: list = field(default_factory=list)
 
     def find_thread(self, name: str, pid: int | None = None) -> tuple[int, int] | None:
         for k, v in self.thread_names.items():
@@ -91,7 +104,8 @@ class Trace:
         return dict(out)
 
 
-def parse(text: str) -> Trace:
+def events_from_text(text: str) -> tuple[dict, int, list]:
+    """traceprinter text -> (header, cycles per second, events sorted by time)."""
     header = dict(re.findall(r"^\s*(TRACE_\w+):: (.*)$", text, re.M))
     cps = int(header.get("TRACE_CYCLES_PER_SEC", "0") or 0)
     if cps <= 0:
@@ -116,10 +130,42 @@ def parse(text: str) -> Trace:
                    "f": dict(_FIELD.findall(rest))}
             events.append(cur)
         elif cur is not None and line.startswith(" "):
-            cur["f"].update(_FIELD.findall(line))
+            nm = _NAME.match(line)
+            if nm:                                  # names may contain spaces
+                cur["f"]["name"] = nm[1].strip()
+            else:
+                cur["f"].update(_FIELD.findall(line))
     if not events:
         raise ValueError("no events in trace")
     events.sort(key=lambda e: e["t"])
+    return header, cps, events
+
+
+def parse(text: str) -> Trace:
+    """traceprinter text -> Trace."""
+    header, cps, events = events_from_text(text)
+    tr = build(header, cps, events)
+    tr.decoder = "traceprinter text"
+    return tr
+
+
+def parse_kev(data: bytes) -> Trace:
+    """A raw .kev file -> Trace, decoded natively (kevbin), no SDP needed."""
+    from . import kevbin
+    kf = kevbin.decode(data, keep_words=False)
+    if not kf.events:
+        raise ValueError("no events in trace")
+    header = {f"TRACE_{k}": v for k, v in kf.header.items()}
+    tr = build(header, kf.cycles_per_sec, kf.events)
+    tr.decoder = "qbridge native .kev decoder"
+    tr.decode_stats = {k: v for k, v in kf.stats.items() if k != "by_type"}
+    tr.decode_problems = [f"offset {o}: {t}" for o, t in kf.problems]
+    return tr
+
+
+def build(header: dict, cps: int, events: list) -> Trace:
+    """Events (sorted by time) -> per-thread state spans, names, and the kernel call
+    and communication events used to link threads (kevdeps.py)."""
     t0 = events[0]["t"]
 
     def ms(t: int) -> float:
@@ -128,14 +174,17 @@ def parse(text: str) -> Trace:
     tr = Trace(header=header, cycles_per_sec=cps, duration_ms=ms(events[-1]["t"]))
     counts: dict = defaultdict(int)
     state: dict = {}
+    running: dict = {}                       # cpu -> (pid, tid) now RUNNING there
     for e in events:
-        counts[f"{e['cls']}:{e['ev']}"] += 1
+        ev = e["ev"]
+        counts[f"{e['cls']}:{ev}"] += 1
         f = e["f"]
-        if e["ev"] == "PROCCREATE_NAME" and "pid" in f:
+        cls = e["cls"]
+        if ev == "PROCCREATE_NAME" and "pid" in f:
             tr.proc_names[int(f["pid"])] = f.get("name", "")
-        elif e["ev"] == "PROCTHREAD_NAME" and "pid" in f and "tid" in f:
+        elif ev == "PROCTHREAD_NAME" and "pid" in f and "tid" in f:
             tr.thread_names[(int(f["pid"]), int(f["tid"]))] = f.get("name", "")
-        elif e["cls"] == "THREAD" and e["ev"].startswith("TH") and "pid" in f and "tid" in f:
+        elif cls == "THREAD" and ev.startswith("TH") and "pid" in f and "tid" in f:
             key = (int(f["pid"]), int(f["tid"]))
             if key in state:
                 st, start, cpu, prio = state[key]
@@ -144,7 +193,17 @@ def parse(text: str) -> Trace:
                 prio = int(f.get("priority", "-1"))
             except ValueError:
                 prio = -1
-            state[key] = (e["ev"][2:], e["t"], e["cpu"], prio)
+            state[key] = (ev[2:], e["t"], e["cpu"], prio)
+            if ev == "THRUNNING":
+                running[e["cpu"]] = key
+            elif running.get(e["cpu"]) == key:
+                running.pop(e["cpu"], None)
+        elif cls in ("KER_CALL", "KER_EXIT", "COMM") and f:
+            name = ev.split("/")[0]
+            if cls == "COMM" or name in LINK_CALLS:
+                tr.links.append({"t": ms(e["t"]), "cpu": e["cpu"], "cls": cls, "ev": name,
+                                 "f": dict(f), "by": running.get(e["cpu"]),
+                                 "off": e.get("off")})
     end = events[-1]["t"]
     for key, (st, start, cpu, prio) in state.items():      # close open spans at the end
         if end > start:

@@ -3,3 +3,5 @@
 # CR breaks commands.
 * text=auto eol=lf
 *.core binary
+*.gz binary
+*.kev binary

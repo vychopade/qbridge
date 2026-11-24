@@ -226,8 +226,9 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         True,
     ),
     "qnx_trace_file": (
-        "Analyse a RECORDED QNX kernel trace on the host; no target needed. Input: a file of "
-        "traceprinter text (also .txt.gz), or a .kev file if the QNX SDP is installed. Works on "
+        "Analyse a RECORDED QNX kernel trace on the host; no target needed. Input: a raw .kev "
+        "file from tracelogger (qbridge decodes it itself; no QNX SDP needed), or traceprinter "
+        "text (also .txt.gz). Works on "
         "any program's trace. Reports, per thread, time in each state, ready-queue waits (p50, "
         "p99, max), and for its longest waits who held its CPU (READY) or which lower-priority "
         "threads ran meanwhile (MUTEX/SEND/REPLY). For periodic threads it rebuilds every cycle "

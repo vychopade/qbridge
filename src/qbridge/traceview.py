@@ -1,8 +1,8 @@
 """Analyse a recorded QNX kernel trace on the host.
 
-No target, no qbridged and no instrumented task: the input is the text that
-the SDP's `traceprinter` prints for a `tracelogger` capture, from any program
-(a `.kev` file is decoded with traceprinter first). The output is, per
+No target, no qbridged and no instrumented task: the input is a raw `.kev`
+file from `tracelogger` (decoded by qbridge itself, parsers/kevbin.py, with no
+QNX SDP needed), or the text the SDP's `traceprinter` prints for one. The output is, per
 thread, the time spent in each state, how long it waited for a CPU, and for
 its longest waits who ran instead, plus patterns worth a closer look.
 
@@ -24,7 +24,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from . import deadlines
-from .parsers import kev
+from .parsers import kev, kevbin
 
 KERNEL_PID = 1                     # procnto: idle, clock, IPI and kernel threads
 BLOCKED = ("MUTEX", "SEND", "REPLY", "CONDVAR", "SEM")   # waiting for another thread
@@ -39,29 +39,61 @@ DEFAULT_THREADS = 6
 
 # -- loading -----------------------------------------------------------------------
 
-def load_text(path: str | Path) -> str:
-    """traceprinter text from a .txt, .txt.gz or .kev file."""
+def _read(path: str | Path) -> bytes:
     p = Path(path)
     if not p.is_file():
         raise FileNotFoundError(f"no such trace file: {p}")
     data = p.read_bytes()
     if data[:2] == b"\x1f\x8b":
         data = gzip.decompress(data)
-    elif p.suffix.lower() == ".kev":
+    return data
+
+
+def load_text(path: str | Path) -> str:
+    """traceprinter text from a .txt or .txt.gz file (a .kev is decoded with the SDP's
+    traceprinter here; load_trace() decodes it natively instead)."""
+    p = Path(path)
+    data = _read(p)
+    if kevbin.is_kev(data) or p.suffix.lower() == ".kev":
         return _decode_kev(p)
     # traceprinter on Windows writes CRLF; the parser does not care, but keep one form.
     return data.decode("utf-8", errors="replace").replace("\r\n", "\n")
 
 
+DECODERS = ("auto", "native", "traceprinter")
+
+
+def load_trace(path: str | Path, decoder: str = "auto") -> kev.Trace:
+    """A Trace from a .kev (raw, also .kev.gz) or traceprinter text (.txt, .txt.gz).
+
+    decoder: "auto"/"native" decode a .kev with qbridge's own decoder (no SDP);
+    "traceprinter" runs the SDP's traceprinter on it instead. Text files are text.
+    """
+    if decoder not in DECODERS:
+        raise ValueError(f"decoder must be one of {', '.join(DECODERS)}")
+    data = _read(path)
+    if kevbin.is_kev(data):
+        if decoder == "traceprinter":
+            tr = kev.parse(_decode_kev(Path(path)))
+            tr.decoder = "QNX traceprinter (SDP)"
+            return tr
+        return kev.parse_kev(data)
+    return kev.parse(data.decode("utf-8", errors="replace").replace("\r\n", "\n"))
+
+
 def _decode_kev(p: Path) -> str:
-    """Raw .kev files need the SDP's traceprinter (QNX does not publish the format)."""
+    """Decode a .kev with the SDP's traceprinter (optional: load_trace() needs no SDP)."""
     import subprocess
     import tempfile
     from . import tools
     exe = tools._traceprinter()
     with tempfile.TemporaryDirectory() as d:
+        src = p
+        if p.read_bytes()[:2] == b"\x1f\x8b":
+            src = Path(d) / "trace.kev"
+            src.write_bytes(gzip.decompress(p.read_bytes()))
         out = Path(d) / "trace.txt"
-        r = subprocess.run([exe, "-f", str(p), "-o", str(out)], capture_output=True, text=True)
+        r = subprocess.run([exe, "-f", str(src), "-o", str(out)], capture_output=True, text=True)
         if r.returncode != 0 or not out.is_file():
             raise ValueError(f"traceprinter could not decode {p.name}: "
                              f"{(r.stderr or r.stdout).strip()[-300:]}")
