@@ -19,7 +19,8 @@ the other threads were doing while the waiter was blocked.
 
 from __future__ import annotations
 
-from .analysis import RULE_CPU_PREEMPTION, RULE_MSGPASS_INVERSION, RULE_MUTEX_INVERSION
+from .analysis import (RULE_CPU_PREEMPTION, RULE_LATE_WAKEUP, RULE_MSGPASS_INVERSION,
+                       RULE_MUTEX_INVERSION, RULE_OVERRUN)
 from .parsers import kev
 
 KERNEL_PID = 1
@@ -264,7 +265,121 @@ def confirm_msgpass(f: dict, tr: kev.Trace) -> dict:
     return {"steps": steps, "timeline": _timeline(tr, lanes, longest)}
 
 
+def _task_key(tr: kev.Trace, sub: dict) -> tuple[tuple[int, int] | None, str]:
+    """The finding's task in the trace: by pid and tid when known, else by thread name."""
+    task = sub.get("task") or {}
+    name = task.get("thread_name")
+    if sub.get("pid") is not None and task.get("tid") is not None:
+        return _key(tr, sub["pid"], task["tid"], name)
+    k = tr.find_thread(name) if name else None
+    return (k, "") if k and k in tr.spans else (None, f"no thread named '{name}' in the trace")
+
+
+def _rebuilt(tr: kev.Trace, tk) -> tuple[dict | None, dict]:
+    from . import tracecycles
+    c = tracecycles.cycles(tr, tk, keep_samples=True)
+    if not c:
+        return None, _step("The task's cycles can be rebuilt from the trace", False,
+                           f"{tr.label(tk)} does not wake up on a regular period in this "
+                           f"{tr.duration_ms:.0f} ms trace")
+    return c, _step("The task's cycles can be rebuilt from the trace", True,
+                    f"{c['cycles']} cycles of {tr.label(tk)} on a {c['period_ms']:.2f} ms period "
+                    f"({c['estimated_cycles']} with estimated boundaries)")
+
+
+def confirm_late_wakeup(f: dict, tr: kev.Trace) -> dict:
+    tk, why = _task_key(tr, f["subject"])
+    if not tk:
+        return {"steps": [_step("The finding's task appears in the trace", False, why)], "timeline": None}
+    c, first = _rebuilt(tr, tk)
+    steps = [first]
+    if not c:
+        return {"steps": steps, "timeline": None}
+    samples = c["samples"]
+    lat = sorted(s.latency for s in samples)
+    typical = lat[len(lat) // 2] if lat else 0.0
+    # Late enough to matter for a deadline: a quarter of the period at least.
+    thr = max(1000.0, 3 * typical, 0.25 * c["period_ms"] * 1000)
+    late = [s for s in samples if s.latency > thr]
+    steps.append(_step(
+        "Some cycles in the trace start late, by at least a quarter of the period", bool(late),
+        f"{len(late)} of {len(samples)} cycles started more than {thr / 1000:.1f} ms after their "
+        f"release"
+        + (f", the latest {max(s.latency for s in late) / 1000:.1f} ms" if late else "")
+        + f" (usual {typical / 1000:.2f} ms)"))
+    late_ms = above_ms = kernel_ms = asleep_ms = 0.0
+    spans = tr.spans.get(tk, [])
+    from .tracecycles import IDLE
+    worst = None
+    for s in late:
+        a, b = s.release / 1000, (s.release + s.latency) / 1000
+        late_ms += b - a
+        prio = next((x.priority for x in spans if x.state == "RUNNING" and x.end > b), None)
+        cpus = {x.cpu for x in spans if x.end > a and x.start < b} or {x.cpu for x in spans[:1]}
+        for cpu in cpus:
+            for (k, p), ms in tr.running_during(cpu, a, b, exclude=tk).items():
+                if prio is not None and p > prio:
+                    if k[0] == KERNEL_PID:
+                        kernel_ms += ms
+                    else:
+                        above_ms += ms
+        asleep_ms += sum(ms for (st, _), ms in tr.states_during(tk, a, b).items() if st in IDLE)
+        if worst is None or s.latency > worst.latency:
+            worst = s
+    if late:
+        steps.append(_step(
+            "While it waited to start, no higher-priority thread ran on its CPU",
+            above_ms <= 0.1 * late_ms,
+            f"threads above its priority ran for {above_ms:.1f} ms of the {late_ms:.1f} ms of late "
+            f"starts; kernel threads (interrupts, clock) for {kernel_ms:.1f} ms"))
+        steps.append(_step(
+            "The delay was in the wake-up itself: it was still asleep after its release",
+            asleep_ms >= SHARE * late_ms,
+            f"asleep for {asleep_ms:.1f} ms of the {late_ms:.1f} ms ({_pct(asleep_ms, late_ms)}); "
+            "the rest it was ready but not yet running"))
+    around = None
+    if worst is not None:
+        a = worst.release / 1000
+        around = kev.Span("LATE", a, a + worst.latency / 1000, 0, 0)
+    return {"steps": steps, "timeline": _timeline(tr, [("task", tk)], around)}
+
+
+def confirm_overrun(f: dict, tr: kev.Trace) -> dict:
+    tk, why = _task_key(tr, f["subject"])
+    if not tk:
+        return {"steps": [_step("The finding's task appears in the trace", False, why)], "timeline": None}
+    c, first = _rebuilt(tr, tk)
+    steps = [first]
+    if not c:
+        return {"steps": steps, "timeline": None}
+    samples = c["samples"]
+    ex = sorted(s.exec for s in samples)
+    typical = ex[len(ex) // 2] if ex else 0.0
+    thr = max(1000.0, 3 * typical, 0.25 * c["period_ms"] * 1000)
+    long_ = [s for s in samples if s.exec > thr]
+    steps.append(_step(
+        "Some cycles in the trace use far more CPU time than usual", bool(long_),
+        f"{len(long_)} of {len(samples)} cycles used more than {thr / 1000:.1f} ms "
+        f"of CPU time" + (f", the most {max(s.exec for s in long_) / 1000:.1f} ms" if long_ else "")
+        + f" (median {typical / 1000:.2f} ms)"))
+    if long_:
+        waits = sum(s.lock_wait + s.server_wait for s in long_)
+        cpu = sum(s.exec for s in long_)
+        steps.append(_step(
+            "In those cycles it was not waiting for a lock or a server",
+            waits <= 0.1 * cpu,
+            f"lock and server waits {waits / 1000:.1f} ms against {cpu / 1000:.1f} ms of CPU time"))
+    worst = max(long_, key=lambda s: s.exec) if long_ else None
+    around = (kev.Span("LONG", worst.release / 1000, (worst.release + worst.response) / 1000, 0, 0)
+              if worst else None)
+    return {"steps": steps, "timeline": _timeline(tr, [("task", tk)], around)}
+
+
 NOT_IN_TRACE = {
+    RULE_LATE_WAKEUP: ("The trace shows when the task woke and what ran, not why a timer fired "
+                       "late: a late timer and a virtual machine pausing the guest look the same."),
+    RULE_OVERRUN: ("The trace counts the time the task was RUNNING; a virtual machine that paused "
+                   "the guest during that time is counted too."),
     RULE_MSGPASS_INVERSION: ("The trace does not name the server a client waits on (THSEND and "
                              "THREPLY only name the waiting thread, and message events are not "
                              "recorded); the server's identity comes from the snapshot."),
@@ -284,6 +399,10 @@ def confirm(finding: dict, tr: kev.Trace, trace_id: str | None = None) -> dict:
         r = confirm_inversion(finding, tr)
     elif rule == RULE_MSGPASS_INVERSION:
         r = confirm_msgpass(finding, tr)
+    elif rule == RULE_LATE_WAKEUP:
+        r = confirm_late_wakeup(finding, tr)
+    elif rule == RULE_OVERRUN:
+        r = confirm_overrun(finding, tr)
     else:
         return {"status": "not checked", "reason": f"no trace check for rule {rule!r}"}
     steps = r["steps"]

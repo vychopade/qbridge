@@ -179,6 +179,16 @@ def diagnose(s, st: ReplayState, program: str | None = None, seconds: int = 6,
         by_rule = {f["rule"]: f for f in meta["findings"]}
         for f in res["findings"]:
             same_run = by_rule.get(f["rule"])
+            if same_run is None and f["rule"] not in analysis.ORIGINAL_RULES:
+                # Rules added later check the task by name: rebuild its cycles from the trace.
+                probe = json.loads(json.dumps(f))
+                probe["subject"]["pid"] = None
+                c = traceconfirm.confirm(probe, tr, meta["trace_id"])
+                c["note"] = (f"Trace recorded {_date(meta['trace_id'])} in another run of the same "
+                             "workload; the task is matched by name and its cycles rebuilt from it.")
+                f["trace"] = c
+                f["confirmed_by_trace"] = c["status"] == "confirmed"
+                continue
             if same_run is None:
                 f["trace"] = {"status": "not checked",
                               "reason": "no finding of this rule in the recorded traced run"

@@ -90,7 +90,7 @@ On the recorded fixed overload run (`-a 30`), which the original rules call clea
 > **Late wake-up (high confidence).** 2 of the 3 runs of misses started with 'A-control' waking up 15.8 and 10.1 ms late, against a usual 1.09 ms; it was never seen waiting behind a higher-priority thread in 18 snapshots, and the delay is within the 28.4 ms timer lateness measured on CPU 1 that day.
 > **Own work overrun (low confidence).** 1 run started with a cycle of 23.2 ms of CPU time against a median of 1.01 ms. Caution: that is within twice the measured timer lateness, and a paused virtual machine looks the same.
 
-Both say what they cannot tell apart: a late timer, an interrupt handler or a paused VM look the same in a deadline report, and so do more work and a slower machine. Their fix suggestions are not priority or lock changes. These two rules have no kernel-trace check yet; `--trace` marks their findings "not checked".
+Both say what they cannot tell apart: a late timer, an interrupt handler or a paused VM look the same in a deadline report, and so do more work and a slower machine. Their fix suggestions are not priority or lock changes. With `--trace`, each is checked against the task's cycles rebuilt from the kernel trace (see [Kernel trace confirmation](#kernel-trace-confirmation)).
 
 ## Experiments: test a fix and measure it
 
@@ -159,6 +159,9 @@ runs the diagnosis as usual, then, while the same processes are still running, r
 |---|---|
 | CPU preemption | the task is READY (not blocked on a lock); the named higher-priority thread is RUNNING on the task's CPU for at least half of that READY time; it runs at a priority above the task's |
 | Priority inversion | the waiter is MUTEX-blocked; the holder is READY below the waiter's priority for at least half of the wait (no inheritance); threads between the two priorities run on the holder's CPU for at least half of the holder's READY time; every completed wait ends while the holder is RUNNING (it released the mutex) |
+| Priority inversion through message passing | the client is SEND- or REPLY-blocked; of the wait the server did not spend running, it is READY below the client's priority for at least half (no inheritance); threads between the two priorities run on the server's CPU for at least half of the server's READY time; every completed REPLY wait ends while the server is RUNNING (it replied) |
+| Late wake-up | the task's cycles can be rebuilt from the trace (it wakes on a regular period); some cycles start late by at least a quarter of the period (and 3 times the usual delay); while they waited, threads above the task's priority ran on its CPU for at most 10% of that time; the task was still asleep after its release for at least half of it |
+| Own work overrun | the task's cycles can be rebuilt from the trace; some cycles use more CPU time than a quarter of the period and 3 times the median; in those cycles lock and server waits are at most 10% of their CPU time |
 
 Only if every step is seen is the finding marked **confirmed by kernel trace**; otherwise its confidence stays as it was and the report lists the steps the trace did not show. The trace covers about a second, so a pattern outside that window is "not shown", not disproved. QNX's `THMUTEX` event names the waiting thread but not the mutex or its owner, so the holder's identity still comes from the snapshot's mutex owner word.
 

@@ -206,14 +206,15 @@ def test_one_outlier_does_not_count_as_evidence():
     assert f["confidence"] == "high"          # held, usual, CPU-rooted misses: 3 points
 
 
-def test_trace_summary_says_new_rules_are_not_checked(fixture_text):
+def test_trace_summary_says_when_a_rule_has_no_trace_check(fixture_text):
     import gzip
     from pathlib import Path
     from qbridge import traceconfirm
     from qbridge.parsers import kev
-    d = _load(fixture_text, "overload_fixed")
-    res = analysis.diagnose(d["snapshots"], d["deadline_report"], d["timing_checks"])
     raw = (Path(__file__).parent / "fixtures" / "traces" / "overload_fixed.txt.gz").read_bytes()
-    traceconfirm.confirm_all(res, kev.parse(gzip.decompress(raw).decode("utf-8")), "t")
+    tr = kev.parse(gzip.decompress(raw).decode("utf-8"))
+    res = {"summary": "1 finding(s).", "findings": [{"rule": "some_future_rule"}]}
+    traceconfirm.confirm_all(res, tr, "t")
     assert "have no trace check yet" in res["summary"] and "0 of" not in res["summary"]
-    assert all(f["trace"]["status"] == "not checked" if "trace" in f else True for f in res["findings"])
+    assert "trace" not in res["findings"][0]                  # nothing to show in a report
+    assert traceconfirm.confirm({"rule": "some_future_rule"}, tr)["status"] == "not checked"
