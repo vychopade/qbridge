@@ -235,10 +235,17 @@ TOOLS: dict[str, tuple[str, dict, Callable[..., dict], bool]] = {
         "from the trace and gives deadline statistics (period found from the wake-ups, deadline = "
         "period unless given), with late wake-up and overrun findings. Flags patterns as hints, not diagnoses: CPU "
         "preemption, and possible priority inversion (a thread blocked while a lower-priority "
-        "thread was held off its CPU by a middle-priority one). The trace does not record what a "
-        "blocked thread waits for, so say 'possible'; qnx_diagnose with trace=true identifies it "
-        "on a live target. Also writes an HTML page with a thread-state timeline, and with "
-        "perfetto=true a file the user can open in ui.perfetto.dev; returns their paths.",
+        "thread was held off its CPU by a middle-priority one). If the trace has kernel-call and "
+        "communication events, 'dependencies' ties each mutex, message, condvar and semaphore "
+        "wait to the thread that ended it (SyncMutexUnlock of the same mutex, the server's "
+        "reply, the signal), across processes and CPUs, and classifies it: "
+        "confirmed_priority_inversion, probable_scheduling_interference, no_inversion or "
+        "insufficient_evidence, with the events (time, CPU, thread, file offset) as evidence. "
+        "Quote that evidence; never name a holder the result does not. Without those events "
+        "the patterns are only probable: say 'possible', and qnx_diagnose with trace=true "
+        "identifies the holder on a live target. Also writes an HTML page with a thread-state "
+        "timeline, and with perfetto=true a file the user can open in ui.perfetto.dev (arrows "
+        "from each waiter to its holder); returns their paths.",
         _schema({
             "path": {"type": "string", "description": "Path of the trace file on this computer"},
             "threads": {"type": "array", "items": {"type": "string"},

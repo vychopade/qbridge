@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 _HEAD = re.compile(r"^t:0x([0-9a-f]+) CPU:(\d+) (\w+)\s+:(\w+)\s*(.*)$")
 _FIELD = re.compile(r"(\w+):(\S+)")
 _NAME = re.compile(r"^\s+name:(.*)$")
+_EQ = re.compile(r"(\w+) = ([^,\s]+)")
 
 # Kernel calls kept for linking threads (kevdeps.py).
 LINK_CALLS = {"SYNC_MUTEX_LOCK", "SYNC_MUTEX_UNLOCK", "SYNC_CONDVAR_WAIT", "SYNC_CONDVAR_SIGNAL",
@@ -62,6 +63,8 @@ class Trace:
     # client/server); present only if those classes were traced. Each has "by": the
     # thread RUNNING on that CPU when it was logged (the caller), if known.
     links: list = field(default_factory=list)
+    # CONTROL DROPPED: {"t" (ms, when tracing resumed), "cpu", "count"}
+    drops: list = field(default_factory=list)
     decoder: str = "traceprinter text"
     decode_stats: dict = field(default_factory=dict)
     decode_problems: list = field(default_factory=list)
@@ -128,6 +131,7 @@ def events_from_text(text: str) -> tuple[dict, int, list]:
             last[cpu] = lsb
             cur = {"t": (msb[cpu] << 32) | lsb, "cpu": cpu, "cls": cls, "ev": ev,
                    "f": dict(_FIELD.findall(rest))}
+            cur["f"].update(_EQ.findall(rest))          # "dropped_events = 15224"
             events.append(cur)
         elif cur is not None and line.startswith(" "):
             nm = _NAME.match(line)
@@ -198,6 +202,9 @@ def build(header: dict, cps: int, events: list) -> Trace:
                 running[e["cpu"]] = key
             elif running.get(e["cpu"]) == key:
                 running.pop(e["cpu"], None)
+        elif cls == "CONTROL" and ev == "DROPPED":
+            tr.drops.append({"t": ms(e["t"]), "cpu": e["cpu"],
+                             "count": int(f.get("dropped_events", "0") or 0)})
         elif cls in ("KER_CALL", "KER_EXIT", "COMM") and f:
             name = ev.split("/")[0]
             if cls == "COMM" or name in LINK_CALLS:

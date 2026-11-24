@@ -491,7 +491,8 @@ def trace_file(s: Session, path: str, threads: list[str] | None = None,
     if perfetto_out is not None:
         pf = Path(perfetto_out) if perfetto_out else reports / f"trace-{stem}.perfetto.json"
         pf.parent.mkdir(parents=True, exist_ok=True)
-        pf.write_text(json.dumps(traceview.perfetto(tr, result["_found"]), separators=(",", ":")),
+        pf.write_text(json.dumps(traceview.perfetto(tr, result["_found"], result.get("dependencies")),
+                                 separators=(",", ":")),
                       encoding="utf-8", newline="\n")
         result["perfetto"] = str(pf)
         result["perfetto_how"] = ("Open https://ui.perfetto.dev and drop this file on the page "

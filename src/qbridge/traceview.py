@@ -23,7 +23,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-from . import deadlines
+from . import deadlines, kevdeps
 from .parsers import kev, kevbin
 
 KERNEL_PID = 1                     # procnto: idle, clock, IPI and kernel threads
@@ -301,6 +301,34 @@ def _inversion(tr: kev.Trace, key, idx: _RunIndex) -> dict | None:
     }
 
 
+def _annotate(found: list[dict], deps: dict, tr: kev.Trace) -> None:
+    """Mark each inversion hint with what the trace's own kernel-call evidence says."""
+    for p in found:
+        if p["pattern"] != "possible_priority_inversion":
+            continue
+        mine = [g for g in deps["groups"] if (g["pid"], g["tid"]) == (p["pid"], p["tid"])]
+        conf = [g for g in mine if g["classification"] == "confirmed_priority_inversion"]
+        if conf:
+            g = conf[0]
+            w = g["worst"]
+            p["classification"] = "confirmed_priority_inversion"
+            p["confirmed"] = {"holder": g["holder"], "kind": g["kind"], "waits": g["waits"],
+                              "worst_wait_ms": g["worst_wait_ms"], "proof": w["proof"],
+                              "interference": w["interference"]["middle"][:2]}
+            p.pop("cannot_tell", None)
+            p["text"] += (f" Confirmed by kernel calls in this trace: {g['holder']} was the "
+                          f"holder ({w['proof']}); {g['waits']} such wait(s), worst "
+                          f"{g['worst_wait_ms']:.2f} ms.")
+        elif not tr.links:
+            p["classification"] = "probable_scheduling_interference"
+        elif mine:
+            p["classification"] = mine[0]["classification"]
+            p["cannot_tell"] = ("Kernel-call evidence in this trace does not confirm an inversion "
+                                f"for this thread: {mine[0]['worst']['reason']}.")
+        else:
+            p["classification"] = "insufficient_evidence"
+
+
 def _min_ms(tr: kev.Trace) -> float:
     """Waits shorter than this (1% of the trace, at least 1 ms) are not reported as patterns."""
     return max(1.0, 0.01 * tr.duration_ms)
@@ -423,6 +451,8 @@ def analyse(tr: kev.Trace, threads: list[str] | None = None, process: str | None
         k = (c["pid"], c["tid"])
         if not chosen and c["report"]["misses"] and k not in keys:
             keys.append(k)
+    deps = kevdeps.analyse(tr, chosen or None)
+    _annotate(found, deps, tr)
     busiest = sorted(((tr.state_totals(k).get("RUNNING", 0.0), k) for k in tr.spans
                       if not tr.thread_names.get(k, "").startswith("idle")), reverse=True)[:8]
     h = tr.header
@@ -435,14 +465,20 @@ def analyse(tr: kev.Trace, threads: list[str] | None = None, process: str | None
                   "threads": len(tr.spans)},
         "selected": "named" if chosen else "automatic (threads with a pattern, then the longest waits)",
         "patterns": [{k: v for k, v in p.items() if k not in ("longest", "lanes")} for p in found],
+        "dependencies": deps,
         "periodic": periodic,
         "threads": [thread_report(tr, k, idx) for k in keys],
         "busiest": [{"thread": _label(tr, k), "running_ms": round(ms, 2)} for ms, k in busiest if ms > 0],
         "not_found": missing,
         "limits": [
             f"The trace covers {tr.duration_ms:.0f} ms; it shows what happened in that window only.",
-            "Patterns are hints from thread states and priorities. The trace does not record what "
-            "a blocked thread waits for.",
+            ("Waits are tied to the thread that ended them only where kernel-call or communication "
+             "events in the trace name it (dependencies); everything else is a hint from thread "
+             "states and priorities."
+             if tr.links else
+             "Patterns are hints from thread states and priorities. This trace has no kernel-call "
+             "or communication events, so it does not record what a blocked thread waits for "
+             "(record with tracelogger without -F1 and -F6 to have them)."),
             "Deadline numbers for periodic threads are rebuilt from the trace: the period is found "
             "from the wake-ups and the deadline is taken as the period unless given. Checked "
             "against rtdemo's own per-cycle log on Nov 23: the same cycles missed in three runs "
@@ -462,7 +498,7 @@ def _us(ms: float) -> float:
     return round(ms * 1000, 3)
 
 
-def perfetto(tr: kev.Trace, found: list[dict] | None = None) -> dict:
+def perfetto(tr: kev.Trace, found: list[dict] | None = None, deps: dict | None = None) -> dict:
     """The trace in Chrome Trace Event JSON, which ui.perfetto.dev and chrome://tracing open.
 
     One track per thread (a slice per state, with priority and CPU as arguments), grouped
@@ -513,6 +549,24 @@ def perfetto(tr: kev.Trace, found: list[dict] | None = None) -> dict:
                    "pid": p["pid"], "tid": p["tid"], "ts": _us(p["longest"].start),
                    "args": {"text": p["text"], **({"cannot_tell": p["cannot_tell"]}
                                                   if p.get("cannot_tell") else {})}})
+    # Waits tied to their holder by kernel-call evidence: an arrow from the waiter to the
+    # holder at the start of the worst wait of each group, and a marker with the reason.
+    for n, g in enumerate((deps or {}).get("groups", [])):
+        w = g["worst"]
+        hd = w.get("holder")
+        if not hd or g["classification"] == "no_inversion":
+            continue
+        ts = _us(w["start_ms"])
+        title = g["classification"].replace("_", " ")
+        ev.append({"ph": "i", "s": "t", "cat": "dependency", "name": f"{title}: waits for {g['holder']}",
+                   "pid": g["pid"], "tid": g["tid"], "ts": ts,
+                   "args": {"text": w["text"], "proof": w.get("proof"),
+                            "evidence": [f"{x['t_ms']} ms CPU {x['cpu']} {x['event']} by {x['thread']}"
+                                         for x in w.get("evidence", [])]}})
+        ev.append({"ph": "s", "id": n + 1, "cat": "dependency", "name": "waits for",
+                   "pid": g["pid"], "tid": g["tid"], "ts": ts})
+        ev.append({"ph": "f", "bp": "e", "id": n + 1, "cat": "dependency", "name": "waits for",
+                   "pid": hd["pid"], "tid": hd["tid"], "ts": ts})
     h = tr.header
     return {"traceEvents": ev, "displayTimeUnit": "ms",
             "otherData": {"source": "qbridge trace --file",
@@ -565,6 +619,28 @@ def html(result: dict, tr: kev.Trace, source: str) -> str:
         parts.append("<section><h2>Patterns worth a closer look</h2><p>None found: no selected "
                      "thread waited long for its CPU behind higher-priority threads, or was "
                      "blocked while a lower-priority thread was held off its CPU.</p></section>")
+    deps = result.get("dependencies") or {}
+    if deps.get("groups"):
+        drow = []
+        for g in deps["groups"]:
+            w = g["worst"]
+            mid = (w.get("interference") or {}).get("middle") or (w.get("interference") or {}).get("above") or []
+            held = ", ".join(f"{m['thread']} (prio {m['priority']}, {m['ms']:.1f} ms)" for m in mid[:2]) or "-"
+            drow.append(f"<tr><td>{e_(g['thread'])}</td><td>{e_(g['kind'])}</td>"
+                        f"<td>{e_(g['holder'] or '-')}</td>"
+                        f"<td>{e_(g['classification'].replace('_', ' '))}</td>"
+                        f"<td class='num'>{g['waits']}</td><td class='num'>{g['worst_wait_ms']:.2f}</td>"
+                        f"<td style='white-space:normal;min-width:220px'>"
+                        f"{e_(held)}</td>"
+                        f"<td style='white-space:normal;min-width:260px'>{e_(w.get('proof') or w.get('reason', ''))}</td></tr>")
+        parts.append(f"""
+<section><h2>Who waited for whom</h2>
+<p class="muted">From {e_(deps['source'])}. Each row groups waits of one thread on one holder; the
+worst wait is described. "Held off by" lists threads that ran on the holder's CPU while it was ready.
+Times in ms.</p>
+<div class="table-wrap"><table><thead><tr><th>Waiter</th><th>On</th><th>Holder</th><th>Classification</th>
+<th>Waits</th><th>Worst</th><th>Held off by</th><th>Evidence</th></tr></thead>
+<tbody>{''.join(drow)}</tbody></table></div></section>""")
     per = result.get("periodic") or []
     if per:
         prow = []
